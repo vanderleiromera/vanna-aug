@@ -25,17 +25,13 @@ st.set_page_config(
 # Initialize Vanna with OpenAI API key
 @st.cache_resource
 def initialize_vanna():
-    # Get model from environment variable, default to gpt-4 if not specified
-    openai_model = os.getenv('OPENAI_MODEL', 'gpt-4')
-
+    # Create configuration with API key, model and persistence directory
     config = {
         'api_key': os.getenv('OPENAI_API_KEY'),
-        'model': openai_model,
-        'chroma_persist_directory': os.getenv('CHROMA_PERSIST_DIRECTORY', '/app/data/chromadb')
+        'model': os.getenv('OPENAI_MODEL', 'gpt-4'),  # Use o modelo definido na variável de ambiente
+        'chroma_persist_directory': os.getenv('CHROMA_PERSIST_DIRECTORY', '/app/data/chromadb'),
+        'allow_llm_to_see_data': os.getenv('ALLOW_LLM_TO_SEE_DATA', 'false').lower() == 'true'
     }
-
-    # Display the model being used
-    st.sidebar.info(f"Using OpenAI model: {openai_model}")
 
     return VannaOdoo(config=config)
 
@@ -45,29 +41,33 @@ vn = initialize_vanna()
 st.sidebar.title("Vanna AI Odoo Assistant")
 st.sidebar.image("https://vanna.ai/img/vanna.svg", width=100)
 
-# Add model selection in sidebar
+# Mostrar o modelo atual de forma discreta
+model_info = vn.get_model_info()
+st.sidebar.caption(f"Modelo: {model_info['model']}")
+
+# Separador para a próxima seção
 st.sidebar.markdown("---")
-st.sidebar.subheader("OpenAI Model Settings")
-model_options = ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4o", "gpt-4.1-nano"]
-current_model = os.getenv('OPENAI_MODEL', 'gpt-4')
-selected_model = st.sidebar.selectbox(
-    "Select OpenAI Model:",
-    model_options,
-    index=model_options.index(current_model) if current_model in model_options else 0
+
+# Add option to allow LLM to see data
+st.sidebar.subheader("Configurações de Segurança")
+allow_llm_to_see_data = os.getenv('ALLOW_LLM_TO_SEE_DATA', 'false').lower() == 'true'
+allow_llm_toggle = st.sidebar.checkbox(
+    "Permitir que o LLM veja os dados",
+    value=allow_llm_to_see_data,
+    help="Se ativado, o LLM poderá ver os dados do banco de dados para gerar resumos e análises. Isso pode enviar dados sensíveis para o provedor do LLM."
 )
 
-# Show a note about model changes requiring restart
-if selected_model != current_model:
+# Show a note about data security
+if allow_llm_toggle != allow_llm_to_see_data:
     st.sidebar.warning(
-        "⚠️ Model change will take effect after restarting the application. "
-        "Update your .env file with: OPENAI_MODEL=" + selected_model
+        "⚠️ A alteração desta configuração entrará em vigor após reiniciar a aplicação. "
+        "Atualize seu arquivo .env com: ALLOW_LLM_TO_SEE_DATA=" + ("true" if allow_llm_toggle else "false")
     )
 
-# Show warning for gpt-4.1-nano model
-if selected_model == "gpt-4.1-nano" or current_model == "gpt-4.1-nano":
+if allow_llm_toggle:
     st.sidebar.warning(
-        "⚠️ Note: The gpt-4.1-nano model may have compatibility issues with some features. "
-        "If you encounter errors, try switching to another model like gpt-4 or gpt-3.5-turbo."
+        "⚠️ Atenção: O LLM está autorizado a ver os dados do banco de dados. "
+        "Isso pode enviar dados sensíveis para o provedor do LLM (OpenAI)."
     )
 
 # Training section
@@ -449,6 +449,20 @@ if user_question:
             # Display results
             st.subheader("Resultados da Consulta")
             st.dataframe(results)
+
+            # Add option to generate summary
+            if st.button("Gerar Resumo dos Dados"):
+                with st.spinner("Gerando resumo..."):
+                    # Generate summary
+                    summary = vn.generate_summary(results)
+
+                    if summary.startswith("Error:"):
+                        st.error(summary)
+                        if "not allowed to see data" in summary:
+                            st.info("Para permitir que o LLM veja os dados, ative a opção 'Permitir que o LLM veja os dados' na barra lateral e reinicie a aplicação.")
+                    else:
+                        st.subheader("Resumo dos Dados")
+                        st.write(summary)
 
             # Train on the successful query
             vn.train(question=user_question, sql=sql)

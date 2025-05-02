@@ -33,6 +33,17 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         # ChromaDB persistence directory
         self.chroma_persist_directory = os.getenv('CHROMA_PERSIST_DIRECTORY', '/app/data/chromadb')
 
+        # Flag to control if LLM can see data
+        self.allow_llm_to_see_data = False
+        if config and 'allow_llm_to_see_data' in config:
+            self.allow_llm_to_see_data = config['allow_llm_to_see_data']
+        print(f"LLM allowed to see data: {self.allow_llm_to_see_data}")
+
+        # Store the model from config for reference
+        if config and 'model' in config:
+            self.model = config['model']
+            print(f"Using OpenAI model: {self.model}")
+
         # Ensure the directory exists
         os.makedirs(self.chroma_persist_directory, exist_ok=True)
         print(f"ChromaDB persistence directory: {self.chroma_persist_directory}")
@@ -460,14 +471,15 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         Override the submit_prompt method to handle different model formats
         """
         try:
-            # Get the model name from config
-            model = self.model if hasattr(self, 'model') else "gpt-4"
+            # If model is not explicitly passed in kwargs, use the one from config
+            if 'model' not in kwargs and hasattr(self, 'model'):
+                kwargs['model'] = self.model
+                print(f"Using model from config: {self.model}")
 
             # Check if we're using the OpenAI client directly
             if hasattr(self, 'client') and self.client:
                 # Use the OpenAI client directly
                 response = self.client.chat.completions.create(
-                    model=model,
                     messages=messages,
                     **kwargs
                 )
@@ -486,9 +498,12 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 api_key = self.api_key if hasattr(self, 'api_key') else os.getenv('OPENAI_API_KEY')
                 openai.api_key = api_key
 
+                # If model is not in kwargs, use the one from config
+                if 'model' not in kwargs and hasattr(self, 'model'):
+                    kwargs['model'] = self.model
+
                 # Create a completion
                 response = openai.chat.completions.create(
-                    model=model,
                     messages=messages,
                     **kwargs
                 )
@@ -497,27 +512,86 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 print(f"Error in fallback submit_prompt: {nested_e}")
                 return None
 
-    def generate_text(self, prompt):
+    def generate_text(self, prompt, system_message=None):
         """
         Generate text using the configured LLM
+
+        Args:
+            prompt (str): The prompt to send to the LLM
+            system_message (str, optional): The system message to use. Defaults to None.
+
+        Returns:
+            str: The generated text
         """
         try:
             # Create messages for the prompt
+            if system_message is None:
+                system_message = "You are a helpful assistant that translates text accurately."
+
             messages = [
-                {"role": "system", "content": "You are a helpful assistant that translates text accurately."},
+                {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt}
             ]
 
+            # Use low temperature for more deterministic output
+            kwargs = {"temperature": 0.1}
+
             # Use our custom submit_prompt method
-            response = self.submit_prompt(
-                messages,
-                temperature=0.1  # Low temperature for more deterministic output
-            )
+            response = self.submit_prompt(messages, **kwargs)
 
             return response
         except Exception as e:
             print(f"Error generating text: {e}")
-            return None
+            import traceback
+            traceback.print_exc()
+            return f"Error: {str(e)}"
+
+    def generate_summary(self, data, prompt=None):
+        """
+        Generate a summary of the data using the LLM
+
+        Args:
+            data (pd.DataFrame or str): The data to summarize
+            prompt (str, optional): Custom prompt to use. Defaults to None.
+
+        Returns:
+            str: The generated summary
+        """
+        if not self.allow_llm_to_see_data:
+            return "Error: LLM is not allowed to see data. Set allow_llm_to_see_data=True to enable this feature."
+
+        try:
+            # Convert data to string if it's a DataFrame
+            if isinstance(data, pd.DataFrame):
+                if len(data) > 100:
+                    # If data is too large, sample it
+                    data = data.sample(100)
+                    data_str = data.to_string()
+                    data_str += "\n\n(Note: This is a sample of 100 rows from the full dataset)"
+                else:
+                    data_str = data.to_string()
+            else:
+                data_str = str(data)
+
+            # Create the prompt
+            if prompt is None:
+                prompt = f"Please analyze the following data and provide a concise summary:\n\n{data_str}"
+            else:
+                prompt = f"{prompt}\n\n{data_str}"
+
+            # Generate the summary
+            system_message = """
+            You are a data analyst assistant that provides clear, concise summaries of data.
+            Focus on key insights, patterns, and anomalies in the data.
+            Be specific and provide numerical details where relevant.
+            """
+
+            return self.generate_text(prompt, system_message=system_message)
+        except Exception as e:
+            print(f"Error generating summary: {e}")
+            import traceback
+            traceback.print_exc()
+            return f"Error generating summary: {str(e)}"
 
     def generate_embedding(self, data: str, **kwargs) -> list:
         """
@@ -782,6 +856,21 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         # Try to initialize ChromaDB again
         self._init_chromadb()
         return self.collection
+
+    def get_model_info(self):
+        """
+        Get information about the current model
+
+        Returns:
+            dict: Information about the current model
+        """
+        model_info = {
+            'model': self.model if hasattr(self, 'model') else os.getenv('OPENAI_MODEL', 'gpt-4'),
+            'api_key_available': bool(self.api_key if hasattr(self, 'api_key') else os.getenv('OPENAI_API_KEY')),
+            'client_available': hasattr(self, 'client') and self.client is not None
+        }
+
+        return model_info
 
     def get_training_data(self):
         """
