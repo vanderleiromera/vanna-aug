@@ -86,13 +86,14 @@ st.sidebar.header("Treinamento")
 st.sidebar.markdown("""
 **Importante**: Antes de fazer perguntas, você precisa treinar o modelo no esquema do banco de dados Odoo.
 Siga estas etapas em ordem:
-1. Treinar nas Tabelas Prioritárias do Odoo (Recomendado)
-2. Treinar nos Relacionamentos de Tabelas Prioritárias (Recomendado)
+1. Treinar nas Tabelas Prioritárias do Odoo
+2. Treinar nos Relacionamentos de Tabelas Prioritárias
 3. Treinar com Documentação
 4. Treinar com Exemplos de SQL
-5. Gerar e Executar Plano de Treinamento
+5. Gerar e Executar Plano de Treinamento (Opcional - Treinamento Avançado)
+6. Treinar com Exemplos Pré-definidos
 
-**Nota**: Para bancos de dados Odoo extensos (800+ tabelas), recomendamos usar as opções prioritárias para evitar sobrecarga do banco de dados.
+**Nota**: Esta implementação usa apenas tabelas prioritárias para evitar sobrecarga em bancos de dados Odoo extensos (800+ tabelas).
 """)
 
 if st.sidebar.button("1. Treinar nas Tabelas Prioritárias do Odoo"):
@@ -113,20 +114,6 @@ if st.sidebar.button("1. Treinar nas Tabelas Prioritárias do Odoo"):
             except Exception as e:
                 st.error(f"❌ Erro durante o treinamento: {e}")
 
-if st.sidebar.button("Treinar no Esquema Completo do Odoo (Não Recomendado)"):
-    with st.sidebar:
-        st.warning("⚠️ Esta opção pode sobrecarregar o banco de dados Odoo se ele tiver muitas tabelas (800+).")
-        with st.expander("Expandir para usar mesmo assim"):
-            with st.spinner("Treinando no esquema completo do banco de dados Odoo..."):
-                try:
-                    result = vn.train_on_odoo_schema()
-                    if result:
-                        st.success("✅ Treinamento no esquema completo concluído com sucesso!")
-                    else:
-                        st.error("❌ Falha no treinamento no esquema completo")
-                except Exception as e:
-                    st.error(f"❌ Erro durante o treinamento: {e}")
-
 if st.sidebar.button("2. Treinar nos Relacionamentos de Tabelas Prioritárias"):
     with st.sidebar:
         with st.spinner("Treinando nos relacionamentos entre tabelas prioritárias..."):
@@ -138,20 +125,6 @@ if st.sidebar.button("2. Treinar nos Relacionamentos de Tabelas Prioritárias"):
                     st.error("❌ Falha no treinamento nos relacionamentos prioritários")
             except Exception as e:
                 st.error(f"❌ Erro durante o treinamento: {e}")
-
-if st.sidebar.button("Treinar em Todos os Relacionamentos (Não Recomendado)"):
-    with st.sidebar:
-        st.warning("⚠️ Esta opção pode sobrecarregar o banco de dados Odoo se ele tiver muitas tabelas e relacionamentos.")
-        with st.expander("Expandir para usar mesmo assim"):
-            with st.spinner("Treinando em todos os relacionamentos de tabelas..."):
-                try:
-                    result = vn.train_on_relationships()
-                    if result:
-                        st.success("✅ Treinamento em todos os relacionamentos concluído com sucesso!")
-                    else:
-                        st.error("❌ Falha no treinamento em todos os relacionamentos")
-                except Exception as e:
-                    st.error(f"❌ Erro durante o treinamento: {e}")
 
 if st.sidebar.button("3. Treinar com Documentação"):
     with st.sidebar:
@@ -211,17 +184,48 @@ if st.sidebar.button("4. Treinar com Exemplos de SQL"):
             except Exception as e:
                 st.error(f"❌ Erro durante o treinamento com exemplos de SQL: {e}")
 
-if st.sidebar.button("5. Gerar e Executar Plano de Treinamento"):
+if st.sidebar.button("5. Gerar e Executar Plano de Treinamento (Opcional)"):
     with st.sidebar:
-        with st.spinner("Gerando plano de treinamento..."):
-            plan = vn.get_training_plan()
-            if plan:
-                st.info("Plano de treinamento gerado com sucesso")
-                with st.spinner("Executando plano de treinamento..."):
-                    vn.train(plan=plan)
-                st.success("Plano de treinamento executado com sucesso!")
-            else:
-                st.error("Falha ao gerar plano de treinamento")
+        with st.spinner("Gerando plano de treinamento para tabelas prioritárias..."):
+            try:
+                # Import the list of priority tables to show count
+                from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+                st.info(f"Gerando plano para {len(ODOO_PRIORITY_TABLES)} tabelas prioritárias...")
+
+                # Generate training plan
+                plan = vn.get_training_plan()
+
+                if plan:
+                    st.success(f"✅ Plano de treinamento gerado com sucesso!")
+
+                    # Verificar o tipo do plano sem usar len()
+                    plan_type = type(plan).__name__
+                    st.info(f"Tipo do plano: {plan_type}")
+
+                    # Explicação sobre o plano de treinamento
+                    st.info("""
+                    O plano de treinamento é uma análise avançada do esquema do banco de dados
+                    que gera instruções específicas para o modelo. Este treinamento complementa
+                    os anteriores com informações adicionais sobre a estrutura do banco de dados.
+
+                    Este plano contém instruções geradas automaticamente pelo Vanna.ai com base
+                    nas tabelas prioritárias do Odoo. Estas instruções ajudam o modelo a entender
+                    melhor a estrutura do banco de dados e as relações entre as tabelas.
+                    """)
+
+                    with st.spinner("Executando plano de treinamento..."):
+                        try:
+                            result = vn.train(plan=plan)
+                            if result:
+                                st.success("✅ Plano de treinamento executado com sucesso!")
+                            else:
+                                st.error("❌ Falha ao executar plano de treinamento")
+                        except Exception as e:
+                            st.error(f"❌ Erro ao executar plano de treinamento: {e}")
+                else:
+                    st.error("❌ Falha ao gerar plano de treinamento")
+            except Exception as e:
+                st.error(f"❌ Erro ao gerar plano de treinamento: {e}")
 
 if st.sidebar.button("6. Treinar com Exemplos Pré-definidos"):
     with st.sidebar:

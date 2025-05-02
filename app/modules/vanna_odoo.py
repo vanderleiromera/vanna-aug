@@ -1274,12 +1274,19 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 try:
                     # Add the plan directly to the collection
                     import hashlib
-                    import json
 
-                    # Convert plan to string for storage
+                    # Convert plan to string for storage - handle non-serializable objects
                     plan = kwargs['plan']
-                    plan_str = json.dumps(plan, indent=2)
-                    content = f"Training Plan:\n{plan_str}"
+                    try:
+                        # Try to convert the plan to a string representation
+                        plan_type = type(plan).__name__
+                        plan_str = f"Training Plan of type {plan_type}"
+                        content = f"Training Plan:\n{plan_str}"
+                        print(f"Created string representation of training plan: {plan_str}")
+                    except Exception as e:
+                        print(f"Error creating string representation of plan: {e}")
+                        plan_str = str(plan)
+                        content = f"Training Plan:\n{plan_str}"
 
                     # Create a deterministic ID based on content
                     content_hash = hashlib.md5(content.encode()).hexdigest()
@@ -1553,7 +1560,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
     def get_training_plan(self):
         """
-        Generate a training plan for the Odoo database
+        Generate a training plan for the Odoo database using only priority tables
         """
         # Get SQLAlchemy engine
         engine = self.get_sqlalchemy_engine()
@@ -1561,11 +1568,20 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             return None
 
         try:
-            # Get information schema using SQLAlchemy engine
-            df_information_schema = pd.read_sql_query("""
+            # Import the list of priority tables
+            from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+
+            # Convert list to string for SQL IN clause
+            priority_tables_str = "'" + "','".join(ODOO_PRIORITY_TABLES) + "'"
+
+            # Get information schema using SQLAlchemy engine, but only for priority tables
+            df_information_schema = pd.read_sql_query(f"""
                 SELECT * FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE table_schema = 'public'
+                AND table_name IN ({priority_tables_str})
             """, engine)
+
+            print(f"Found {len(df_information_schema)} columns in priority tables")
 
             # Generate training plan
             plan = self.get_training_plan_generic(df_information_schema)
@@ -1574,16 +1590,30 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             if plan and self.collection:
                 try:
                     import hashlib
-                    import json
 
-                    # Convert plan to string for storage
-                    plan_str = json.dumps(plan, indent=2)
-                    content = f"Training Plan:\n{plan_str}"
+                    # Convert plan to string for storage - handle non-serializable objects
+                    try:
+                        # Try to convert the plan to a string representation
+                        plan_type = type(plan).__name__
+                        plan_str = f"Training Plan of type {plan_type}"
+                        content = f"Priority Tables Training Plan:\n{plan_str}"
+                        print(f"Created string representation of training plan: {plan_str}")
+                    except Exception as e:
+                        print(f"Error creating string representation of plan: {e}")
+                        plan_str = str(plan)
+                        content = f"Priority Tables Training Plan:\n{plan_str}"
                     content_hash = hashlib.md5(content.encode()).hexdigest()
-                    doc_id = f"plan-{content_hash}"
+                    doc_id = f"plan-priority-{content_hash}"
 
                     # Generate embedding for the content
+                    print(f"Generating embedding for priority training plan")
                     content_embedding = self.generate_embedding(content)
+
+                    # Log embedding status
+                    if content_embedding is not None:
+                        print(f"✅ Successfully generated embedding for priority training plan (vector dimension: {len(content_embedding)})")
+                    else:
+                        print(f"❌ Failed to generate embedding for priority training plan")
 
                     # Add to collection with embedding
                     if content_embedding is not None:
@@ -1592,38 +1622,38 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                             self.collection.add(
                                 documents=[content],
                                 embeddings=[content_embedding],
-                                metadatas=[{"type": "training_plan"}],
+                                metadatas=[{"type": "training_plan_priority"}],
                                 ids=[doc_id]
                             )
-                            print(f"Added training plan document with embedding, ID: {doc_id}")
+                            print(f"Added priority training plan document with embedding, ID: {doc_id}")
                         except Exception as e:
-                            print(f"Error adding plan with embedding: {e}")
+                            print(f"Error adding priority plan with embedding: {e}")
                             try:
                                 # Fallback to adding without embedding
                                 self.collection.add(
                                     documents=[content],
-                                    metadatas=[{"type": "training_plan"}],
+                                    metadatas=[{"type": "training_plan_priority"}],
                                     ids=[doc_id]
                                 )
-                                print(f"Added training plan document without embedding, ID: {doc_id}")
+                                print(f"Added priority training plan document without embedding, ID: {doc_id}")
                             except Exception as e2:
-                                print(f"Error adding plan without embedding: {e2}")
+                                print(f"Error adding priority plan without embedding: {e2}")
                     else:
                         try:
                             # Add without embedding
                             self.collection.add(
                                 documents=[content],
-                                metadatas=[{"type": "training_plan"}],
+                                metadatas=[{"type": "training_plan_priority"}],
                                 ids=[doc_id]
                             )
-                            print(f"Added training plan document without embedding, ID: {doc_id}")
+                            print(f"Added priority training plan document without embedding, ID: {doc_id}")
                         except Exception as e:
-                            print(f"Error adding plan without embedding: {e}")
-                    print(f"Added training plan document directly with ID: {doc_id}")
+                            print(f"Error adding priority plan without embedding: {e}")
+                    print(f"Added priority training plan document directly with ID: {doc_id}")
                 except Exception as e:
-                    print(f"Error adding training plan to collection: {e}")
+                    print(f"Error adding priority training plan to collection: {e}")
 
             return plan
         except Exception as e:
-            print(f"Error generating training plan: {e}")
+            print(f"Error generating priority training plan: {e}")
             return None
