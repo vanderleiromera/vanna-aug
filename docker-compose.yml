@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  vanna-app:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - chromadb-data:/app/data/chromadb
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      - CHROMA_PERSIST_DIRECTORY=/app/data/chromadb
+    # Add healthcheck to ensure the container is running properly
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; print(os.path.exists('/app/data/chromadb'))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  chromadb-data:
+    name: vanna-chromadb-data
+    driver: local
