@@ -10,33 +10,33 @@ class VannaOdooExtended(VannaOdoo):
     """
     Extensão da classe VannaOdoo com métodos adicionais para processamento de consultas
     """
-    
-    def ask_with_results(self, question, print_results=True, auto_train=True):
+
+    def ask_with_results(self, question, print_results=True, auto_train=False):
         """
         Ask a question and get a response with results
-        
+
         Args:
             question (str): The question to ask
             print_results (bool, optional): Whether to print results. Defaults to True.
             auto_train (bool, optional): Whether to auto-train on the question and SQL. Defaults to True.
-            
+
         Returns:
             tuple: (sql, df, fig) - The SQL query, results DataFrame, and Plotly figure
         """
         try:
             # Generate SQL
             sql = self.ask(question)
-            
+
             # Process the SQL to adjust values from the question
             from modules.query_processor import process_query
             original_sql = sql
             sql = process_query(question, sql)
-            
+
             # Log if the SQL was modified
             if sql != original_sql:
                 print(f"SQL Original:\n{original_sql}")
                 print(f"\nSQL Ajustado com valores da pergunta:")
-            
+
             print(f"SQL Gerado\n{sql}")
 
             # Run SQL

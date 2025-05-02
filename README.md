@@ -9,6 +9,9 @@ Uma aplicação que usa Vanna AI para consultar bancos de dados Odoo usando ling
 - Visualização automática de resultados
 - Treinamento do modelo em esquemas de banco de dados Odoo
 - Persistência de dados de treinamento usando ChromaDB
+- Avaliação de qualidade de consultas SQL geradas
+- Confirmação manual para adicionar consultas ao treinamento
+- Processador de consultas para ajustar valores numéricos
 - Suporte para português
 
 ## Estrutura do Projeto
@@ -150,11 +153,14 @@ Modelos de embeddings suportados incluem:
 
 ## Treinando o Modelo
 
+### Opções de Treinamento
+
 Você pode treinar o modelo de várias maneiras:
 
 1. Usando a interface web:
    - Use os botões de treinamento na barra lateral para treinar no esquema, relacionamentos e gerar um plano de treinamento.
    - Use o botão "Treinar Exemplo de Vendas por Mês" para treinar com exemplos predefinidos.
+   - Adicione consultas bem-sucedidas ao treinamento usando o botão "Adicionar ao Treinamento" após executar uma consulta.
 
 2. Usando a linha de comando:
    ```
@@ -164,6 +170,35 @@ Você pode treinar o modelo de várias maneiras:
    # Ou treinar em aspectos específicos
    python app/train_vanna.py --schema --relationships
    ```
+
+### Avaliação de Qualidade de SQL
+
+A aplicação inclui um avaliador de qualidade de SQL que analisa as consultas geradas e fornece:
+
+- Pontuação de qualidade (0-100)
+- Problemas críticos encontrados
+- Avisos sobre possíveis problemas
+- Sugestões de melhoria
+
+Com base nessa avaliação, a aplicação recomenda se a consulta deve ser adicionada ao treinamento:
+
+- Pontuação < 60: Não recomendado adicionar ao treinamento
+- Pontuação 60-80: Verificar cuidadosamente antes de adicionar
+- Pontuação > 80: Seguro para adicionar ao treinamento
+
+### Treinamento Automático vs. Manual
+
+A aplicação oferece duas opções para adicionar consultas ao treinamento:
+
+1. **Treinamento Manual (Padrão)**:
+   - Após executar uma consulta, você decide se deseja adicioná-la ao treinamento
+   - Recomendações são fornecidas com base na pontuação de qualidade
+   - Você tem controle total sobre o que é adicionado ao treinamento
+
+2. **Treinamento Automático (Opcional)**:
+   - Ative a opção "Adicionar automaticamente ao treinamento" na barra lateral
+   - Apenas consultas com pontuação de qualidade > 80 são adicionadas automaticamente
+   - Consultas de baixa qualidade ainda exigem confirmação manual
 
 ## Solução de Problemas
 

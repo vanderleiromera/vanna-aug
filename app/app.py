@@ -56,6 +56,15 @@ model_info = vn.get_model_info()
 st.sidebar.caption(f"Modelo LLM: {model_info['model']}")
 st.sidebar.caption(f"Modelo Embeddings: {model_info['embedding_model']}")
 
+# Opção para controlar o comportamento de treinamento automático
+st.sidebar.markdown("---")
+st.sidebar.subheader("Configurações de Treinamento")
+auto_train = st.sidebar.checkbox(
+    "Adicionar automaticamente ao treinamento",
+    value=False,
+    help="Se marcado, as consultas bem-sucedidas serão automaticamente adicionadas ao treinamento sem confirmação."
+)
+
 # Separador para a próxima seção
 st.sidebar.markdown("---")
 
@@ -556,6 +565,43 @@ if user_question:
         st.subheader("SQL Gerado")
         st.code(sql, language="sql")
 
+        # Avaliar a qualidade do SQL
+        from modules.sql_evaluator import evaluate_sql_quality
+
+        with st.expander("Avaliação da Qualidade do SQL", expanded=False):
+            evaluation = evaluate_sql_quality(sql)
+
+            # Mostrar pontuação
+            st.metric("Pontuação de Qualidade", f"{evaluation['score']}/{evaluation['max_score']}")
+
+            # Mostrar problemas
+            if evaluation['issues']:
+                st.error("Problemas Encontrados:")
+                for issue in evaluation['issues']:
+                    st.write(f"- {issue}")
+            else:
+                st.success("Nenhum problema crítico encontrado!")
+
+            # Mostrar avisos
+            if evaluation['warnings']:
+                st.warning("Avisos:")
+                for warning in evaluation['warnings']:
+                    st.write(f"- {warning}")
+
+            # Mostrar sugestões
+            if evaluation['suggestions']:
+                st.info("Sugestões de Melhoria:")
+                for suggestion in evaluation['suggestions']:
+                    st.write(f"- {suggestion}")
+
+            # Mostrar recomendação
+            if evaluation['score'] < 60:
+                st.error("⚠️ Esta consulta tem problemas de qualidade. Considere não adicioná-la ao treinamento.")
+            elif evaluation['score'] < 80:
+                st.warning("⚠️ Esta consulta tem alguns problemas. Verifique os resultados antes de adicioná-la ao treinamento.")
+            else:
+                st.success("✅ Esta consulta parece ter boa qualidade e pode ser adicionada ao treinamento.")
+
         # Execute the SQL query
         with st.spinner("Executando consulta..."):
             # Use run_sql with the original question to apply the query processor
@@ -635,8 +681,74 @@ if user_question:
                         st.subheader("Resumo dos Dados")
                         st.write(summary)
 
-            # Train on the successful query
-            vn.train(question=user_question, sql=sql)
+            # Avaliar a qualidade do SQL para treinamento
+            from modules.sql_evaluator import evaluate_sql_quality
+            evaluation = evaluate_sql_quality(sql)
+
+            # Verificar se o treinamento automático está ativado
+            if auto_train:
+                # Verificar a pontuação de qualidade
+                if evaluation['score'] >= 80:
+                    # Treinar automaticamente sem confirmação para consultas de alta qualidade
+                    with st.spinner("Adicionando automaticamente ao treinamento..."):
+                        result = vn.train(question=user_question, sql=sql)
+                        st.success(f"Adicionado automaticamente ao treinamento! ID: {result}")
+                        st.info("O treinamento automático está ativado. Para desativar, desmarque a opção na barra lateral.")
+                else:
+                    # Avisar sobre problemas de qualidade
+                    st.warning(f"""
+                    A consulta tem uma pontuação de qualidade de {evaluation['score']}/100, o que está abaixo do limiar para treinamento automático (80).
+                    Mesmo com o treinamento automático ativado, esta consulta não foi adicionada automaticamente.
+                    Você pode adicioná-la manualmente se considerar que os resultados estão corretos.
+                    """)
+
+                    # Mostrar botões para adicionar manualmente
+                    col_train1, col_train2 = st.columns(2)
+
+                    with col_train1:
+                        if st.button("✅ Adicionar Mesmo Assim", key="add_anyway"):
+                            with st.spinner("Adicionando ao treinamento..."):
+                                result = vn.train(question=user_question, sql=sql)
+                                st.success(f"Adicionado ao treinamento com sucesso! ID: {result}")
+
+                    with col_train2:
+                        if st.button("❌ Não Adicionar", key="skip_low_quality"):
+                            st.info("Esta consulta não será adicionada ao treinamento.")
+            else:
+                # Perguntar ao usuário se deseja adicionar ao treinamento
+                st.subheader("Adicionar ao Treinamento")
+
+                # Mostrar recomendação baseada na qualidade
+                if evaluation['score'] < 60:
+                    st.error(f"""
+                    ⚠️ Esta consulta tem uma pontuação de qualidade de {evaluation['score']}/100.
+                    Recomendamos não adicionar consultas com problemas de qualidade ao treinamento.
+                    """)
+                elif evaluation['score'] < 80:
+                    st.warning(f"""
+                    ⚠️ Esta consulta tem uma pontuação de qualidade de {evaluation['score']}/100.
+                    Verifique cuidadosamente os resultados antes de adicioná-la ao treinamento.
+                    """)
+                else:
+                    st.success(f"""
+                    ✅ Esta consulta tem uma boa pontuação de qualidade ({evaluation['score']}/100).
+                    Você pode adicioná-la ao treinamento com segurança se os resultados estiverem corretos.
+                    """)
+
+                # Criar colunas para os botões
+                col_train1, col_train2 = st.columns(2)
+
+                with col_train1:
+                    if st.button("✅ Adicionar ao Treinamento", key="add_to_training"):
+                        with st.spinner("Adicionando ao treinamento..."):
+                            # Train on the successful query
+                            result = vn.train(question=user_question, sql=sql)
+                            st.success(f"Adicionado ao treinamento com sucesso! ID: {result}")
+
+                with col_train2:
+                    if st.button("❌ Não Adicionar", key="skip_training"):
+                        st.info("Esta consulta não será adicionada ao treinamento.")
+                        st.write("Você pode modificar a consulta SQL manualmente e depois adicioná-la usando a seção 'Treinamento Manual' na barra lateral.")
 
             # Generate visualization if possible
             st.subheader("Visualização")
