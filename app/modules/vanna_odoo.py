@@ -15,6 +15,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
     with HTTP client for better Docker compatibility
     """
     def __init__(self, config=None):
+        # Store the config for later use
+        self.config = config or {}
+
         # Initialize ChromaDB vector store
         ChromaDB_VectorStore.__init__(self, config=config)
 
@@ -44,22 +47,36 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             self.model = config['model']
             print(f"Using OpenAI model: {self.model}")
 
+        # Store the embedding model from config or environment
+        if config and 'embedding_model' in config:
+            self.embedding_model = config['embedding_model']
+        else:
+            self.embedding_model = os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-ada-002')
+        print(f"Using OpenAI embedding model: {self.embedding_model}")
+
         # Ensure the directory exists
         os.makedirs(self.chroma_persist_directory, exist_ok=True)
         print(f"ChromaDB persistence directory: {self.chroma_persist_directory}")
 
         # Initialize ChromaDB client
-        self._init_chromadb()
+        self._init_chromadb(config=self.config)
 
-    def _init_chromadb(self):
+    def _init_chromadb(self, config=None):
         """
         Initialize ChromaDB client with persistent client
+
+        Args:
+            config (dict, optional): Configuration dictionary. Defaults to None.
         """
         try:
             import chromadb
             from chromadb.config import Settings
             import openai
             from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+
+            # Use the instance config if no config is provided
+            if config is None and hasattr(self, 'config'):
+                config = self.config
 
             # Ensure the directory exists
             os.makedirs(self.chroma_persist_directory, exist_ok=True)
@@ -86,14 +103,26 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             # Get API key from config or environment
             api_key = self.api_key if hasattr(self, 'api_key') else os.getenv('OPENAI_API_KEY')
 
+            # Get embedding model from config or environment
+            embedding_model = None
+            if hasattr(self, 'embedding_model'):
+                embedding_model = self.embedding_model
+            elif config and 'embedding_model' in config:
+                embedding_model = config['embedding_model']
+            else:
+                embedding_model = os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-ada-002')
+
+            # Store the embedding model for reference
+            self.embedding_model = embedding_model
+
             # Create OpenAI embedding function
             try:
                 # Try to use the OpenAI embedding function
                 embedding_function = OpenAIEmbeddingFunction(
                     api_key=api_key,
-                    model_name="text-embedding-ada-002"
+                    model_name=embedding_model
                 )
-                print("Using OpenAI embedding function")
+                print(f"Using OpenAI embedding function with model: {embedding_model}")
             except Exception as e:
                 print(f"Error creating OpenAI embedding function: {e}, falling back to default")
                 # Fallback to default embedding function
@@ -1081,6 +1110,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         """
         model_info = {
             'model': self.model if hasattr(self, 'model') else os.getenv('OPENAI_MODEL', 'gpt-4'),
+            'embedding_model': self.embedding_model if hasattr(self, 'embedding_model') else os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-ada-002'),
             'api_key_available': bool(self.api_key if hasattr(self, 'api_key') else os.getenv('OPENAI_API_KEY')),
             'client_available': hasattr(self, 'client') and self.client is not None
         }

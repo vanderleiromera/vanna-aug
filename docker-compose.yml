@@ -13,6 +13,7 @@ services:
     restart: unless-stopped
     environment:
       - CHROMA_PERSIST_DIRECTORY=/app/data/chromadb
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-text-embedding-ada-002}
     # Add healthcheck to ensure the container is running properly
     healthcheck:
       test: ["CMD", "python", "-c", "import os; print(os.path.exists('/app/data/chromadb'))"]

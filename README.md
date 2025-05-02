@@ -57,6 +57,7 @@ vanna-ai-odoo/
    # OpenAI API Settings
    OPENAI_API_KEY=your_openai_api_key
    OPENAI_MODEL=gpt-4
+   OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
 
    # Odoo Database Settings
    ODOO_DB_HOST=your_odoo_db_host
@@ -118,6 +119,35 @@ Se você quiser executar a aplicação localmente sem Docker:
    ./run_local.sh
    ```
 
+## Configuração de Modelos
+
+### Modelo LLM (OpenAI)
+
+O modelo LLM usado para gerar consultas SQL pode ser configurado através da variável de ambiente `OPENAI_MODEL`. Por exemplo:
+
+```
+OPENAI_MODEL=gpt-4
+```
+
+Modelos suportados incluem:
+- `gpt-4`
+- `gpt-4o`
+- `gpt-3.5-turbo`
+- Outros modelos compatíveis com a API OpenAI
+
+### Modelo de Embeddings
+
+O modelo de embeddings usado para armazenar e recuperar exemplos de treinamento pode ser configurado através da variável de ambiente `OPENAI_EMBEDDING_MODEL`. Por exemplo:
+
+```
+OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
+```
+
+Modelos de embeddings suportados incluem:
+- `text-embedding-ada-002` (padrão)
+- `text-embedding-3-small`
+- `text-embedding-3-large`
+
 ## Treinando o Modelo
 
 Você pode treinar o modelo de várias maneiras:
@@ -158,8 +188,18 @@ Se você estiver tendo problemas para se conectar ao seu banco de dados Odoo:
    ```
    docker-compose exec vanna-app python app/test_connection.py
 
+### Verificando o Modelo de Embeddings
 
-Como verificar se o treinamento está funcionando corretamente
+Para verificar qual modelo de embeddings está sendo usado:
+
+```
+docker-compose exec vanna-app python app/check_embedding_model.py
+```
+
+Este script mostrará informações detalhadas sobre o modelo de embeddings configurado e se ele está sendo usado corretamente pelo ChromaDB.
+
+
+## Como verificar se o treinamento está funcionando corretamente
 Você pode seguir estes passos para verificar se o treinamento e a persistência estão funcionando corretamente:
 
 Treinar o modelo:
@@ -173,7 +213,7 @@ Use o botão "Verificar Status do Treinamento" na interface
 Ou execute o script de verificação:
 
    docker-compose exec vanna-app python app/check_persistence.py
-   
+
 Reiniciar o contêiner para testar a persistência:
 Verificar novamente se os dados ainda estão lá:
 Use o botão "Verificar Status do Treinamento" na interface
