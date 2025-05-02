@@ -5,6 +5,7 @@ services:
     build: .
     ports:
       - "8501:8501"
+      - "8502:8502"
     volumes:
       - chromadb-data:/app/data/chromadb
     env_file:

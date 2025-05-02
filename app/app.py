@@ -180,6 +180,20 @@ if st.sidebar.button("🔄 Resetar Dados de Treinamento"):
         except Exception as e:
             st.error(f"❌ Erro ao resetar dados de treinamento: {e}")
 
+# Add a button to manage training data
+if st.sidebar.button("🧠 Gerenciar Dados de Treinamento"):
+    with st.sidebar:
+        st.info("Abrindo página de gerenciamento de dados de treinamento...")
+        st.markdown("""
+        Execute o seguinte comando em um novo terminal:
+        ```
+        docker-compose exec vanna-app streamlit run app/manage_training.py --server.port=8502
+        ```
+
+        Depois, acesse: http://localhost:8502
+        """)
+        st.warning("Nota: A página de gerenciamento deve ser executada em uma porta diferente (8502).")
+
 # Add a section for manual training
 st.sidebar.markdown("---")
 st.sidebar.subheader("Treinamento Manual")

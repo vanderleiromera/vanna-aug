@@ -422,15 +422,73 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         Generate SQL from a natural language question with improved handling for Portuguese
         """
         try:
+            print(f"[DEBUG] Processing question: {question}")
+
+            # First, check if we have an exact match in our training data
+            if self.collection:
+                try:
+                    print("[DEBUG] Searching for similar questions in training data")
+
+                    # Query the collection for similar questions
+                    query_results = self.collection.query(
+                        query_texts=[question],
+                        n_results=5,
+                        where={"type": "sql"}
+                    )
+
+                    if query_results and 'documents' in query_results and query_results['documents']:
+                        print(f"[DEBUG] Found {len(query_results['documents'][0])} similar questions")
+
+                        # Check each result
+                        for i, doc in enumerate(query_results['documents'][0]):
+                            print(f"[DEBUG] Checking result {i+1}")
+
+                            # Extract SQL from the document
+                            if "Question:" in doc and "SQL:" in doc:
+                                doc_question = doc.split("Question:")[1].split("SQL:")[0].strip()
+                                doc_sql = doc.split("SQL:")[1].strip()
+
+                                # Calculate similarity between questions
+                                from difflib import SequenceMatcher
+                                similarity = SequenceMatcher(None, question.lower(), doc_question.lower()).ratio()
+                                print(f"[DEBUG] Similarity with '{doc_question}': {similarity}")
+
+                                # If similarity is high enough, use this SQL
+                                if similarity > 0.8:
+                                    print(f"[DEBUG] Using SQL from similar question: {doc_question}")
+                                    return doc_sql
+
+                                # If the question contains all the important words from the training question
+                                important_words = [w for w in doc_question.lower().split() if len(w) > 3]
+                                question_words = question.lower().split()
+                                matches = sum(1 for w in important_words if w in question_words)
+                                if matches / len(important_words) > 0.7:
+                                    print(f"[DEBUG] Using SQL from question with matching keywords: {doc_question}")
+                                    return doc_sql
+
+                    print("[DEBUG] No suitable match found in training data")
+                except Exception as e:
+                    print(f"[DEBUG] Error searching training data: {e}")
+
+            # If we didn't find a match in training data, use the LLM
+            print("[DEBUG] Using LLM to generate SQL")
+
             # Add a system message to help with Portuguese queries
             system_message = """
             Você é um assistente especializado em gerar consultas SQL para um banco de dados Odoo.
             Quando receber uma pergunta em português, gere uma consulta SQL válida que responda à pergunta.
             Use apenas tabelas e colunas que existem no banco de dados Odoo.
-            Para consultas sobre vendas, use a tabela 'sale_order' e suas colunas relacionadas.
+
+            Informações importantes sobre o esquema do banco de dados:
+            - Para consultas sobre vendas, use a tabela 'sale_order' e suas colunas relacionadas.
+            - Para consultas sobre produtos, use as tabelas 'product_template' (pt) e 'product_product' (pp).
+            - Para consultas sobre estoque, use a tabela 'stock_quant' (sq).
+            - A tabela product_product (pp) tem uma relação com product_template (pt) através de pp.product_tmpl_id = pt.id
+            - O nome do produto está em pt.name, NÃO use pp.name_template (essa coluna não existe)
+            - Para verificar estoque, use sq.quantity, NÃO use pp.qty_available (essa coluna não existe)
             """
 
-            # Call the parent ask method with our custom system message
+            # Try to use the parent ask method with our custom system message
             try:
                 # Create messages for the prompt
                 messages = [
@@ -474,7 +532,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 # If we still couldn't extract SQL, return the response as is
                 return response
             except Exception as e:
-                print(f"Error in custom ask method: {e}")
+                print(f"[DEBUG] Error in LLM ask method: {e}")
 
                 # Try a fallback approach for common queries
                 if "vendas" in question.lower() and "mês" in question.lower() and "2024" in question:
@@ -496,10 +554,30 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         mes
                     """
 
+                # Fallback for products without stock
+                if ("produtos" in question.lower() or "product" in question.lower()) and ("estoque" in question.lower() or "stock" in question.lower() or "inventory" in question.lower()):
+                    print("[DEBUG] Using fallback for products without stock")
+                    return """
+                    SELECT
+                        pt.name AS produto,
+                        SUM(sol.product_uom_qty) AS total_vendido,
+                        COALESCE(SUM(sq.quantity), 0) AS estoque
+                    FROM sale_order_line sol
+                    JOIN product_product pp ON sol.product_id = pp.id
+                    JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                    LEFT JOIN stock_quant sq ON pp.id = sq.product_id
+                    JOIN sale_order so ON sol.order_id = so.id
+                    WHERE so.date_order >= NOW() - INTERVAL '120 days'
+                    GROUP BY pt.name
+                    HAVING SUM(sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) <= 0
+                    """
+
                 # Return None if all approaches fail
                 return None
         except Exception as e:
-            print(f"Error in ask method: {e}")
+            print(f"[DEBUG] Error in ask method: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def get_collection(self):
@@ -776,6 +854,51 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             return True
         except Exception as e:
             print(f"[DEBUG] Error in reset_training: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def remove_training_data(self, id):
+        """
+        Remove training data with the given ID
+
+        Args:
+            id (str): The ID of the training data to remove
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            if not self.collection:
+                print("[DEBUG] Collection not available, reinitializing ChromaDB")
+                self._init_chromadb()
+                if not self.collection:
+                    print("[DEBUG] Failed to initialize collection")
+                    return False
+
+            print(f"[DEBUG] Removing training data with ID: {id}")
+
+            # Check if the ID exists
+            try:
+                result = self.collection.get(ids=[id])
+                if not result or 'ids' not in result or not result['ids']:
+                    print(f"[DEBUG] ID {id} not found in collection")
+                    return False
+            except Exception as e:
+                print(f"[DEBUG] Error checking if ID exists: {e}")
+                return False
+
+            # Delete the document
+            try:
+                self.collection.delete(ids=[id])
+                print(f"[DEBUG] Successfully removed document with ID: {id}")
+                return True
+            except Exception as e:
+                print(f"[DEBUG] Error removing document: {e}")
+                return False
+
+        except Exception as e:
+            print(f"[DEBUG] Error in remove_training_data: {e}")
             import traceback
             traceback.print_exc()
             return False

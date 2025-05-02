@@ -12,56 +12,56 @@ def get_example_pairs():
         {
             "question": "Liste as vendas de 2024, mês a mês",
             "sql": """
-SELECT 
+SELECT
     EXTRACT(MONTH FROM date_order) AS mes,
     TO_CHAR(date_order, 'Month') AS nome_mes,
     SUM(amount_total) AS total_vendas
-FROM 
+FROM
     sale_order
-WHERE 
+WHERE
     EXTRACT(YEAR FROM date_order) = 2024
     AND state IN ('sale', 'done')
-GROUP BY 
+GROUP BY
     EXTRACT(MONTH FROM date_order),
     TO_CHAR(date_order, 'Month')
-ORDER BY 
+ORDER BY
     mes
 """
         },
         {
             "question": "Mostre as vendas mensais de 2024",
             "sql": """
-SELECT 
+SELECT
     EXTRACT(MONTH FROM date_order) AS mes,
     TO_CHAR(date_order, 'Month') AS nome_mes,
     SUM(amount_total) AS total_vendas
-FROM 
+FROM
     sale_order
-WHERE 
+WHERE
     EXTRACT(YEAR FROM date_order) = 2024
     AND state IN ('sale', 'done')
-GROUP BY 
+GROUP BY
     EXTRACT(MONTH FROM date_order),
     TO_CHAR(date_order, 'Month')
-ORDER BY 
+ORDER BY
     mes
 """
         },
         {
             "question": "Quais são os 10 principais clientes por vendas?",
             "sql": """
-SELECT 
+SELECT
     p.name AS cliente,
     SUM(so.amount_total) AS total_vendas
-FROM 
+FROM
     sale_order so
-JOIN 
+JOIN
     res_partner p ON so.partner_id = p.id
-WHERE 
+WHERE
     so.state IN ('sale', 'done')
-GROUP BY 
+GROUP BY
     p.name
-ORDER BY 
+ORDER BY
     total_vendas DESC
 LIMIT 10
 """
@@ -69,37 +69,37 @@ LIMIT 10
         {
             "question": "Mostre os níveis de estoque para todos os produtos",
             "sql": """
-SELECT 
+SELECT
     pt.name AS produto,
     SUM(sq.quantity) AS quantidade_disponivel,
     pt.default_code AS codigo_produto
-FROM 
+FROM
     stock_quant sq
-JOIN 
+JOIN
     product_product pp ON sq.product_id = pp.id
-JOIN 
+JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
-GROUP BY 
+GROUP BY
     pt.name, pt.default_code
-ORDER BY 
+ORDER BY
     quantidade_disponivel DESC
 """
         },
         {
             "question": "Quem são os 5 melhores vendedores por receita?",
             "sql": """
-SELECT 
+SELECT
     u.name AS vendedor,
     SUM(so.amount_total) AS total_vendas
-FROM 
+FROM
     sale_order so
-JOIN 
+JOIN
     res_users u ON so.user_id = u.id
-WHERE 
+WHERE
     so.state IN ('sale', 'done')
-GROUP BY 
+GROUP BY
     u.name
-ORDER BY 
+ORDER BY
     total_vendas DESC
 LIMIT 5
 """
@@ -108,17 +108,44 @@ LIMIT 5
             "question": "Quais produtos foram vendidos nos últimos 120 dias, mas não têm estoque em mãos?",
             "sql": """
 SELECT
+    pt.name AS produto
+FROM
+    sale_order so
+JOIN
+    sale_order_line sol ON so.id = sol.order_id
+JOIN
+    product_product pp ON sol.product_id = pp.id
+JOIN
+    product_template pt ON pp.product_tmpl_id = pt.id
+LEFT JOIN
+    stock_quant sq ON pp.id = sq.product_id
+WHERE
+    so.date_order >= (CURRENT_DATE - INTERVAL '120 days')
+    AND (sq.quantity IS NULL OR sq.quantity <= 0)
+GROUP BY
+    pt.name
+"""
+        }
+        ,
+        {
+            "question": "Quais produtos não têm estoque disponível?",
+            "sql": """
+SELECT
     pt.name AS produto,
-    SUM(sol.product_uom_qty) AS total_vendido,
-    COALESCE(SUM(sq.quantity), 0) AS estoque
-FROM sale_order_line sol
-JOIN product_product pp ON sol.product_id = pp.id
-JOIN product_template pt ON pp.product_tmpl_id = pt.id
-LEFT JOIN stock_quant sq ON pp.id = sq.product_id AND sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)
-JOIN sale_order so ON sol.order_id = so.id
-WHERE so.date_order >= NOW() - INTERVAL '30 days'  -- Filtrando para os últimos 30 dias
-GROUP BY pt.name
-HAVING SUM(sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) = 0;
+    pt.default_code AS codigo,
+    COALESCE(SUM(sq.quantity), 0) AS quantidade_disponivel
+FROM
+    product_template pt
+JOIN
+    product_product pp ON pt.id = pp.product_tmpl_id
+LEFT JOIN
+    stock_quant sq ON pp.id = sq.product_id
+GROUP BY
+    pt.id, pt.name, pt.default_code
+HAVING
+    COALESCE(SUM(sq.quantity), 0) <= 0
+ORDER BY
+    pt.name
 """
         }
     ]

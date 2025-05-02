@@ -24,6 +24,7 @@ ENV PYTHONPATH=/app
 
 # Expose port for Streamlit
 EXPOSE 8501
+EXPOSE 8502
 
 # Command to run the application
 CMD ["streamlit", "run", "app/app.py", "--server.address=0.0.0.0"]

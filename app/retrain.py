@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-Script to train Vanna AI on Odoo database.
+Script to retrain Vanna AI with updated examples.
 """
 
 import os
-import argparse
 import sys
 from dotenv import load_dotenv
 
@@ -18,18 +17,10 @@ from modules.example_pairs import get_example_pairs
 # Load environment variables
 load_dotenv()
 
-def train_vanna():
+def retrain_vanna():
     """
-    Train Vanna AI on the Odoo database
+    Retrain Vanna AI with updated examples.
     """
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Train Vanna AI on Odoo database')
-    parser.add_argument('--schema', action='store_true', help='Train on database schema')
-    parser.add_argument('--relationships', action='store_true', help='Train on table relationships')
-    parser.add_argument('--plan', action='store_true', help='Generate and execute training plan')
-    parser.add_argument('--all', action='store_true', help='Train on everything')
-    args = parser.parse_args()
-    
     # Initialize Vanna
     # Get model from environment variable, default to gpt-4 if not specified
     openai_model = os.getenv('OPENAI_MODEL', 'gpt-4')
@@ -67,37 +58,23 @@ def train_vanna():
     conn.close()
     print("Successfully connected to Odoo database.")
     
-    # Train based on arguments
-    if args.schema or args.all:
-        print("\nTraining on Odoo database schema...")
-        vn.train_on_odoo_schema()
-        print("Schema training completed!")
-    
-    if args.relationships or args.all:
-        print("\nTraining on table relationships...")
-        vn.train_on_relationships()
-        print("Relationship training completed!")
-    
-    if args.plan or args.all:
-        print("\nGenerating and executing training plan...")
-        plan = vn.get_training_plan()
-        if plan:
-            print("Generated training plan successfully")
-            vn.train(plan=plan)
-            print("Training plan executed successfully!")
-        else:
-            print("Failed to generate training plan")
-    
     # Train with example question-SQL pairs
-    print("\nTraining with example question-SQL pairs...")
+    print("\nTraining with updated example question-SQL pairs...")
     for example in example_pairs:
         print(f"Training with question: {example['question']}")
         vn.train(question=example['question'], sql=example['sql'])
     print("Example training completed!")
     
-    if not (args.schema or args.relationships or args.plan or args.all):
-        print("No training options selected. Use --schema, --relationships, --plan, or --all")
-        parser.print_help()
+    # Check ChromaDB collection status after training
+    collection = vn.get_collection()
+    if collection:
+        try:
+            count = collection.count()
+            print(f"ChromaDB collection has {count} documents after training")
+        except Exception as e:
+            print(f"Error checking collection count: {e}")
+    else:
+        print("ChromaDB collection not available")
 
 if __name__ == "__main__":
-    train_vanna()
+    retrain_vanna()
