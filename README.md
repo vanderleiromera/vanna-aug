@@ -179,6 +179,9 @@ Verificar novamente se os dados ainda estão lá:
 Use o botão "Verificar Status do Treinamento" na interface
 Ou execute o script de verificação:
 
+Manage date training:
+
+   docker compose -f test-vanna-aug.yaml exec vanna streamlit run app/manage_training.py --server.port=8502
    ```
 
 ## Licença

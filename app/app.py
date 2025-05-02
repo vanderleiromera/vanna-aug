@@ -78,7 +78,8 @@ st.sidebar.markdown("""
 Siga estas etapas em ordem:
 1. Treinar no Esquema do Odoo
 2. Treinar nos Relacionamentos de Tabelas
-3. Gerar e Executar Plano de Treinamento
+3. Treinar com Documentação
+4. Gerar e Executar Plano de Treinamento
 """)
 
 if st.sidebar.button("1. Treinar no Esquema do Odoo"):
@@ -93,7 +94,36 @@ if st.sidebar.button("2. Treinar nos Relacionamentos de Tabelas"):
             vn.train_on_relationships()
         st.success("Treinamento nos relacionamentos concluído!")
 
-if st.sidebar.button("3. Gerar e Executar Plano de Treinamento"):
+if st.sidebar.button("3. Treinar com Documentação"):
+    with st.sidebar:
+        with st.spinner("Treinando com documentação sobre a estrutura do Odoo..."):
+            try:
+                # Importar a documentação
+                from odoo_documentation import ODOO_DOCUMENTATION
+
+                # Treinar com cada string de documentação
+                success_count = 0
+                total_docs = len(ODOO_DOCUMENTATION)
+
+                for i, doc in enumerate(ODOO_DOCUMENTATION):
+                    try:
+                        st.text(f"Treinando documentação {i+1}/{total_docs}...")
+                        result = vn.train(documentation=doc)
+                        if result:
+                            success_count += 1
+                    except Exception as e:
+                        st.error(f"Erro ao treinar com documentação {i+1}: {e}")
+
+                if success_count == total_docs:
+                    st.success(f"✅ Treinamento com documentação concluído com sucesso! ({success_count}/{total_docs})")
+                elif success_count > 0:
+                    st.warning(f"⚠️ Treinamento com documentação parcialmente concluído ({success_count}/{total_docs})")
+                else:
+                    st.error("❌ Falha no treinamento com documentação")
+            except Exception as e:
+                st.error(f"❌ Erro durante o treinamento com documentação: {e}")
+
+if st.sidebar.button("4. Gerar e Executar Plano de Treinamento"):
     with st.sidebar:
         with st.spinner("Gerando plano de treinamento..."):
             plan = vn.get_training_plan()
@@ -105,7 +135,7 @@ if st.sidebar.button("3. Gerar e Executar Plano de Treinamento"):
             else:
                 st.error("Falha ao gerar plano de treinamento")
 
-if st.sidebar.button("4. Treinar com Exemplos Pré-definidos"):
+if st.sidebar.button("5. Treinar com Exemplos Pré-definidos"):
     with st.sidebar:
         with st.spinner("Treinando com exemplos pré-definidos..."):
             try:
@@ -244,7 +274,7 @@ LIMIT 10
 # Add a button to directly train the sales by month example (deprecated)
 if st.sidebar.button("🔍 Treinar Exemplo de Vendas por Mês (Legado)"):
     with st.sidebar:
-        st.warning("⚠️ Este botão está obsoleto. Por favor, use o botão '4. Treinar com Exemplos Pré-definidos' acima, que inclui este e outros exemplos.")
+        st.warning("⚠️ Este botão está obsoleto. Por favor, use o botão '5. Treinar com Exemplos Pré-definidos' acima, que inclui este e outros exemplos.")
 
         with st.expander("Expandir para usar mesmo assim"):
             with st.spinner("Treinando com exemplo de vendas por mês..."):
@@ -408,7 +438,7 @@ if user_question:
             # Check if we got a valid SQL response
             if not sql:
                 st.error("Falha ao gerar SQL. O modelo não retornou nenhuma consulta SQL.")
-                st.info("Tente treinar o modelo com exemplos específicos usando o botão '4. Treinar com Exemplos Pré-definidos' na barra lateral.")
+                st.info("Tente treinar o modelo com exemplos específicos usando o botão '5. Treinar com Exemplos Pré-definidos' na barra lateral.")
 
                 # Try the fallback for common queries
                 if "vendas" in user_question.lower() and "mês" in user_question.lower() and "2024" in user_question:
@@ -433,7 +463,7 @@ if user_question:
                     sql = None
         except Exception as e:
             st.error(f"Erro ao gerar SQL: {e}")
-            st.info("Tente treinar o modelo com exemplos específicos usando o botão '4. Treinar com Exemplos Pré-definidos' na barra lateral.")
+            st.info("Tente treinar o modelo com exemplos específicos usando o botão '5. Treinar com Exemplos Pré-definidos' na barra lateral.")
             sql = None
 
     if sql:
