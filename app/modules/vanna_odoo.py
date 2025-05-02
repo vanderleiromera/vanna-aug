@@ -47,6 +47,8 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         try:
             import chromadb
             from chromadb.config import Settings
+            import openai
+            from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
             # Ensure the directory exists
             os.makedirs(self.chroma_persist_directory, exist_ok=True)
@@ -70,16 +72,49 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             )
             print("Successfully initialized ChromaDB persistent client")
 
-            # Get or create collection with explicit embedding function
-            from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
-            embedding_function = DefaultEmbeddingFunction()
+            # Get API key from config or environment
+            api_key = self.api_key if hasattr(self, 'api_key') else os.getenv('OPENAI_API_KEY')
 
-            # Get or create collection
-            self.collection = self.chromadb_client.get_or_create_collection(
-                name="vanna",
-                embedding_function=embedding_function,
-                metadata={"description": "Vanna AI training data"}
-            )
+            # Create OpenAI embedding function
+            try:
+                # Try to use the OpenAI embedding function
+                embedding_function = OpenAIEmbeddingFunction(
+                    api_key=api_key,
+                    model_name="text-embedding-ada-002"
+                )
+                print("Using OpenAI embedding function")
+            except Exception as e:
+                print(f"Error creating OpenAI embedding function: {e}, falling back to default")
+                # Fallback to default embedding function
+                from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+                embedding_function = DefaultEmbeddingFunction()
+                print("Using default embedding function")
+
+            # Check if collection exists
+            try:
+                # Try to get the collection first
+                self.collection = self.chromadb_client.get_collection(
+                    name="vanna",
+                    embedding_function=embedding_function
+                )
+                print("Found existing collection")
+            except Exception as e:
+                print(f"Collection not found: {e}, creating new one")
+
+                # If collection doesn't exist or there's an error, try to delete it first
+                try:
+                    self.chromadb_client.delete_collection("vanna")
+                    print("Deleted existing collection")
+                except Exception as e:
+                    print(f"Error deleting collection: {e}")
+
+                # Create a new collection
+                self.collection = self.chromadb_client.create_collection(
+                    name="vanna",
+                    embedding_function=embedding_function,
+                    metadata={"description": "Vanna AI training data"}
+                )
+                print("Created new collection")
 
             print(f"Using ChromaDB collection: {self.collection.name}")
 
@@ -227,11 +262,43 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         content_hash = hashlib.md5(content.encode()).hexdigest()
                         doc_id = f"ddl-{content_hash}"
 
-                        self.collection.add(
-                            documents=[content],
-                            metadatas=[{"type": "ddl", "table": table}],
-                            ids=[doc_id]
-                        )
+                        # Generate embedding for the content
+                        content_embedding = self.generate_embedding(content)
+
+                        # Add to collection with embedding
+                        if content_embedding is not None:
+                            try:
+                                # Add with embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    embeddings=[content_embedding],
+                                    metadatas=[{"type": "ddl", "table": table}],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added DDL document with embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding DDL with embedding: {e}")
+                                try:
+                                    # Fallback to adding without embedding
+                                    self.collection.add(
+                                        documents=[content],
+                                        metadatas=[{"type": "ddl", "table": table}],
+                                        ids=[doc_id]
+                                    )
+                                    print(f"Added DDL document without embedding, ID: {doc_id}")
+                                except Exception as e2:
+                                    print(f"Error adding DDL without embedding: {e2}")
+                        else:
+                            try:
+                                # Add without embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[{"type": "ddl", "table": table}],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added DDL document without embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding DDL without embedding: {e}")
                         print(f"Added DDL document directly with ID: {doc_id}")
                         trained_count += 1
                 except Exception as e:
@@ -314,17 +381,52 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         content_hash = hashlib.md5(content.encode()).hexdigest()
                         doc_id = f"rel-{content_hash}"
 
-                        self.collection.add(
-                            documents=[content],
-                            metadatas=[{
-                                "type": "relationship",
-                                "table": table,
-                                "column": column,
-                                "ref_table": ref_table,
-                                "ref_column": ref_column
-                            }],
-                            ids=[doc_id]
-                        )
+                        # Generate embedding for the content
+                        content_embedding = self.generate_embedding(content)
+
+                        # Create metadata
+                        metadata = {
+                            "type": "relationship",
+                            "table": table,
+                            "column": column,
+                            "ref_table": ref_table,
+                            "ref_column": ref_column
+                        }
+
+                        # Add to collection with embedding
+                        if content_embedding is not None:
+                            try:
+                                # Add with embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    embeddings=[content_embedding],
+                                    metadatas=[metadata],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added relationship document with embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding relationship with embedding: {e}")
+                                try:
+                                    # Fallback to adding without embedding
+                                    self.collection.add(
+                                        documents=[content],
+                                        metadatas=[metadata],
+                                        ids=[doc_id]
+                                    )
+                                    print(f"Added relationship document without embedding, ID: {doc_id}")
+                                except Exception as e2:
+                                    print(f"Error adding relationship without embedding: {e2}")
+                        else:
+                            try:
+                                # Add without embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[metadata],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added relationship document without embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding relationship without embedding: {e}")
                         print(f"Added relationship document directly with ID: {doc_id}")
                         trained_count += 1
                 except Exception as e:
@@ -417,6 +519,49 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             print(f"Error generating text: {e}")
             return None
 
+    def generate_embedding(self, data: str, **kwargs) -> list:
+        """
+        Generate embedding for the given data using the collection's embedding function.
+
+        Args:
+            data (str): The text to generate embedding for
+
+        Returns:
+            list: The embedding vector
+        """
+        try:
+            # Check if collection is available
+            if not self.collection:
+                print("[DEBUG] Collection not available, reinitializing ChromaDB")
+                self._init_chromadb()
+                if not self.collection:
+                    print("[DEBUG] Failed to initialize collection")
+                    return None
+
+            # Use the collection's embedding function
+            if hasattr(self.collection, '_embedding_function') and self.collection._embedding_function:
+                print("[DEBUG] Using collection's embedding function")
+                embedding = self.collection._embedding_function([data])
+                if embedding and len(embedding) > 0:
+                    return embedding[0]
+
+            # If we couldn't use the collection's embedding function, try a fallback
+            print("[DEBUG] Falling back to default embedding method")
+            from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+            default_ef = DefaultEmbeddingFunction()
+            embedding = default_ef([data])
+            if embedding and len(embedding) > 0:
+                return embedding[0]
+
+            return None
+        except Exception as e:
+            print(f"[DEBUG] Error generating embedding: {e}")
+            import traceback
+            traceback.print_exc()
+
+            # Return None if there's an error
+            return None
+
     def ask(self, question):
         """
         Generate SQL from a natural language question with improved handling for Portuguese
@@ -424,20 +569,49 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         try:
             print(f"[DEBUG] Processing question: {question}")
 
-            # First, check if we have an exact match in our training data
+            # First, check if we have a similar question in our training data
             if self.collection:
                 try:
                     print("[DEBUG] Searching for similar questions in training data")
 
-                    # Query the collection for similar questions
-                    query_results = self.collection.query(
-                        query_texts=[question],
-                        n_results=5,
-                        where={"type": "sql"}
-                    )
+                    # Generate embedding for the question
+                    question_embedding = self.generate_embedding(question)
+
+                    if question_embedding is not None:
+                        try:
+                            # Query the collection for similar questions using the embedding
+                            print("[DEBUG] Using embedding-based similarity search")
+                            query_results = self.collection.query(
+                                query_embeddings=[question_embedding],
+                                n_results=5,
+                                where={"type": "sql"}
+                            )
+                        except Exception as e:
+                            print(f"[DEBUG] Error in embedding-based search: {e}")
+                            # Fallback to text-based search if embedding search fails
+                            print("[DEBUG] Falling back to text-based similarity search")
+                            query_results = self.collection.query(
+                                query_texts=[question],
+                                n_results=5,
+                                where={"type": "sql"}
+                            )
+                    else:
+                        # Fallback to text-based search if embedding generation fails
+                        print("[DEBUG] Falling back to text-based similarity search")
+                        query_results = self.collection.query(
+                            query_texts=[question],
+                            n_results=5,
+                            where={"type": "sql"}
+                        )
 
                     if query_results and 'documents' in query_results and query_results['documents']:
                         print(f"[DEBUG] Found {len(query_results['documents'][0])} similar questions")
+
+                        # Get the distances (if available)
+                        distances = None
+                        if 'distances' in query_results and query_results['distances']:
+                            distances = query_results['distances'][0]
+                            print(f"[DEBUG] Distances: {distances}")
 
                         # Check each result
                         for i, doc in enumerate(query_results['documents'][0]):
@@ -448,27 +622,45 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                                 doc_question = doc.split("Question:")[1].split("SQL:")[0].strip()
                                 doc_sql = doc.split("SQL:")[1].strip()
 
-                                # Calculate similarity between questions
-                                from difflib import SequenceMatcher
-                                similarity = SequenceMatcher(None, question.lower(), doc_question.lower()).ratio()
-                                print(f"[DEBUG] Similarity with '{doc_question}': {similarity}")
+                                # Get the distance (if available)
+                                distance = distances[i] if distances else None
 
-                                # If similarity is high enough, use this SQL
-                                if similarity > 0.8:
-                                    print(f"[DEBUG] Using SQL from similar question: {doc_question}")
-                                    return doc_sql
+                                # Calculate similarity
+                                try:
+                                    # Try to calculate similarity from distance
+                                    if distance is not None:
+                                        similarity = float(1.0 - distance)
+                                    else:
+                                        # If we don't have a distance, calculate similarity using SequenceMatcher
+                                        from difflib import SequenceMatcher
+                                        similarity = SequenceMatcher(None, question.lower(), doc_question.lower()).ratio()
+
+                                    print(f"[DEBUG] Similarity with '{doc_question}': {similarity}")
+
+                                    # If similarity is high enough, use this SQL
+                                    if similarity > 0.8:
+                                        print(f"[DEBUG] Using SQL from similar question: {doc_question}")
+                                        return doc_sql
+                                except Exception as e:
+                                    print(f"[DEBUG] Error calculating similarity: {e}")
+                                    # Continue to the next document if there's an error
 
                                 # If the question contains all the important words from the training question
                                 important_words = [w for w in doc_question.lower().split() if len(w) > 3]
                                 question_words = question.lower().split()
                                 matches = sum(1 for w in important_words if w in question_words)
-                                if matches / len(important_words) > 0.7:
+                                match_ratio = matches / len(important_words) if important_words else 0
+                                print(f"[DEBUG] Keyword match ratio: {match_ratio}")
+
+                                if match_ratio > 0.7:
                                     print(f"[DEBUG] Using SQL from question with matching keywords: {doc_question}")
                                     return doc_sql
 
                     print("[DEBUG] No suitable match found in training data")
                 except Exception as e:
                     print(f"[DEBUG] Error searching training data: {e}")
+                    import traceback
+                    traceback.print_exc()
 
             # If we didn't find a match in training data, use the LLM
             print("[DEBUG] Using LLM to generate SQL")
@@ -749,12 +941,43 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     content_hash = hashlib.md5(content.encode()).hexdigest()
                     doc_id = f"sql-{content_hash}"
 
-                    # Add to collection
-                    self.collection.add(
-                        documents=[content],
-                        metadatas=[{"type": "sql", "question": question}],
-                        ids=[doc_id]
-                    )
+                    # Generate embedding for the content
+                    content_embedding = self.generate_embedding(content)
+
+                    # Add to collection with embedding
+                    if content_embedding is not None:
+                        try:
+                            # Add with embedding
+                            self.collection.add(
+                                documents=[content],
+                                embeddings=[content_embedding],
+                                metadatas=[{"type": "sql", "question": question}],
+                                ids=[doc_id]
+                            )
+                            print(f"[DEBUG] Added document with embedding, ID: {doc_id}")
+                        except Exception as e:
+                            print(f"[DEBUG] Error adding with embedding: {e}")
+                            try:
+                                # Fallback to adding without embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[{"type": "sql", "question": question}],
+                                    ids=[doc_id]
+                                )
+                                print(f"[DEBUG] Added document without embedding, ID: {doc_id}")
+                            except Exception as e2:
+                                print(f"[DEBUG] Error adding without embedding: {e2}")
+                    else:
+                        try:
+                            # Add without embedding
+                            self.collection.add(
+                                documents=[content],
+                                metadatas=[{"type": "sql", "question": question}],
+                                ids=[doc_id]
+                            )
+                            print(f"[DEBUG] Added document without embedding, ID: {doc_id}")
+                        except Exception as e:
+                            print(f"[DEBUG] Error adding without embedding: {e}")
                     print(f"[DEBUG] Added document directly with ID: {doc_id}")
 
                     # Also call parent method for compatibility
@@ -783,12 +1006,43 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     content_hash = hashlib.md5(content.encode()).hexdigest()
                     doc_id = f"plan-{content_hash}"
 
-                    # Add to collection
-                    self.collection.add(
-                        documents=[content],
-                        metadatas=[{"type": "training_plan"}],
-                        ids=[doc_id]
-                    )
+                    # Generate embedding for the content
+                    content_embedding = self.generate_embedding(content)
+
+                    # Add to collection with embedding
+                    if content_embedding is not None:
+                        try:
+                            # Add with embedding
+                            self.collection.add(
+                                documents=[content],
+                                embeddings=[content_embedding],
+                                metadatas=[{"type": "training_plan"}],
+                                ids=[doc_id]
+                            )
+                            print(f"[DEBUG] Added plan document with embedding, ID: {doc_id}")
+                        except Exception as e:
+                            print(f"[DEBUG] Error adding plan with embedding: {e}")
+                            try:
+                                # Fallback to adding without embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[{"type": "training_plan"}],
+                                    ids=[doc_id]
+                                )
+                                print(f"[DEBUG] Added plan document without embedding, ID: {doc_id}")
+                            except Exception as e2:
+                                print(f"[DEBUG] Error adding plan without embedding: {e2}")
+                    else:
+                        try:
+                            # Add without embedding
+                            self.collection.add(
+                                documents=[content],
+                                metadatas=[{"type": "training_plan"}],
+                                ids=[doc_id]
+                            )
+                            print(f"[DEBUG] Added plan document without embedding, ID: {doc_id}")
+                        except Exception as e:
+                            print(f"[DEBUG] Error adding plan without embedding: {e}")
                     print(f"[DEBUG] Added plan document directly with ID: {doc_id}")
 
                     # Also call parent method for compatibility
@@ -838,20 +1092,31 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             if self.chromadb_client:
                 try:
                     print("[DEBUG] Resetting collection")
-                    self.chromadb_client.reset()
-                    print("[DEBUG] Collection reset successful")
 
-                    # Reinitialize the collection
-                    self.collection = self.chromadb_client.get_or_create_collection("vanna")
-                    print(f"[DEBUG] Recreated collection: {self.collection.name}")
+                    # Delete the collection
+                    try:
+                        self.chromadb_client.delete_collection("vanna")
+                        print("[DEBUG] Collection deleted")
+                    except Exception as e:
+                        print(f"[DEBUG] Error deleting collection: {e}")
 
-                    return True
+                    # Reinitialize ChromaDB to recreate the collection with the correct embedding function
+                    self._init_chromadb()
+
+                    if self.collection:
+                        print(f"[DEBUG] Recreated collection: {self.collection.name}")
+                        return True
+                    else:
+                        print("[DEBUG] Failed to recreate collection")
+                        return False
                 except Exception as e:
                     print(f"[DEBUG] Error resetting collection: {e}")
+                    import traceback
+                    traceback.print_exc()
 
             # If client reset failed, try to recreate the client
             self._init_chromadb()
-            return True
+            return self.collection is not None
         except Exception as e:
             print(f"[DEBUG] Error in reset_training: {e}")
             import traceback
@@ -934,11 +1199,43 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     content_hash = hashlib.md5(content.encode()).hexdigest()
                     doc_id = f"plan-{content_hash}"
 
-                    self.collection.add(
-                        documents=[content],
-                        metadatas=[{"type": "training_plan"}],
-                        ids=[doc_id]
-                    )
+                    # Generate embedding for the content
+                    content_embedding = self.generate_embedding(content)
+
+                    # Add to collection with embedding
+                    if content_embedding is not None:
+                        try:
+                            # Add with embedding
+                            self.collection.add(
+                                documents=[content],
+                                embeddings=[content_embedding],
+                                metadatas=[{"type": "training_plan"}],
+                                ids=[doc_id]
+                            )
+                            print(f"Added training plan document with embedding, ID: {doc_id}")
+                        except Exception as e:
+                            print(f"Error adding plan with embedding: {e}")
+                            try:
+                                # Fallback to adding without embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[{"type": "training_plan"}],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added training plan document without embedding, ID: {doc_id}")
+                            except Exception as e2:
+                                print(f"Error adding plan without embedding: {e2}")
+                    else:
+                        try:
+                            # Add without embedding
+                            self.collection.add(
+                                documents=[content],
+                                metadatas=[{"type": "training_plan"}],
+                                ids=[doc_id]
+                            )
+                            print(f"Added training plan document without embedding, ID: {doc_id}")
+                        except Exception as e:
+                            print(f"Error adding plan without embedding: {e}")
                     print(f"Added training plan document directly with ID: {doc_id}")
                 except Exception as e:
                     print(f"Error adding training plan to collection: {e}")
