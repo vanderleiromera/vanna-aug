@@ -18,5 +18,7 @@ python-dotenv>=1.0.0
 pandas>=2.2.3
 # Processamento de dados
 numpy>=2.2.5
+# Exportação para Excel
+xlsxwriter>=3.2.0
 # Documentação
 pydantic>=2.11.4

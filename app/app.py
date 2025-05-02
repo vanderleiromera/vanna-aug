@@ -1,4 +1,5 @@
 import os
+import io
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -11,6 +12,15 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import the VannaOdoo class from the modules directory
 from modules.vanna_odoo import VannaOdoo
+
+# Check if xlsxwriter is installed
+try:
+    import xlsxwriter
+except ImportError:
+    st.warning("📦 O pacote 'xlsxwriter' não está instalado. A exportação para Excel não estará disponível.")
+    HAS_XLSXWRITER = False
+else:
+    HAS_XLSXWRITER = True
 
 # Load environment variables
 load_dotenv()
@@ -462,7 +472,62 @@ if user_question:
         if results is not None and not results.empty:
             # Display results
             st.subheader("Resultados da Consulta")
+
+            # Display the dataframe
             st.dataframe(results)
+
+            # Create columns for download buttons
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                # Convert dataframe to CSV for download
+                csv = results.to_csv(index=False)
+
+                # Create a CSV download button
+                st.download_button(
+                    label="📥 Baixar CSV",
+                    data=csv,
+                    file_name="resultados_consulta.csv",
+                    mime="text/csv",
+                    help="Baixar resultados em formato CSV"
+                )
+
+            with col2:
+                if HAS_XLSXWRITER:
+                    # Convert dataframe to Excel for download
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                        results.to_excel(writer, index=False, sheet_name='Resultados')
+                        # Auto-adjust columns' width
+                        worksheet = writer.sheets['Resultados']
+                        for i, col in enumerate(results.columns):
+                            # Set column width based on content
+                            max_len = max(results[col].astype(str).map(len).max(), len(col)) + 2
+                            worksheet.set_column(i, i, max_len)
+
+                    # Create an Excel download button
+                    st.download_button(
+                        label="📥 Baixar Excel",
+                        data=buffer.getvalue(),
+                        file_name="resultados_consulta.xlsx",
+                        mime="application/vnd.ms-excel",
+                        help="Baixar resultados em formato Excel"
+                    )
+                else:
+                    st.info("A exportação para Excel não está disponível. Instale o pacote 'xlsxwriter' para habilitar esta funcionalidade.")
+
+            with col3:
+                # Convert dataframe to JSON for download
+                json_str = results.to_json(orient="records", date_format="iso")
+
+                # Create a JSON download button
+                st.download_button(
+                    label="📥 Baixar JSON",
+                    data=json_str,
+                    file_name="resultados_consulta.json",
+                    mime="application/json",
+                    help="Baixar resultados em formato JSON"
+                )
 
             # Add option to generate summary
             if st.button("Gerar Resumo dos Dados"):
