@@ -1143,6 +1143,110 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     import traceback
                     traceback.print_exc()
 
+            # Check if we're training with SQL only
+            if 'sql' in kwargs and 'question' not in kwargs:
+                print(f"[DEBUG] Training with SQL only directly")
+                try:
+                    # Add the document directly to the collection
+                    import hashlib
+
+                    # Get the SQL
+                    sql = kwargs['sql']
+                    content = f"SQL: {sql}"
+
+                    # Create a deterministic ID based on content
+                    content_hash = hashlib.md5(content.encode()).hexdigest()
+                    doc_id = f"sql-only-{content_hash}"
+
+                    # Generate embedding for the content
+                    content_embedding = self.generate_embedding(content)
+
+                    # Add to collection with embedding
+                    if content_embedding is not None:
+                        try:
+                            # Add with embedding
+                            self.collection.add(
+                                documents=[content],
+                                embeddings=[content_embedding],
+                                metadatas=[{"type": "sql_only"}],
+                                ids=[doc_id]
+                            )
+                            print(f"[DEBUG] Added SQL-only document with embedding, ID: {doc_id}")
+                        except Exception as e:
+                            print(f"[DEBUG] Error adding with embedding: {e}")
+                            # Try without embedding as fallback
+                            try:
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[{"type": "sql_only"}],
+                                    ids=[doc_id]
+                                )
+                                print(f"[DEBUG] Added SQL-only document without embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"[DEBUG] Error adding without embedding: {e}")
+                    print(f"[DEBUG] Added SQL-only document directly with ID: {doc_id}")
+
+                    # Also call parent method for compatibility
+                    super().train(**kwargs)
+
+                    return doc_id
+                except Exception as e:
+                    print(f"[DEBUG] Error adding SQL-only document directly: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+            # Check if we're training with documentation
+            if 'documentation' in kwargs:
+                print(f"[DEBUG] Training with documentation directly")
+                try:
+                    # Add the document directly to the collection
+                    import hashlib
+
+                    # Get the documentation
+                    documentation = kwargs['documentation']
+                    content = f"Documentation: {documentation}"
+
+                    # Create a deterministic ID based on content
+                    content_hash = hashlib.md5(content.encode()).hexdigest()
+                    doc_id = f"doc-{content_hash}"
+
+                    # Generate embedding for the content
+                    content_embedding = self.generate_embedding(content)
+
+                    # Add to collection with embedding
+                    if content_embedding is not None:
+                        try:
+                            # Add with embedding
+                            self.collection.add(
+                                documents=[content],
+                                embeddings=[content_embedding],
+                                metadatas=[{"type": "documentation"}],
+                                ids=[doc_id]
+                            )
+                            print(f"[DEBUG] Added documentation document with embedding, ID: {doc_id}")
+                        except Exception as e:
+                            print(f"[DEBUG] Error adding with embedding: {e}")
+                            # Try without embedding as fallback
+                            try:
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[{"type": "documentation"}],
+                                    ids=[doc_id]
+                                )
+                                print(f"[DEBUG] Added documentation document without embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"[DEBUG] Error adding without embedding: {e}")
+                    print(f"[DEBUG] Added documentation document directly with ID: {doc_id}")
+
+                    # Also call parent method for compatibility
+                    super().train(**kwargs)
+
+                    return doc_id
+                except Exception as e:
+                    print(f"[DEBUG] Error adding documentation document directly: {e}")
+                    import traceback
+                    traceback.print_exc()
+
             # For other types of training, use the parent method
             print(f"[DEBUG] Training with parameters: {kwargs}")
             result = super().train(**kwargs)
