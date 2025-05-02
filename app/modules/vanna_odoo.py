@@ -656,6 +656,31 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             print(f"Error executing SQL query: {e}")
             return None
 
+    def run_sql(self, sql, question=None):
+        """
+        Execute SQL query on the Odoo database
+
+        Args:
+            sql (str): The SQL query to execute
+            question (str, optional): The original question that generated the SQL
+
+        Returns:
+            pd.DataFrame: The query results as a DataFrame
+        """
+        # If we have the original question, process the SQL to adjust values
+        if question:
+            from modules.query_processor import process_query
+            original_sql = sql
+            sql = process_query(question, sql)
+
+            # Log if the SQL was modified
+            if sql != original_sql:
+                print(f"SQL Original:\n{original_sql}")
+                print(f"\nSQL Ajustado com valores da pergunta:\n{sql}")
+
+        # Execute the query
+        return self.run_sql_query(sql)
+
     def submit_prompt(self, messages, **kwargs):
         """
         Override the submit_prompt method to handle different model formats

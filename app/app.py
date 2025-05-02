@@ -10,8 +10,8 @@ import sys
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# Import the VannaOdoo class from the modules directory
-from modules.vanna_odoo import VannaOdoo
+# Import the VannaOdooExtended class from the modules directory
+from modules.vanna_odoo_extended import VannaOdooExtended
 
 # Check if xlsxwriter is installed
 try:
@@ -43,7 +43,7 @@ def initialize_vanna():
         'allow_llm_to_see_data': os.getenv('ALLOW_LLM_TO_SEE_DATA', 'false').lower() == 'true'
     }
 
-    return VannaOdoo(config=config)
+    return VannaOdooExtended(config=config)
 
 vn = initialize_vanna()
 
@@ -513,7 +513,11 @@ if user_question:
 
         # Try to generate SQL
         try:
+            # Use the ask method to generate SQL
             sql = vn.ask(user_question)
+
+            # Log that we're using the query processor
+            st.info("Aplicando processador de consultas para ajustar valores numéricos...")
 
             # Check if we got a valid SQL response
             if not sql:
@@ -553,7 +557,8 @@ if user_question:
 
         # Execute the SQL query
         with st.spinner("Executando consulta..."):
-            results = vn.run_sql_query(sql)
+            # Use run_sql with the original question to apply the query processor
+            results = vn.run_sql(sql, question=user_question)
 
         if results is not None and not results.empty:
             # Display results
