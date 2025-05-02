@@ -271,117 +271,58 @@ if st.sidebar.button("🧠 Gerenciar Dados de Treinamento"):
 st.sidebar.markdown("---")
 st.sidebar.subheader("Treinamento Manual")
 
-# Add example buttons for different queries
-col1, col2 = st.sidebar.columns(2)
+# Add text areas for manual training
+st.sidebar.text_area("Pergunta", key="manual_question", placeholder="Digite a pergunta em linguagem natural...", height=100)
+st.sidebar.text_area("SQL", key="manual_sql", placeholder="Digite a consulta SQL correspondente...", height=200)
 
-if col1.button("Vendas por Mês"):
-    example_sql = """
-SELECT
-    EXTRACT(MONTH FROM date_order) AS mes,
-    TO_CHAR(date_order, 'Month') AS nome_mes,
-    SUM(amount_total) AS total_vendas
-FROM
-    sale_order
-WHERE
-    EXTRACT(YEAR FROM date_order) = 2024
-    AND state IN ('sale', 'done')
-GROUP BY
-    EXTRACT(MONTH FROM date_order),
-    TO_CHAR(date_order, 'Month')
-ORDER BY
-    mes
-"""
-    example_question = "Liste as vendas de 2024, mês a mês"
-    st.sidebar.info("Exemplo carregado! Clique em 'Adicionar Exemplo de Treinamento' para treinar.")
-
-if col2.button("Top Clientes"):
-    example_sql = """
-SELECT
-    p.name AS cliente,
-    SUM(so.amount_total) AS total_vendas
-FROM
-    sale_order so
-JOIN
-    res_partner p ON so.partner_id = p.id
-WHERE
-    so.state IN ('sale', 'done')
-GROUP BY
-    p.name
-ORDER BY
-    total_vendas DESC
-LIMIT 10
-"""
-    example_question = "Mostre os 10 principais clientes por vendas"
-    st.sidebar.info("Exemplo carregado! Clique em 'Adicionar Exemplo de Treinamento' para treinar.")
-
-# Add a button to directly train the sales by month example (deprecated)
-if st.sidebar.button("🔍 Treinar Exemplo de Vendas por Mês (Legado)"):
+# Add button to train with the manual example
+if st.sidebar.button("Adicionar Exemplo de Treinamento"):
     with st.sidebar:
-        st.warning("⚠️ Este botão está obsoleto. Por favor, use o botão '6. Treinar com Exemplos Pré-definidos' acima, que inclui este e outros exemplos.")
+        # Get the question and SQL from the text areas
+        manual_question = st.session_state.get("manual_question", "").strip()
+        manual_sql = st.session_state.get("manual_sql", "").strip()
 
-        with st.expander("Expandir para usar mesmo assim"):
-            with st.spinner("Treinando com exemplo de vendas por mês..."):
-                # SQL query for sales by month
-                sql_vendas_por_mes = """
-SELECT
-    EXTRACT(MONTH FROM date_order) AS mes,
-    TO_CHAR(date_order, 'Month') AS nome_mes,
-    SUM(amount_total) AS total_vendas
-FROM
-    sale_order
-WHERE
-    EXTRACT(YEAR FROM date_order) = 2024
-    AND state IN ('sale', 'done')
-GROUP BY
-    EXTRACT(MONTH FROM date_order),
-    TO_CHAR(date_order, 'Month')
-ORDER BY
-    mes
-"""
+        # Validate inputs
+        if not manual_question:
+            st.error("❌ Por favor, digite uma pergunta.")
+        elif not manual_sql:
+            st.error("❌ Por favor, digite uma consulta SQL.")
+        else:
+            # Train with the manual example
+            with st.spinner("Treinando com exemplo manual..."):
                 try:
-                    # Train with different variations of the question
-                    st.text("Treinando variação 1/5...")
-                    vn.train(question="Liste as vendas de 2024, mês a mês", sql=sql_vendas_por_mes)
+                    result = vn.train(question=manual_question, sql=manual_sql)
+                    if result:
+                        st.success("✅ Exemplo treinado com sucesso!")
 
-                    st.text("Treinando variação 2/5...")
-                    vn.train(question="Mostre as vendas mensais de 2024", sql=sql_vendas_por_mes)
+                        # Clear the text areas
+                        st.session_state.manual_question = ""
+                        st.session_state.manual_sql = ""
 
-                    st.text("Treinando variação 3/5...")
-                    vn.train(question="Vendas por mês em 2024", sql=sql_vendas_por_mes)
+                        # Verify training was successful
+                        st.info("Verificando dados de treinamento...")
+                        training_data = vn.get_training_data()
+                        if training_data and len(training_data) > 0:
+                            # Count by type
+                            type_counts = {}
+                            for item in training_data:
+                                item_type = item.get('type', 'unknown')
+                                type_counts[item_type] = type_counts.get(item_type, 0) + 1
 
-                    st.text("Treinando variação 4/5...")
-                    vn.train(question="Qual o total de vendas por mês em 2024?", sql=sql_vendas_por_mes)
+                            # Show total count
+                            st.success(f"✅ Dados de treinamento encontrados: {len(training_data)} exemplos")
 
-                    st.text("Treinando variação 5/5...")
-                    vn.train(question="Relatório de vendas mensais de 2024", sql=sql_vendas_por_mes)
-
-                    st.success("✅ Exemplo de vendas por mês treinado com sucesso!")
-
-                    # Verify training was successful
-                    st.info("Verificando dados de treinamento...")
-                    training_data = vn.get_training_data()
-                    if training_data and len(training_data) > 0:
-                        st.success(f"✅ Dados de treinamento encontrados: {len(training_data)} exemplos")
+                            # Show count by type
+                            st.info("Contagem por tipo:")
+                            for item_type, count in type_counts.items():
+                                st.text(f"- {item_type}: {count} exemplos")
+                        else:
+                            st.warning("⚠️ Nenhum dado de treinamento encontrado após o treinamento. Pode haver um problema com o ChromaDB.")
                     else:
-                        st.warning("⚠️ Nenhum dado de treinamento encontrado após o treinamento. Pode haver um problema com o ChromaDB.")
+                        st.error("❌ Falha ao treinar exemplo.")
                 except Exception as e:
                     st.error(f"❌ Erro durante o treinamento: {e}")
                     st.info("Tente resetar os dados de treinamento e tentar novamente.")
-
-manual_sql = st.sidebar.text_area("Treinar com exemplo SQL:",
-                                value=example_sql if 'example_sql' in locals() else "",
-                                placeholder="Digite a consulta SQL para treinar o modelo",
-                                height=150)
-manual_question = st.sidebar.text_area("Pergunta associada:",
-                                    value=example_question if 'example_question' in locals() else "",
-                                    placeholder="Digite a pergunta que corresponde à consulta SQL",
-                                    height=70)
-
-if st.sidebar.button("Adicionar Exemplo de Treinamento") and manual_sql and manual_question:
-    with st.sidebar:
-        with st.spinner("Treinando com exemplo..."):
-            vn.train(question=manual_question, sql=manual_sql)
-        st.success("Exemplo de treinamento adicionado com sucesso!")
 
 # Database connection status
 st.sidebar.header("Conexão com Banco de Dados")
@@ -481,7 +422,7 @@ if user_question:
             # Check if we got a valid SQL response
             if not sql:
                 st.error("Falha ao gerar SQL. O modelo não retornou nenhuma consulta SQL.")
-                st.info("Tente treinar o modelo com exemplos específicos usando o botão '6. Treinar com Exemplos Pré-definidos' na barra lateral.")
+                st.info("Tente treinar o modelo com exemplos específicos usando a seção 'Treinamento Manual' na barra lateral.")
 
                 # Try the fallback for common queries
                 if "vendas" in user_question.lower() and "mês" in user_question.lower() and "2024" in user_question:
@@ -506,7 +447,7 @@ if user_question:
                     sql = None
         except Exception as e:
             st.error(f"Erro ao gerar SQL: {e}")
-            st.info("Tente treinar o modelo com exemplos específicos usando o botão '6. Treinar com Exemplos Pré-definidos' na barra lateral.")
+            st.info("Tente treinar o modelo com exemplos específicos usando a seção 'Treinamento Manual' na barra lateral.")
             sql = None
 
     if sql:
