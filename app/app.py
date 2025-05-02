@@ -86,24 +86,72 @@ st.sidebar.header("Treinamento")
 st.sidebar.markdown("""
 **Importante**: Antes de fazer perguntas, você precisa treinar o modelo no esquema do banco de dados Odoo.
 Siga estas etapas em ordem:
-1. Treinar no Esquema do Odoo
-2. Treinar nos Relacionamentos de Tabelas
+1. Treinar nas Tabelas Prioritárias do Odoo (Recomendado)
+2. Treinar nos Relacionamentos de Tabelas Prioritárias (Recomendado)
 3. Treinar com Documentação
 4. Treinar com Exemplos de SQL
 5. Gerar e Executar Plano de Treinamento
+
+**Nota**: Para bancos de dados Odoo extensos (800+ tabelas), recomendamos usar as opções prioritárias para evitar sobrecarga do banco de dados.
 """)
 
-if st.sidebar.button("1. Treinar no Esquema do Odoo"):
+if st.sidebar.button("1. Treinar nas Tabelas Prioritárias do Odoo"):
     with st.sidebar:
-        with st.spinner("Treinando no esquema do banco de dados Odoo..."):
-            vn.train_on_odoo_schema()
-        st.success("Treinamento no esquema concluído!")
+        with st.spinner("Treinando nas tabelas prioritárias do Odoo..."):
+            try:
+                # Import the list of priority tables to show count
+                from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+                st.info(f"Treinando em até {len(ODOO_PRIORITY_TABLES)} tabelas prioritárias...")
 
-if st.sidebar.button("2. Treinar nos Relacionamentos de Tabelas"):
+                # Train on priority tables
+                result = vn.train_on_priority_tables()
+
+                if result:
+                    st.success("✅ Treinamento nas tabelas prioritárias concluído com sucesso!")
+                else:
+                    st.error("❌ Falha no treinamento nas tabelas prioritárias")
+            except Exception as e:
+                st.error(f"❌ Erro durante o treinamento: {e}")
+
+if st.sidebar.button("Treinar no Esquema Completo do Odoo (Não Recomendado)"):
     with st.sidebar:
-        with st.spinner("Treinando nos relacionamentos de tabelas..."):
-            vn.train_on_relationships()
-        st.success("Treinamento nos relacionamentos concluído!")
+        st.warning("⚠️ Esta opção pode sobrecarregar o banco de dados Odoo se ele tiver muitas tabelas (800+).")
+        with st.expander("Expandir para usar mesmo assim"):
+            with st.spinner("Treinando no esquema completo do banco de dados Odoo..."):
+                try:
+                    result = vn.train_on_odoo_schema()
+                    if result:
+                        st.success("✅ Treinamento no esquema completo concluído com sucesso!")
+                    else:
+                        st.error("❌ Falha no treinamento no esquema completo")
+                except Exception as e:
+                    st.error(f"❌ Erro durante o treinamento: {e}")
+
+if st.sidebar.button("2. Treinar nos Relacionamentos de Tabelas Prioritárias"):
+    with st.sidebar:
+        with st.spinner("Treinando nos relacionamentos entre tabelas prioritárias..."):
+            try:
+                result = vn.train_on_priority_relationships()
+                if result:
+                    st.success("✅ Treinamento nos relacionamentos prioritários concluído com sucesso!")
+                else:
+                    st.error("❌ Falha no treinamento nos relacionamentos prioritários")
+            except Exception as e:
+                st.error(f"❌ Erro durante o treinamento: {e}")
+
+if st.sidebar.button("Treinar em Todos os Relacionamentos (Não Recomendado)"):
+    with st.sidebar:
+        st.warning("⚠️ Esta opção pode sobrecarregar o banco de dados Odoo se ele tiver muitas tabelas e relacionamentos.")
+        with st.expander("Expandir para usar mesmo assim"):
+            with st.spinner("Treinando em todos os relacionamentos de tabelas..."):
+                try:
+                    result = vn.train_on_relationships()
+                    if result:
+                        st.success("✅ Treinamento em todos os relacionamentos concluído com sucesso!")
+                    else:
+                        st.error("❌ Falha no treinamento em todos os relacionamentos")
+                except Exception as e:
+                    st.error(f"❌ Erro durante o treinamento: {e}")
 
 if st.sidebar.button("3. Treinar com Documentação"):
     with st.sidebar:
@@ -223,10 +271,24 @@ if st.sidebar.button("Verificar Status do Treinamento"):
                 for item_type, count in type_counts.items():
                     st.text(f"- {item_type}: {count} exemplos")
 
+                # Check if we have priority tables
+                if 'ddl_priority' in type_counts:
+                    st.success(f"✅ Tabelas prioritárias: {type_counts.get('ddl_priority', 0)} tabelas")
+
                 # Show a sample of training data
                 if len(training_data) > 0:
                     st.info("Amostra de dados de treinamento:")
+
+                    # Try to show a priority table first if available
+                    priority_items = [item for item in training_data if item.get('type') == 'ddl_priority']
+                    if priority_items:
+                        item = priority_items[0]
+                        st.code(f"Tipo: {item.get('type', 'N/A')} (Tabela Prioritária)\nConteúdo: {item.get('content', 'N/A')[:100]}...")
+
+                    # Show other examples
                     for i, item in enumerate(training_data[:3]):  # Show first 3 examples
+                        if i == 0 and priority_items:
+                            continue  # Skip if we already showed a priority item
                         st.code(f"Tipo: {item.get('type', 'N/A')}\nConteúdo: {item.get('content', 'N/A')[:100]}...")
                         if i >= 2:  # Only show 3 examples
                             break
@@ -234,6 +296,26 @@ if st.sidebar.button("Verificar Status do Treinamento"):
                 st.warning("⚠️ Nenhum dado de treinamento encontrado. Por favor, treine o modelo primeiro.")
         except Exception as e:
             st.error(f"Erro ao verificar status do treinamento: {e}")
+
+if st.sidebar.button("Testar Embeddings"):
+    with st.sidebar:
+        with st.spinner("Testando geração de embeddings..."):
+            try:
+                # Test embedding generation
+                test_text = "Esta é uma frase de teste para verificar se os embeddings estão funcionando corretamente."
+                embedding = vn.generate_embedding(test_text)
+
+                if embedding is not None:
+                    st.success(f"✅ Embeddings funcionando corretamente!")
+                    st.info(f"Dimensão do vetor de embedding: {len(embedding)}")
+
+                    # Show a small sample of the embedding vector
+                    st.text("Amostra do vetor de embedding:")
+                    st.code(f"{embedding[:5]}... (primeiros 5 valores de {len(embedding)})")
+                else:
+                    st.error("❌ Falha ao gerar embeddings. Verifique a configuração da API OpenAI.")
+            except Exception as e:
+                st.error(f"❌ Erro ao testar embeddings: {e}")
 
 # Add a button to reset training data
 if st.sidebar.button("🔄 Resetar Dados de Treinamento"):

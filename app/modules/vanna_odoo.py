@@ -318,6 +318,92 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         print(f"Trained on {trained_count} tables")
         return trained_count > 0
 
+    def train_on_priority_tables(self):
+        """
+        Train Vanna on priority Odoo tables that are most commonly used in queries
+        """
+        # Import the list of priority tables
+        from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+
+        # Get available tables in the database
+        available_tables = self.get_odoo_tables()
+
+        # Filter priority tables that exist in the database
+        tables_to_train = [table for table in ODOO_PRIORITY_TABLES if table in available_tables]
+
+        total_tables = len(tables_to_train)
+        trained_count = 0
+
+        print(f"Starting training on {total_tables} priority tables...")
+
+        for table in tables_to_train:
+            # Get DDL for the table
+            ddl = self.get_table_ddl(table)
+            if ddl:
+                try:
+                    # Train Vanna on the table DDL
+                    result = self.train(ddl=ddl)
+                    print(f"Trained on priority table: {table}, result: {result}")
+
+                    # Add directly to collection for better persistence
+                    if self.collection:
+                        import hashlib
+                        content = f"Table DDL: {table}\n{ddl}"
+                        content_hash = hashlib.md5(content.encode()).hexdigest()
+                        doc_id = f"ddl-priority-{content_hash}"
+
+                        # Generate embedding for the content
+                        print(f"Generating embedding for priority table: {table}")
+                        content_embedding = self.generate_embedding(content)
+
+                        # Log embedding status
+                        if content_embedding is not None:
+                            print(f"✅ Successfully generated embedding for priority table: {table} (vector dimension: {len(content_embedding)})")
+                        else:
+                            print(f"❌ Failed to generate embedding for priority table: {table}")
+
+                        # Add to collection with embedding
+                        if content_embedding is not None:
+                            try:
+                                # Add with embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    embeddings=[content_embedding],
+                                    metadatas=[{"type": "ddl_priority", "table": table}],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added priority DDL document with embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding priority DDL with embedding: {e}")
+                                try:
+                                    # Fallback to adding without embedding
+                                    self.collection.add(
+                                        documents=[content],
+                                        metadatas=[{"type": "ddl_priority", "table": table}],
+                                        ids=[doc_id]
+                                    )
+                                    print(f"Added priority DDL document without embedding, ID: {doc_id}")
+                                except Exception as e2:
+                                    print(f"Error adding priority DDL without embedding: {e2}")
+                        else:
+                            try:
+                                # Add without embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[{"type": "ddl_priority", "table": table}],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added priority DDL document without embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding priority DDL without embedding: {e}")
+                        print(f"Added priority DDL document directly with ID: {doc_id}")
+                        trained_count += 1
+                except Exception as e:
+                    print(f"Error training on priority table {table}: {e}")
+
+        print(f"Priority tables training completed! Trained on {trained_count} of {total_tables} tables.")
+        return trained_count > 0
+
     def get_table_relationships(self):
         """
         Get foreign key relationships between tables
@@ -444,6 +530,110 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     print(f"Error training on relationship: {e}")
 
             print(f"Trained on {trained_count} relationships")
+            return trained_count > 0
+        else:
+            print("No relationships found")
+            return False
+
+    def train_on_priority_relationships(self):
+        """
+        Train Vanna on relationships between priority tables only
+        """
+        # Import the list of priority tables
+        from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+
+        # Get all relationships
+        relationships_df = self.get_table_relationships()
+        trained_count = 0
+
+        if relationships_df is not None and not relationships_df.empty:
+            # Filter relationships where both tables are in the priority list
+            priority_relationships = relationships_df[
+                (relationships_df['table_name'].isin(ODOO_PRIORITY_TABLES)) &
+                (relationships_df['foreign_table_name'].isin(ODOO_PRIORITY_TABLES))
+            ]
+
+            total_relationships = len(priority_relationships)
+            print(f"Found {total_relationships} priority relationships out of {len(relationships_df)} total relationships")
+
+            for _, row in priority_relationships.iterrows():
+                try:
+                    table = row['table_name']
+                    column = row['column_name']
+                    ref_table = row['foreign_table_name']
+                    ref_column = row['foreign_column_name']
+                    documentation = f"Table {table} has a foreign key {column} that references {ref_table}.{ref_column}."
+
+                    # Train using parent method
+                    result = self.train(documentation=documentation)
+                    print(f"Trained on priority relationship: {documentation}, result: {result}")
+
+                    # Add directly to collection for better persistence
+                    if self.collection:
+                        import hashlib
+                        content = f"Priority Relationship: {documentation}"
+                        content_hash = hashlib.md5(content.encode()).hexdigest()
+                        doc_id = f"rel-priority-{content_hash}"
+
+                        # Generate embedding for the content
+                        print(f"Generating embedding for priority relationship: {table} -> {ref_table}")
+                        content_embedding = self.generate_embedding(content)
+
+                        # Log embedding status
+                        if content_embedding is not None:
+                            print(f"✅ Successfully generated embedding for priority relationship: {table} -> {ref_table} (vector dimension: {len(content_embedding)})")
+                        else:
+                            print(f"❌ Failed to generate embedding for priority relationship: {table} -> {ref_table}")
+
+                        # Create metadata
+                        metadata = {
+                            "type": "relationship_priority",
+                            "table": table,
+                            "column": column,
+                            "ref_table": ref_table,
+                            "ref_column": ref_column
+                        }
+
+                        # Add to collection with embedding
+                        if content_embedding is not None:
+                            try:
+                                # Add with embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    embeddings=[content_embedding],
+                                    metadatas=[metadata],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added priority relationship document with embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding priority relationship with embedding: {e}")
+                                try:
+                                    # Fallback to adding without embedding
+                                    self.collection.add(
+                                        documents=[content],
+                                        metadatas=[metadata],
+                                        ids=[doc_id]
+                                    )
+                                    print(f"Added priority relationship document without embedding, ID: {doc_id}")
+                                except Exception as e2:
+                                    print(f"Error adding priority relationship without embedding: {e2}")
+                        else:
+                            try:
+                                # Add without embedding
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[metadata],
+                                    ids=[doc_id]
+                                )
+                                print(f"Added priority relationship document without embedding, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding priority relationship without embedding: {e}")
+                        print(f"Added priority relationship document directly with ID: {doc_id}")
+                        trained_count += 1
+                except Exception as e:
+                    print(f"Error training on priority relationship: {e}")
+
+            print(f"Priority relationships training completed! Trained on {trained_count} of {total_relationships} relationships.")
             return trained_count > 0
         else:
             print("No relationships found")
