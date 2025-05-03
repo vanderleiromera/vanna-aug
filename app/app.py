@@ -504,16 +504,16 @@ with st.expander("Exemplos de Consultas"):
     st.markdown("""
     ### Exemplos de Perguntas
     - Mostre os 10 principais clientes por vendas
-    - Liste as vendas de 2024, mês a mês
-    - Quais são as vendas totais por categoria de produto?
-    - Mostre os níveis de estoque para todos os produtos
-    - Quem são os 5 melhores vendedores por receita?
-    - Quais produtos foram vendidos nos últimos 120 dias, mas não têm estoque em mãos?
+    - Liste as vendas de 2024, mês a mês, por valor total
+    - Quais são os 10 produtos mais vendidos? em valor!
+    - Mostre os níveis de estoque para os 30 produtos mais vendidos em valor
+    - Quais produtos tem 'caixa' no nome?
+    - Quais produtos foram vendidos nos últimos 300 dias, mas não têm estoque em mãos?
     """)
 
 # User input
 user_question = st.text_input("Faça uma pergunta sobre seu banco de dados Odoo:",
-                            placeholder="Ex: Liste as vendas de 2024, mês a mês")
+                            placeholder="Ex: Liste as vendas de 2024, mês a mês, por valor total")
 
 if user_question:
     # Generate SQL from the question

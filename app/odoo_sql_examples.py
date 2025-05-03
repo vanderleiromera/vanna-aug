@@ -231,54 +231,73 @@ ODOO_SQL_EXAMPLES = [
     # Exemplos de consultas complexas
     """
     -- Produtos vendidos vs. estoque atual
+WITH vendas AS (
     SELECT 
-        pt.name as product_name,
-        SUM(sol.product_uom_qty) as quantity_sold,
-        SUM(sq.quantity) as current_stock
+        pp.id AS product_id,
+        SUM(sol.product_uom_qty) AS total_vendido
     FROM 
-        product_template pt
+        sale_order_line sol
     JOIN 
-        product_product pp ON pp.product_tmpl_id = pt.id
-    LEFT JOIN 
-        sale_order_line sol ON sol.product_id = pp.id
-    LEFT JOIN 
         sale_order so ON sol.order_id = so.id
-    LEFT JOIN 
-        stock_quant sq ON sq.product_id = pp.id
-    LEFT JOIN 
+    JOIN 
+        product_product pp ON sol.product_id = pp.id
+    WHERE 
+        so.state IN ('sale', 'done')
+        AND so.date_order >= NOW() - INTERVAL '30 days'
+    GROUP BY 
+        pp.id
+),
+estoque AS (
+    SELECT 
+        sq.product_id,
+        SUM(sq.quantity) AS estoque_disponivel
+    FROM 
+        stock_quant sq
+    JOIN 
         stock_location sl ON sq.location_id = sl.id
     WHERE 
-        pt.active = true
-        AND (so.state in ('sale', 'done') OR so.state IS NULL)
-        AND (sl.usage = 'internal' OR sl.usage IS NULL)
-        AND (so.date_order >= (CURRENT_DATE - INTERVAL '90 days') OR so.date_order IS NULL)
+        sl.name = 'Stock' -- ou sl.usage = 'internal' AND sl.name = 'Stock'
     GROUP BY 
-        pt.name
-    HAVING 
-        SUM(sol.product_uom_qty) > 0
-    ORDER BY 
-        quantity_sold DESC
+        sq.product_id
+)
+SELECT 
+    pt.name AS produto,
+    COALESCE(v.total_vendido, 0) AS total_vendido,
+    COALESCE(e.estoque_disponivel, 0) AS estoque
+FROM 
+    product_product pp
+JOIN 
+    product_template pt ON pp.product_tmpl_id = pt.id
+LEFT JOIN 
+    vendas v ON v.product_id = pp.id
+LEFT JOIN 
+    estoque e ON e.product_id = pp.id
+WHERE 
+    pt.active = true
+    AND COALESCE(v.total_vendido, 0) > 0
+ORDER BY 
+    v.total_vendido DESC;
     """,
     
     """
     -- Vendas por mês
-    SELECT 
-        EXTRACT(YEAR FROM so.date_order) as year,
-        EXTRACT(MONTH FROM so.date_order) as month,
-        TO_CHAR(so.date_order, 'Month') as month_name,
-        COUNT(DISTINCT so.id) as order_count,
-        SUM(so.amount_total) as total_sales
-    FROM 
-        sale_order so
-    WHERE 
-        so.state in ('sale', 'done')
-        AND so.date_order >= (CURRENT_DATE - INTERVAL '365 days')
-    GROUP BY 
-        EXTRACT(YEAR FROM so.date_order),
-        EXTRACT(MONTH FROM so.date_order),
-        TO_CHAR(so.date_order, 'Month')
-    ORDER BY 
-        year, month
+SELECT 
+    EXTRACT(YEAR FROM so.date_order) AS year,
+    EXTRACT(MONTH FROM so.date_order) AS month,
+    TO_CHAR(so.date_order, 'TMMonth') AS month_name,
+    COUNT(DISTINCT so.id) AS order_count,
+    SUM(so.amount_total) AS total_sales
+FROM 
+    sale_order so
+WHERE 
+    so.state IN ('sale', 'done')
+    AND so.date_order >= (CURRENT_DATE - INTERVAL '12 months')
+GROUP BY 
+    EXTRACT(YEAR FROM so.date_order),
+    EXTRACT(MONTH FROM so.date_order),
+    TO_CHAR(so.date_order, 'TMMonth')
+ORDER BY 
+    year, month;
     """,
     
     """
