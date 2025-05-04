@@ -661,27 +661,284 @@ if user_question:
                         st.info("Esta consulta não será adicionada ao treinamento.")
                         st.write("Você pode modificar a consulta SQL manualmente e depois adicioná-la usando a seção 'Treinamento Manual' na barra lateral.")
 
-            # Generate visualization if possible
-            st.subheader("Visualização")
-            try:
-                # Determine if we can create a visualization based on the data
-                if len(results.columns) >= 2:
-                    # For numeric data, create a bar chart
-                    numeric_cols = results.select_dtypes(include=['number']).columns.tolist()
-                    if len(numeric_cols) > 0:
-                        # Select first numeric column for y-axis
-                        y_col = numeric_cols[0]
-                        # Select first column for x-axis
-                        x_col = results.columns[0]
+            # Seção de visualização avançada
+            st.subheader("📊 Visualizações")
 
-                        fig = px.bar(results, x=x_col, y=y_col, title=f"{y_col} por {x_col}")
-                        st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.info("Não há colunas numéricas disponíveis para visualização")
+            try:
+                # Verificar se temos dados suficientes para visualização
+                if len(results) == 0:
+                    st.info("Não há dados suficientes para visualização")
+                elif len(results.columns) < 2:
+                    st.info("São necessárias pelo menos duas colunas para visualização")
                 else:
-                    st.info("Não há colunas suficientes para visualização")
+                    # Identificar tipos de colunas
+                    numeric_cols = results.select_dtypes(include=['number']).columns.tolist()
+                    date_cols = [col for col in results.columns if results[col].dtype == 'datetime64[ns]'
+                                or (isinstance(results[col].dtype, object) and 'date' in col.lower())]
+                    categorical_cols = [col for col in results.columns if col not in numeric_cols
+                                      and col not in date_cols and len(results[col].unique()) <= 20]
+
+                    # Criar abas para diferentes tipos de visualizações
+                    viz_tabs = st.tabs(["Gráfico Principal", "Gráfico de Barras", "Gráfico de Linha", "Gráfico de Pizza", "Tabela Dinâmica"])
+
+                    # Aba 1: Gráfico Principal (automático)
+                    with viz_tabs[0]:
+                        st.subheader("Gráfico Automático")
+
+                        # Detectar automaticamente o melhor tipo de gráfico
+                        if len(numeric_cols) >= 1:
+                            # Selecionar colunas para visualização
+                            if len(date_cols) >= 1:
+                                # Série temporal
+                                x_col = date_cols[0]
+                                y_col = numeric_cols[0]
+
+                                # Ordenar por data
+                                results_sorted = results.sort_values(by=x_col)
+
+                                # Criar gráfico de linha
+                                fig = px.line(results_sorted, x=x_col, y=y_col,
+                                             title=f"{y_col} ao longo do tempo",
+                                             labels={x_col: "Data", y_col: y_col.replace("_", " ").title()})
+                                st.plotly_chart(fig, use_container_width=True, key="auto_time_series")
+
+                            elif len(categorical_cols) >= 1:
+                                # Gráfico de barras para categorias
+                                x_col = categorical_cols[0]
+                                y_col = numeric_cols[0]
+
+                                # Agrupar por categoria
+                                if len(results) > 15:  # Se muitos dados, agregar
+                                    agg_data = results.groupby(x_col)[y_col].sum().reset_index()
+                                    agg_data = agg_data.sort_values(by=y_col, ascending=False)
+                                    fig = px.bar(agg_data, x=x_col, y=y_col,
+                                                title=f"{y_col} por {x_col}",
+                                                labels={x_col: x_col.replace("_", " ").title(),
+                                                        y_col: y_col.replace("_", " ").title()})
+                                else:
+                                    fig = px.bar(results, x=x_col, y=y_col,
+                                                title=f"{y_col} por {x_col}",
+                                                labels={x_col: x_col.replace("_", " ").title(),
+                                                        y_col: y_col.replace("_", " ").title()})
+                                st.plotly_chart(fig, use_container_width=True, key="auto_bar_cat")
+
+                            elif len(numeric_cols) >= 2:
+                                # Gráfico de dispersão para duas variáveis numéricas
+                                x_col = numeric_cols[0]
+                                y_col = numeric_cols[1]
+
+                                fig = px.scatter(results, x=x_col, y=y_col,
+                                               title=f"Relação entre {x_col} e {y_col}",
+                                               labels={x_col: x_col.replace("_", " ").title(),
+                                                       y_col: y_col.replace("_", " ").title()})
+                                st.plotly_chart(fig, use_container_width=True, key="auto_scatter")
+                            else:
+                                # Gráfico de barras simples
+                                x_col = results.columns[0]
+                                y_col = numeric_cols[0]
+
+                                fig = px.bar(results, x=x_col, y=y_col,
+                                           title=f"{y_col} por {x_col}",
+                                           labels={x_col: x_col.replace("_", " ").title(),
+                                                   y_col: y_col.replace("_", " ").title()})
+                                st.plotly_chart(fig, use_container_width=True, key="auto_bar_simple")
+                        else:
+                            st.info("Não há colunas numéricas para visualização automática")
+
+                    # Aba 2: Gráfico de Barras Personalizado
+                    with viz_tabs[1]:
+                        st.subheader("Gráfico de Barras Personalizado")
+
+                        # Permitir ao usuário selecionar colunas
+                        cols = list(results.columns)
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            x_axis = st.selectbox("Selecione o eixo X (categorias):", cols, key="bar_x")
+                        with col2:
+                            available_y = numeric_cols if numeric_cols else cols
+                            y_axis = st.selectbox("Selecione o eixo Y (valores):", available_y, key="bar_y")
+
+                        # Opções adicionais
+                        col3, col4 = st.columns(2)
+                        with col3:
+                            bar_mode = st.radio("Tipo de gráfico:", ["Barras", "Barras Horizontais"], key="bar_mode")
+                        with col4:
+                            if len(cols) > 2:
+                                color_by = st.selectbox("Colorir por (opcional):", ["Nenhum"] + cols, key="bar_color")
+                            else:
+                                color_by = "Nenhum"
+
+                        # Criar gráfico
+                        if bar_mode == "Barras":
+                            if color_by != "Nenhum":
+                                fig = px.bar(results, x=x_axis, y=y_axis, color=color_by,
+                                           title=f"{y_axis} por {x_axis}",
+                                           labels={x_axis: x_axis.replace("_", " ").title(),
+                                                   y_axis: y_axis.replace("_", " ").title()})
+                            else:
+                                fig = px.bar(results, x=x_axis, y=y_axis,
+                                           title=f"{y_axis} por {x_axis}",
+                                           labels={x_axis: x_axis.replace("_", " ").title(),
+                                                   y_axis: y_axis.replace("_", " ").title()})
+                        else:  # Barras horizontais
+                            if color_by != "Nenhum":
+                                fig = px.bar(results, y=x_axis, x=y_axis, color=color_by,
+                                           title=f"{y_axis} por {x_axis}", orientation='h',
+                                           labels={x_axis: x_axis.replace("_", " ").title(),
+                                                   y_axis: y_axis.replace("_", " ").title()})
+                            else:
+                                fig = px.bar(results, y=x_axis, x=y_axis,
+                                           title=f"{y_axis} por {x_axis}", orientation='h',
+                                           labels={x_axis: x_axis.replace("_", " ").title(),
+                                                   y_axis: y_axis.replace("_", " ").title()})
+
+                        st.plotly_chart(fig, use_container_width=True, key=f"custom_bar_{x_axis}_{y_axis}")
+
+                    # Aba 3: Gráfico de Linha
+                    with viz_tabs[2]:
+                        st.subheader("Gráfico de Linha")
+
+                        # Permitir ao usuário selecionar colunas
+                        cols = list(results.columns)
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            x_axis = st.selectbox("Selecione o eixo X:", cols, key="line_x")
+                        with col2:
+                            available_y = numeric_cols if numeric_cols else cols
+                            y_axis = st.selectbox("Selecione o eixo Y:", available_y, key="line_y")
+
+                        # Opções adicionais
+                        if len(cols) > 2:
+                            color_by = st.selectbox("Agrupar por (opcional):", ["Nenhum"] + cols, key="line_color")
+                        else:
+                            color_by = "Nenhum"
+
+                        # Ordenar por eixo X se possível
+                        try:
+                            results_sorted = results.sort_values(by=x_axis)
+                        except:
+                            results_sorted = results
+
+                        # Criar gráfico
+                        if color_by != "Nenhum":
+                            fig = px.line(results_sorted, x=x_axis, y=y_axis, color=color_by,
+                                        title=f"{y_axis} por {x_axis}",
+                                        labels={x_axis: x_axis.replace("_", " ").title(),
+                                                y_axis: y_axis.replace("_", " ").title()})
+                        else:
+                            fig = px.line(results_sorted, x=x_axis, y=y_axis,
+                                        title=f"{y_axis} por {x_axis}",
+                                        labels={x_axis: x_axis.replace("_", " ").title(),
+                                                y_axis: y_axis.replace("_", " ").title()})
+
+                        st.plotly_chart(fig, use_container_width=True, key=f"custom_line_{x_axis}_{y_axis}")
+
+                    # Aba 4: Gráfico de Pizza
+                    with viz_tabs[3]:
+                        st.subheader("Gráfico de Pizza")
+
+                        # Permitir ao usuário selecionar colunas
+                        cols = list(results.columns)
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            names = st.selectbox("Selecione as categorias:", cols, key="pie_names")
+                        with col2:
+                            available_values = numeric_cols if numeric_cols else cols
+                            values = st.selectbox("Selecione os valores:", available_values, key="pie_values")
+
+                        # Limitar número de fatias
+                        max_slices = st.slider("Número máximo de fatias:", 3, 15, 8, key="pie_slices")
+
+                        # Preparar dados
+                        if len(results) > max_slices:
+                            # Agrupar por categoria
+                            pie_data = results.groupby(names)[values].sum().reset_index()
+                            # Ordenar por valor
+                            pie_data = pie_data.sort_values(by=values, ascending=False)
+                            # Limitar número de fatias
+                            if len(pie_data) > max_slices:
+                                outros = pd.DataFrame({
+                                    names: ["Outros"],
+                                    values: [pie_data.iloc[max_slices:][values].sum()]
+                                })
+                                pie_data = pd.concat([pie_data.iloc[:max_slices], outros])
+                        else:
+                            pie_data = results
+
+                        # Criar gráfico
+                        fig = px.pie(pie_data, names=names, values=values,
+                                   title=f"Distribuição de {values} por {names}",
+                                   labels={names: names.replace("_", " ").title(),
+                                           values: values.replace("_", " ").title()})
+
+                        st.plotly_chart(fig, use_container_width=True, key=f"custom_pie_{names}_{values}")
+
+                    # Aba 5: Tabela Dinâmica
+                    with viz_tabs[4]:
+                        st.subheader("Tabela Dinâmica")
+
+                        # Permitir ao usuário selecionar colunas
+                        cols = list(results.columns)
+
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            index_col = st.selectbox("Linhas:", cols, key="pivot_index")
+                        with col2:
+                            if len(cols) > 1:
+                                columns_col = st.selectbox("Colunas (opcional):", ["Nenhum"] + cols, key="pivot_columns")
+                            else:
+                                columns_col = "Nenhum"
+                        with col3:
+                            available_values = numeric_cols if numeric_cols else cols
+                            values_col = st.selectbox("Valores:", available_values, key="pivot_values")
+
+                        # Selecionar função de agregação
+                        agg_func = st.selectbox("Função de agregação:",
+                                              ["Soma", "Média", "Contagem", "Mínimo", "Máximo"],
+                                              key="pivot_agg")
+
+                        # Mapear função de agregação
+                        agg_map = {
+                            "Soma": "sum",
+                            "Média": "mean",
+                            "Contagem": "count",
+                            "Mínimo": "min",
+                            "Máximo": "max"
+                        }
+
+                        # Criar tabela dinâmica
+                        try:
+                            if columns_col != "Nenhum":
+                                pivot = pd.pivot_table(results,
+                                                     index=index_col,
+                                                     columns=columns_col,
+                                                     values=values_col,
+                                                     aggfunc=agg_map[agg_func])
+                            else:
+                                pivot = pd.pivot_table(results,
+                                                     index=index_col,
+                                                     values=values_col,
+                                                     aggfunc=agg_map[agg_func])
+
+                            # Exibir tabela dinâmica
+                            st.dataframe(pivot, use_container_width=True)
+
+                            # Criar gráfico de calor
+                            if columns_col != "Nenhum":
+                                st.subheader("Mapa de Calor")
+                                fig = px.imshow(pivot,
+                                              labels=dict(x=columns_col, y=index_col, color=values_col),
+                                              title=f"{agg_func} de {values_col} por {index_col} e {columns_col}")
+                                st.plotly_chart(fig, use_container_width=True, key=f"heatmap_{index_col}_{columns_col}_{values_col}")
+                        except Exception as e:
+                            st.error(f"Erro ao criar tabela dinâmica: {e}")
+                            st.info("Tente selecionar colunas diferentes ou verificar se há valores nulos nos dados.")
             except Exception as e:
-                st.error(f"Erro ao criar visualização: {e}")
+                st.error(f"Erro ao criar visualizações: {e}")
+                st.info("Tente selecionar colunas diferentes ou verificar se há valores nulos nos dados.")
         else:
             st.warning("Nenhum resultado retornado pela consulta")
     else:
