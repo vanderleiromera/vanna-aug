@@ -12,30 +12,30 @@ def get_example_pairs():
         {
             "question": "Liste as vendas de 2024, mês a mês, por valor total",
             "sql": """
-SELECT 
+SELECT
     EXTRACT(MONTH FROM so.date_order) AS month,
     TO_CHAR(so.date_order, 'TMMonth') AS month_name,
     SUM(so.amount_total) AS total_sales
-FROM 
+FROM
     sale_order so
-WHERE 
+WHERE
     so.state IN ('sale', 'done')
     AND EXTRACT(YEAR FROM so.date_order) = 2024
-GROUP BY 
+GROUP BY
     EXTRACT(MONTH FROM so.date_order),
     TO_CHAR(so.date_order, 'TMMonth')
-ORDER BY 
+ORDER BY
     month;
 """
         },
         {
             "question": "Quais são os clientes ativos com e-mail cadastrado?",
             "sql": """
-SELECT 
-    name, email 
-FROM 
-    res_partner 
-WHERE 
+SELECT
+    name, email
+FROM
+    res_partner
+WHERE
     active = TRUE AND customer = TRUE AND email IS NOT NULL;
 """
         },
@@ -62,66 +62,66 @@ LIMIT 10
             "question": "Mostre o nivel de estoque de 50 produtos, mas vendidos em valor de 2024",
             "sql": """
 WITH mais_vendidos_valor AS (
-    SELECT 
+    SELECT
         pp.id AS product_id,
         pt.name AS product_name,
         SUM(sol.price_total) AS valor_total_vendido
-    FROM 
+    FROM
         sale_order_line sol
-    JOIN 
+    JOIN
         sale_order so ON sol.order_id = so.id
-    JOIN 
+    JOIN
         product_product pp ON sol.product_id = pp.id
-    JOIN 
+    JOIN
         product_template pt ON pp.product_tmpl_id = pt.id
-    WHERE 
+    WHERE
         so.state IN ('sale', 'done')
         AND EXTRACT(YEAR FROM so.date_order) = 2024
-    GROUP BY 
+    GROUP BY
         pp.id, pt.name
-    ORDER BY 
+    ORDER BY
         valor_total_vendido DESC
     LIMIT 50
 ),
 estoque AS (
-    SELECT 
+    SELECT
         sq.product_id,
         SUM(sq.quantity - sq.reserved_quantity) AS estoque_disponivel
-    FROM 
+    FROM
         stock_quant sq
-    JOIN 
+    JOIN
         stock_location sl ON sq.location_id = sl.id
-    WHERE 
+    WHERE
         sl.usage = 'internal'
-    GROUP BY 
+    GROUP BY
         sq.product_id
 )
-SELECT 
+SELECT
     mv.product_name,
     mv.valor_total_vendido,
     COALESCE(e.estoque_disponivel, 0) AS estoque_atual
-FROM 
+FROM
     mais_vendidos_valor mv
-LEFT JOIN 
+LEFT JOIN
     estoque e ON mv.product_id = e.product_id
-ORDER BY 
+ORDER BY
     mv.valor_total_vendido DESC;
 """
         },
         {
             "question": "Qual o total de vendas por produto?",
             "sql": """
-SELECT 
+SELECT
     sol.product_id, pt.name AS nome_produto, SUM(sol.price_subtotal) AS total_vendas
-FROM 
+FROM
     sale_order_line sol
-JOIN 
+JOIN
     product_product pp ON sol.product_id = pp.id
-JOIN 
+JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
-GROUP BY 
+GROUP BY
     sol.product_id, pt.name
-ORDER BY 
+ORDER BY
     total_vendas DESC;
 """
         },
@@ -132,19 +132,19 @@ SELECT
     pt.name AS produto,
     SUM(sol.product_uom_qty) AS total_vendido,
     COALESCE(SUM(sq.quantity), 0) AS estoque
-FROM 
+FROM
     sale_order_line sol
-JOIN 
+JOIN
     product_product pp ON sol.product_id = pp.id
-JOIN 
+JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
-LEFT JOIN 
+LEFT JOIN
     stock_quant sq ON pp.id = sq.product_id AND sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)
-JOIN 
+JOIN
     sale_order so ON sol.order_id = so.id
-WHERE 
+WHERE
     so.date_order >= NOW() - INTERVAL '30 days'  -- Filtrando para os últimos 30 dias
-GROUP BY 
+GROUP BY
     pt.id, pt.name, pt.default_code
 HAVING SUM
     (sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) = 0;
@@ -175,71 +175,71 @@ ORDER BY
         {
             "question": "Quantos clientes estão cadastrados no sistema?",
             "sql": """
-SELECT COUNT(*) 
-FROM 
-    res_partner 
-WHERE 
+SELECT COUNT(*)
+FROM
+    res_partner
+WHERE
     customer = TRUE;
 """
         },
         {
             "question": "Quais são os produtos ativos?",
             "sql": """
-SELECT 
-    id, name 
-FROM 
-    product_template 
-WHERE 
+SELECT
+    id, name
+FROM
+    product_template
+WHERE
     active = TRUE;
 """
         },
         {
             "question": "Quais pedidos de venda foram confirmados este mês?",
             "sql": """
-SELECT 
-    name, date_order, amount_total 
-FROM 
-    sale_order 
-WHERE 
+SELECT
+    name, date_order, amount_total
+FROM
+    sale_order
+WHERE
     state IN ('done', 'sale') AND date_order >= date_trunc('month', CURRENT_DATE);
 """
         },
         {
             "question": "Quais pedidos de venda foram cancelados?",
             "sql": """
-SELECT 
-    name, date_order, amount_total 
-FROM 
-    sale_order 
-WHERE 
+SELECT
+    name, date_order, amount_total
+FROM
+    sale_order
+WHERE
     state = 'cancel';
 """
         },
         {
             "question": "Quais foram as vendas dos últimos 7 dias?",
             "sql": """
-SELECT 
+SELECT
     name, date_order, amount_total
-FROM 
+FROM
     sale_order
-WHERE 
+WHERE
     state IN ('sale', 'done') AND date_order >= CURRENT_DATE - INTERVAL '7 days';
 """
         },
         {
             "question": "Quais são os produtos mais vendidos?",
             "sql": """
-SELECT 
+SELECT
     sol.product_id, pt.name AS nome_produto, SUM(sol.product_uom_qty) AS quantidade_vendida
-FROM 
+FROM
     sale_order_line sol
-JOIN 
+JOIN
     product_product pp ON sol.product_id = pp.id
-JOIN 
+JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
-GROUP BY 
+GROUP BY
     sol.product_id, pt.name
-ORDER BY 
+ORDER BY
     quantidade_vendida DESC
 LIMIT 10;
 """
@@ -247,89 +247,89 @@ LIMIT 10;
         {
             "question": "Quais faturas estão em aberto?",
             "sql": """
-SELECT 
-    number, date_invoice, amount_total 
-FROM 
-    account_invoice 
-WHERE 
+SELECT
+    number, date_invoice, amount_total
+FROM
+    account_invoice
+WHERE
     state = 'open';
 """
         },
         {
             "question": "Qual o valor total faturado este ano?",
             "sql": """
-SELECT 
-    SUM(amount_total) 
-FROM 
-    account_invoice 
-WHERE 
+SELECT
+    SUM(amount_total)
+FROM
+    account_invoice
+WHERE
     state = 'paid' AND date_invoice >= DATE_TRUNC('year', CURRENT_DATE);
 """
         },
         {
             "question": "Quais pedidos de compra foram aprovados este mês?",
             "sql": """
-SELECT 
-    name, date_order, amount_total 
-FROM 
-    purchase_order 
-WHERE 
+SELECT
+    name, date_order, amount_total
+FROM
+    purchase_order
+WHERE
     state IN ('purchase', 'done') AND date_order >= date_trunc('month', CURRENT_DATE);
 """
         },
         {
             "question": "Qual o total de compras por fornecedor?",
             "sql": """
-SELECT 
-    partner_id, SUM(amount_total) AS total 
-FROM 
-    purchase_order 
-WHERE 
-    state IN ('purchase', 'done') 
-GROUP BY 
-    partner_id 
-ORDER BY 
+SELECT
+    partner_id, SUM(amount_total) AS total
+FROM
+    purchase_order
+WHERE
+    state IN ('purchase', 'done')
+GROUP BY
+    partner_id
+ORDER BY
     total DESC;
 """
         },
         {
             "question": "Quais produtos foram mais vendidos em valor, em ordem decrescente?",
             "sql": """
-SELECT 
+SELECT
     pt.name AS nome_produto, SUM(sol.price_subtotal) AS total_vendas
-FROM 
+FROM
     sale_order_line sol
-JOIN 
+JOIN
     product_product pp ON sol.product_id = pp.id
-JOIN 
+JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
-GROUP BY 
+GROUP BY
     pt.name
-ORDER BY 
+ORDER BY
     total_vendas DESC;
 """
         },
         {
             "question": "Qual o total de vendas do produto de código 222 em valor e quantidade no mês 06/2024?",
             "sql": """
-SELECT 
+SELECT
     pt.name AS nome_produto,
     pp.default_code AS codigo,
     SUM(sol.product_uom_qty) AS quantidade_total,
     SUM(sol.price_subtotal) AS valor_total
-FROM 
+FROM
     sale_order_line sol
-JOIN 
+JOIN
     sale_order so ON sol.order_id = so.id
-JOIN 
+JOIN
     product_product pp ON sol.product_id = pp.id
-JOIN 
+JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
-WHERE 
+WHERE
     pp.default_code = '222'
     AND so.state = 'done'
     AND DATE_TRUNC('month', so.date_order) = DATE '2024-06-01'
-GROUP BY 
+GROUP BY
     pt.name, pp.default_code;
 """
         },
@@ -338,11 +338,11 @@ GROUP BY
             "sql": """
 SELECT
     pt.name AS nome_produto
-FROM 
+FROM
     product_template pt
-WHERE 
+WHERE
     pt.name ILIKE '%Caixa%'
-ORDER BY 
+ORDER BY
     pt.name;
 """
         },
@@ -352,25 +352,25 @@ ORDER BY
 SELECT
     pt.name AS produto,
     SUM(quant.quantity) AS quantidade_em_mao
-FROM 
+FROM
     stock_quant quant
-JOIN 
+JOIN
     stock_location sl ON quant.location_id = sl.id
-JOIN 
+JOIN
     product_product pp ON quant.product_id = pp.id
-JOIN 
+JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
-WHERE 
+WHERE
     sl.usage = 'internal'
-GROUP 
+GROUP
     BY pt.name
-HAVING 
+HAVING
     SUM(quant.quantity) < 10 AND SUM(quant.quantity) >= 0;
 """
         },
         {
             "question": "Quais produtos foram movimentados no último mês?",
-            "sql": """  
+            "sql": """
 SELECT
 pt.name AS produto,
     sm.date,
@@ -413,5 +413,55 @@ FROM sale_order so
 LEFT JOIN account_payment_term pt ON so.payment_term_id = pt.id
 ORDER BY so.date_order DESC;
 """
-        }   
+        },
+        {
+            "question": "Mostre o nivel de estoque de 20 produtos, mas vendidos em valor de 2025",
+            "sql": """
+WITH mais_vendidos_valor AS (
+    SELECT
+        pp.id AS product_id,
+        pt.name AS product_name,
+        SUM(sol.price_total) AS valor_total_vendido
+    FROM
+        sale_order_line sol
+    JOIN
+        sale_order so ON sol.order_id = so.id
+    JOIN
+        product_product pp ON sol.product_id = pp.id
+    JOIN
+        product_template pt ON pp.product_tmpl_id = pt.id
+    WHERE
+        so.state IN ('sale', 'done')
+        AND EXTRACT(YEAR FROM so.date_order) = 2025
+    GROUP BY
+        pp.id, pt.name
+    ORDER BY
+        valor_total_vendido DESC
+    LIMIT 20
+),
+estoque AS (
+    SELECT
+        sq.product_id,
+        SUM(sq.quantity - sq.reserved_quantity) AS estoque_disponivel
+    FROM
+        stock_quant sq
+    JOIN
+        stock_location sl ON sq.location_id = sl.id
+    WHERE
+        sl.usage = 'internal'
+    GROUP BY
+        sq.product_id
+)
+SELECT
+    mv.product_name,
+    mv.valor_total_vendido,
+    COALESCE(e.estoque_disponivel, 0) AS estoque_atual
+FROM
+    mais_vendidos_valor mv
+LEFT JOIN
+    estoque e ON mv.product_id = e.product_id
+ORDER BY
+    mv.valor_total_vendido DESC;
+"""
+        }
     ]

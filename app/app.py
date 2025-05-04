@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -311,25 +312,28 @@ if st.sidebar.button("Verificar Status do Treinamento"):
         except Exception as e:
             st.error(f"Erro ao verificar status do treinamento: {e}")
 
-if st.sidebar.button("Testar Embeddings"):
+if st.sidebar.button("Testar Busca de Texto"):
     with st.sidebar:
-        with st.spinner("Testando geração de embeddings..."):
+        with st.spinner("Testando busca baseada em texto..."):
             try:
-                # Test embedding generation
-                test_text = "Esta é uma frase de teste para verificar se os embeddings estão funcionando corretamente."
-                embedding = vn.generate_embedding(test_text)
+                # Test text-based search
+                test_text = "Mostre as vendas de 2024 por mês"
+                similar_questions = vn.get_similar_question_sql(test_text)
 
-                if embedding is not None:
-                    st.success(f"✅ Embeddings funcionando corretamente!")
-                    st.info(f"Dimensão do vetor de embedding: {len(embedding)}")
+                if similar_questions and len(similar_questions) > 0:
+                    st.success(f"✅ Busca de texto funcionando corretamente!")
+                    st.info(f"Encontradas {len(similar_questions)} perguntas similares")
 
-                    # Show a small sample of the embedding vector
-                    st.text("Amostra do vetor de embedding:")
-                    st.code(f"{embedding[:5]}... (primeiros 5 valores de {len(embedding)})")
+                    # Show a sample of the similar questions
+                    st.text("Amostra das perguntas similares:")
+                    for i, question in enumerate(similar_questions[:3]):
+                        st.code(f"Exemplo {i+1}: {question[:100]}...")
+                        if i >= 2:  # Show only 3 examples
+                            break
                 else:
-                    st.error("❌ Falha ao gerar embeddings. Verifique a configuração da API OpenAI.")
+                    st.warning("⚠️ Nenhuma pergunta similar encontrada. Isso pode ser normal se você ainda não treinou o modelo com exemplos similares.")
             except Exception as e:
-                st.error(f"❌ Erro ao testar embeddings: {e}")
+                st.error(f"❌ Erro ao testar busca de texto: {e}")
 
 # Add a button to reset training data
 if st.sidebar.button("🔄 Resetar Dados de Treinamento"):
@@ -506,9 +510,9 @@ with st.expander("Exemplos de Consultas"):
     - Mostre os 10 principais clientes por vendas
     - Liste as vendas de 2024, mês a mês, por valor total
     - Quais são os 10 produtos mais vendidos? em valor!
-    - Mostre os níveis de estoque para os 30 produtos mais vendidos em valor
+    - Mostre o nivel de estoque de 50 produtos, mas vendidos em valor de 2024
     - Quais produtos tem 'caixa' no nome?
-    - Quais produtos foram vendidos nos últimos 300 dias, mas não têm estoque em mãos?
+    - Quais produtos foram vendidos nos últimos 30 dias, mas não têm estoque em mãos?
     """)
 
 # User input
@@ -523,11 +527,57 @@ if user_question:
 
         # Try to generate SQL
         try:
-            # Use the ask method to generate SQL
-            sql = vn.ask(user_question)
+            # Check if we have similar questions in the training data
+            st.info("Buscando perguntas similares no treinamento...")
+            similar_questions = vn.get_similar_question_sql(user_question)
 
-            # Log that we're using the query processor
-            st.info("Aplicando processador de consultas para ajustar valores numéricos...")
+            if similar_questions and len(similar_questions) > 0:
+                st.success(f"Encontradas {len(similar_questions)} perguntas similares no treinamento!")
+
+                # Extract SQL from the first similar question
+                if "Question:" in similar_questions[0] and "SQL:" in similar_questions[0]:
+                    doc_question = similar_questions[0].split("Question:")[1].split("SQL:")[0].strip()
+                    similar_sql = similar_questions[0].split("SQL:")[1].strip()
+
+                    st.info(f"Usando SQL da pergunta similar: {doc_question}")
+
+                    # Extrair valores numéricos da pergunta do usuário
+                    _, values = vn.normalize_question(user_question)
+
+                    # Verificar se temos valores numéricos para substituir
+                    if values:
+                        st.info("Adaptando SQL para os valores da sua pergunta...")
+
+                        # Usar o método adapt_sql_to_values da classe VannaOdooExtended
+                        similar_sql = vn.adapt_sql_to_values(similar_sql, values)
+
+                    # Usar o SQL adaptado
+                    sql = similar_sql
+                else:
+                    # If we couldn't extract SQL from the similar question, generate it
+                    st.info("Gerando consulta SQL...")
+                    result = vn.ask(user_question)
+
+                    # Check if the result is a tuple (sql, question)
+                    if isinstance(result, tuple) and len(result) == 2:
+                        sql, original_question = result
+                    else:
+                        sql = result
+                        original_question = user_question
+            else:
+                # If we didn't find similar questions, generate SQL
+                st.info("Gerando consulta SQL...")
+                result = vn.ask(user_question)
+
+                # Check if the result is a tuple (sql, question)
+                if isinstance(result, tuple) and len(result) == 2:
+                    sql, original_question = result
+                else:
+                    sql = result
+                    original_question = user_question
+
+            # Log that we're processing the question
+            st.info("Processando pergunta...")
 
             # Check if we got a valid SQL response
             if not sql:
@@ -553,6 +603,7 @@ if user_question:
                     ORDER BY
                         mes
                     """
+
                 else:
                     sql = None
         except Exception as e:
@@ -604,8 +655,10 @@ if user_question:
 
         # Execute the SQL query
         with st.spinner("Executando consulta..."):
-            # Use run_sql with the original question to apply the query processor
-            results = vn.run_sql(sql, question=user_question)
+            # Execute a consulta SQL
+            st.info("Executando consulta SQL...")
+            # Use run_sql instead of run_sql_query to pass the original question
+            results = vn.run_sql(sql, question=original_question)
 
         if results is not None and not results.empty:
             # Display results

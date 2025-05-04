@@ -11,7 +11,7 @@ Uma aplicação que usa Vanna AI para consultar bancos de dados Odoo usando ling
 - Persistência de dados de treinamento usando ChromaDB
 - Avaliação de qualidade de consultas SQL geradas
 - Confirmação manual para adicionar consultas ao treinamento
-- Processador de consultas para ajustar valores numéricos
+- Processamento inteligente de valores numéricos em perguntas
 - Suporte para português
 
 ## Estrutura do Projeto
@@ -20,7 +20,12 @@ Uma aplicação que usa Vanna AI para consultar bancos de dados Odoo usando ling
 vanna-ai-odoo/
 ├── app/                    # Diretório principal da aplicação
 │   ├── modules/            # Módulos Python
-│   │   └── vanna_odoo.py   # Implementação da classe VannaOdoo
+│   │   ├── vanna_odoo.py             # Implementação base da classe VannaOdoo
+│   │   ├── vanna_odoo_numeric.py     # Extensão para processamento de valores numéricos
+│   │   ├── vanna_odoo_extended.py    # Extensão com métodos adicionais
+│   │   ├── sql_evaluator.py          # Avaliador de qualidade de SQL
+│   │   ├── example_pairs.py          # Exemplos de pares pergunta-SQL
+│   │   └── odoo_priority_tables.py   # Lista de tabelas prioritárias do Odoo
 │   ├── app.py              # Aplicação Streamlit
 │   ├── train_vanna.py      # Script para treinar o modelo
 │   ├── test_connection.py  # Script para testar a conexão com o banco de dados
@@ -185,6 +190,21 @@ Com base nessa avaliação, a aplicação recomenda se a consulta deve ser adici
 - Pontuação < 60: Não recomendado adicionar ao treinamento
 - Pontuação 60-80: Verificar cuidadosamente antes de adicionar
 - Pontuação > 80: Seguro para adicionar ao treinamento
+
+### Processamento de Valores Numéricos
+
+A aplicação inclui um sistema integrado para processar valores numéricos em perguntas:
+
+- Extrai automaticamente valores numéricos (anos, quantidades, dias, etc.)
+- Normaliza perguntas para melhorar a busca semântica
+- Gera consultas SQL com os valores numéricos corretos
+- Permite alterar facilmente valores numéricos em perguntas similares
+
+Por exemplo, você pode perguntar:
+- "Mostre o nivel de estoque de 50 produtos, mas vendidos em valor de 2024"
+- "Mostre o nivel de estoque de 20 produtos, mas vendidos em valor de 2025"
+
+E a aplicação gerará consultas SQL diferentes com os valores numéricos corretos.
 
 ### Treinamento Automático vs. Manual
 
