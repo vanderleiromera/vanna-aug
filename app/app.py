@@ -55,22 +55,22 @@ st.sidebar.image("https://vanna.ai/img/vanna.svg", width=100)
 # Mostrar os modelos atuais de forma discreta
 model_info = vn.get_model_info()
 st.sidebar.caption(f"Modelo LLM: {model_info['model']}")
-st.sidebar.caption(f"Modelo Embeddings: {model_info['embedding_model']}")
+#st.sidebar.caption(f"Modelo Embeddings: {model_info['embedding_model']}")
+
+# Separador para a próxima seção
+st.sidebar.markdown("---")
+
+# Seção de Configurações
+st.sidebar.header("⚙️ Configurações")
 
 # Opção para controlar o comportamento de treinamento automático
-st.sidebar.markdown("---")
-st.sidebar.subheader("Configurações de Treinamento")
 auto_train = st.sidebar.checkbox(
     "Adicionar automaticamente ao treinamento",
     value=False,
     help="Se marcado, as consultas bem-sucedidas serão automaticamente adicionadas ao treinamento sem confirmação."
 )
 
-# Separador para a próxima seção
-st.sidebar.markdown("---")
-
 # Add option to allow LLM to see data
-st.sidebar.subheader("Configurações de Segurança")
 allow_llm_to_see_data = os.getenv('ALLOW_LLM_TO_SEE_DATA', 'false').lower() == 'true'
 allow_llm_toggle = st.sidebar.checkbox(
     "Permitir que o LLM veja os dados",
@@ -91,55 +91,64 @@ if allow_llm_toggle:
         "Isso pode enviar dados sensíveis para o provedor do LLM (OpenAI)."
     )
 
+# Separador para a próxima seção
+st.sidebar.markdown("---")
+
 # Training section
-st.sidebar.header("Treinamento")
+st.sidebar.header("🧠 Treinamento")
 
 st.sidebar.markdown("""
 **Importante**: Antes de fazer perguntas, você precisa treinar o modelo no esquema do banco de dados Odoo.
-Siga estas etapas em ordem:
-1. Treinar nas Tabelas Prioritárias do Odoo
-2. Treinar nos Relacionamentos de Tabelas Prioritárias
-3. Treinar com Documentação
-4. Treinar com Exemplos de SQL
-5. Gerar e Executar Plano de Treinamento (Opcional - Treinamento Avançado)
-6. Treinar com Exemplos Pré-definidos
+
+**Sequência recomendada**:
+1. Tabelas Prioritárias do Odoo
+2. Relacionamentos de Tabelas
+3. Documentação
+4. Exemplos de SQL
+5. Exemplos Pré-definidos
+6. Plano de Treinamento (Opcional)
 
 **Nota**: Esta implementação usa apenas tabelas prioritárias para evitar sobrecarga em bancos de dados Odoo extensos (800+ tabelas).
 """)
 
-if st.sidebar.button("1. Treinar nas Tabelas Prioritárias do Odoo"):
+# Organizar botões de treinamento em colunas
+col1, col2 = st.sidebar.columns(2)
+
+if col1.button("📊 1. Tabelas"):
     with st.sidebar:
-        with st.spinner("Treinando nas tabelas prioritárias do Odoo..."):
+        with st.spinner("Treinando nas tabelas prioritárias..."):
             try:
                 # Import the list of priority tables to show count
                 from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
-                st.info(f"Treinando em até {len(ODOO_PRIORITY_TABLES)} tabelas prioritárias...")
+                st.info(f"Treinando em {len(ODOO_PRIORITY_TABLES)} tabelas...")
 
                 # Train on priority tables
                 result = vn.train_on_priority_tables()
 
                 if result:
-                    st.success("✅ Treinamento nas tabelas prioritárias concluído com sucesso!")
+                    st.success("✅ Tabelas treinadas!")
                 else:
-                    st.error("❌ Falha no treinamento nas tabelas prioritárias")
+                    st.error("❌ Falha no treinamento")
             except Exception as e:
-                st.error(f"❌ Erro durante o treinamento: {e}")
+                st.error(f"❌ Erro: {e}")
 
-if st.sidebar.button("2. Treinar nos Relacionamentos de Tabelas Prioritárias"):
+if col2.button("🔗 2. Relações"):
     with st.sidebar:
-        with st.spinner("Treinando nos relacionamentos entre tabelas prioritárias..."):
+        with st.spinner("Treinando nos relacionamentos..."):
             try:
                 result = vn.train_on_priority_relationships()
                 if result:
-                    st.success("✅ Treinamento nos relacionamentos prioritários concluído com sucesso!")
+                    st.success("✅ Relações treinadas!")
                 else:
-                    st.error("❌ Falha no treinamento nos relacionamentos prioritários")
+                    st.error("❌ Falha no treinamento")
             except Exception as e:
-                st.error(f"❌ Erro durante o treinamento: {e}")
+                st.error(f"❌ Erro: {e}")
 
-if st.sidebar.button("3. Treinar com Documentação"):
+col3, col4 = st.sidebar.columns(2)
+
+if col3.button("📝 3. Docs"):
     with st.sidebar:
-        with st.spinner("Treinando com documentação sobre a estrutura do Odoo..."):
+        with st.spinner("Treinando com documentação..."):
             try:
                 # Importar a documentação
                 from odoo_documentation import ODOO_DOCUMENTATION
@@ -150,25 +159,25 @@ if st.sidebar.button("3. Treinar com Documentação"):
 
                 for i, doc in enumerate(ODOO_DOCUMENTATION):
                     try:
-                        st.text(f"Treinando documentação {i+1}/{total_docs}...")
+                        st.text(f"Doc {i+1}/{total_docs}...")
                         result = vn.train(documentation=doc)
                         if result:
                             success_count += 1
                     except Exception as e:
-                        st.error(f"Erro ao treinar com documentação {i+1}: {e}")
+                        st.error(f"Erro doc {i+1}: {e}")
 
                 if success_count == total_docs:
-                    st.success(f"✅ Treinamento com documentação concluído com sucesso! ({success_count}/{total_docs})")
+                    st.success(f"✅ Docs treinados! ({success_count}/{total_docs})")
                 elif success_count > 0:
-                    st.warning(f"⚠️ Treinamento com documentação parcialmente concluído ({success_count}/{total_docs})")
+                    st.warning(f"⚠️ Treinamento parcial ({success_count}/{total_docs})")
                 else:
-                    st.error("❌ Falha no treinamento com documentação")
+                    st.error("❌ Falha no treinamento")
             except Exception as e:
-                st.error(f"❌ Erro durante o treinamento com documentação: {e}")
+                st.error(f"❌ Erro: {e}")
 
-if st.sidebar.button("4. Treinar com Exemplos de SQL"):
+if col4.button("💻 4. SQL"):
     with st.sidebar:
-        with st.spinner("Treinando com exemplos de SQL para as tabelas principais do Odoo..."):
+        with st.spinner("Treinando com exemplos SQL..."):
             try:
                 # Importar os exemplos de SQL
                 from odoo_sql_examples import ODOO_SQL_EXAMPLES
@@ -179,323 +188,172 @@ if st.sidebar.button("4. Treinar com Exemplos de SQL"):
 
                 for i, sql in enumerate(ODOO_SQL_EXAMPLES):
                     try:
-                        st.text(f"Treinando exemplo SQL {i+1}/{total_examples}...")
+                        st.text(f"SQL {i+1}/{total_examples}...")
                         result = vn.train(sql=sql)
                         if result:
                             success_count += 1
                     except Exception as e:
-                        st.error(f"Erro ao treinar com exemplo SQL {i+1}: {e}")
+                        st.error(f"Erro SQL {i+1}: {e}")
 
                 if success_count == total_examples:
-                    st.success(f"✅ Treinamento com exemplos de SQL concluído com sucesso! ({success_count}/{total_examples})")
+                    st.success(f"✅ SQL treinado! ({success_count}/{total_examples})")
                 elif success_count > 0:
-                    st.warning(f"⚠️ Treinamento com exemplos de SQL parcialmente concluído ({success_count}/{total_examples})")
+                    st.warning(f"⚠️ Treinamento parcial ({success_count}/{total_examples})")
                 else:
-                    st.error("❌ Falha no treinamento com exemplos de SQL")
+                    st.error("❌ Falha no treinamento")
             except Exception as e:
-                st.error(f"❌ Erro durante o treinamento com exemplos de SQL: {e}")
+                st.error(f"❌ Erro: {e}")
 
-if st.sidebar.button("5. Gerar e Executar Plano de Treinamento (Opcional)"):
-    with st.sidebar:
-        with st.spinner("Gerando plano de treinamento para tabelas prioritárias..."):
-            try:
-                # Import the list of priority tables to show count
-                from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
-                st.info(f"Gerando plano para {len(ODOO_PRIORITY_TABLES)} tabelas prioritárias...")
+col5, col6 = st.sidebar.columns(2)
 
-                # Generate training plan
-                plan = vn.get_training_plan()
-
-                if plan:
-                    st.success(f"✅ Plano de treinamento gerado com sucesso!")
-
-                    # Verificar o tipo do plano sem usar len()
-                    plan_type = type(plan).__name__
-                    st.info(f"Tipo do plano: {plan_type}")
-
-                    # Explicação sobre o plano de treinamento
-                    st.info("""
-                    O plano de treinamento é uma análise avançada do esquema do banco de dados
-                    que gera instruções específicas para o modelo. Este treinamento complementa
-                    os anteriores com informações adicionais sobre a estrutura do banco de dados.
-
-                    Este plano contém instruções geradas automaticamente pelo Vanna.ai com base
-                    nas tabelas prioritárias do Odoo. Estas instruções ajudam o modelo a entender
-                    melhor a estrutura do banco de dados e as relações entre as tabelas.
-                    """)
-
-                    with st.spinner("Executando plano de treinamento..."):
-                        try:
-                            result = vn.train(plan=plan)
-                            if result:
-                                st.success("✅ Plano de treinamento executado com sucesso!")
-                            else:
-                                st.error("❌ Falha ao executar plano de treinamento")
-                        except Exception as e:
-                            st.error(f"❌ Erro ao executar plano de treinamento: {e}")
-                else:
-                    st.error("❌ Falha ao gerar plano de treinamento")
-            except Exception as e:
-                st.error(f"❌ Erro ao gerar plano de treinamento: {e}")
-
-if st.sidebar.button("6. Treinar com Exemplos Pré-definidos"):
+if col5.button("📚 5. Exemplos"):
     with st.sidebar:
         with st.spinner("Treinando com exemplos pré-definidos..."):
             try:
-                # Import example pairs from train_vanna.py with correct path
-                # Use relative import from the current directory
+                # Import example pairs
                 from modules.example_pairs import get_example_pairs
                 example_pairs = get_example_pairs()
 
                 # Train with each example pair
                 for i, example in enumerate(example_pairs):
-                    st.text(f"Treinando exemplo {i+1}/{len(example_pairs)}: {example['question'][:50]}...")
+                    st.text(f"Ex. {i+1}/{len(example_pairs)}...")
                     vn.train(question=example['question'], sql=example['sql'])
 
-                st.success(f"✅ {len(example_pairs)} exemplos pré-definidos treinados com sucesso!")
+                st.success(f"✅ {len(example_pairs)} exemplos treinados!")
 
                 # Verify training was successful
-                st.info("Verificando dados de treinamento...")
                 training_data = vn.get_training_data()
                 if training_data and len(training_data) > 0:
-                    st.success(f"✅ Dados de treinamento encontrados: {len(training_data)} exemplos")
+                    st.success(f"✅ Total: {len(training_data)} exemplos")
                 else:
-                    st.warning("⚠️ Nenhum dado de treinamento encontrado após o treinamento. Pode haver um problema com o ChromaDB.")
+                    st.warning("⚠️ Nenhum dado encontrado")
             except Exception as e:
-                st.error(f"❌ Erro durante o treinamento com exemplos pré-definidos: {e}")
-                st.info("Verifique se o arquivo train_vanna.py contém a função get_example_pairs()")
+                st.error(f"❌ Erro: {e}")
 
-# Add a button to check training status
-if st.sidebar.button("Verificar Status do Treinamento"):
+if col6.button("🔄 6. Plano"):
     with st.sidebar:
-        try:
-            # Get the number of training examples
-            training_data = vn.get_training_data()
-            if training_data and len(training_data) > 0:
-                # Count by type
-                type_counts = {}
-                for item in training_data:
-                    item_type = item.get('type', 'unknown')
-                    type_counts[item_type] = type_counts.get(item_type, 0) + 1
-
-                # Show total count
-                st.success(f"✅ Dados de treinamento encontrados: {len(training_data)} exemplos")
-
-                # Show count by type
-                st.info("Contagem por tipo:")
-                for item_type, count in type_counts.items():
-                    st.text(f"- {item_type}: {count} exemplos")
-
-                # Check if we have priority tables
-                if 'ddl_priority' in type_counts:
-                    st.success(f"✅ Tabelas prioritárias: {type_counts.get('ddl_priority', 0)} tabelas")
-
-                # Show a sample of training data
-                if len(training_data) > 0:
-                    st.info("Amostra de dados de treinamento:")
-
-                    # Try to show a priority table first if available
-                    priority_items = [item for item in training_data if item.get('type') == 'ddl_priority']
-                    if priority_items:
-                        item = priority_items[0]
-                        st.code(f"Tipo: {item.get('type', 'N/A')} (Tabela Prioritária)\nConteúdo: {item.get('content', 'N/A')[:100]}...")
-
-                    # Show other examples
-                    for i, item in enumerate(training_data[:3]):  # Show first 3 examples
-                        if i == 0 and priority_items:
-                            continue  # Skip if we already showed a priority item
-                        st.code(f"Tipo: {item.get('type', 'N/A')}\nConteúdo: {item.get('content', 'N/A')[:100]}...")
-                        if i >= 2:  # Only show 3 examples
-                            break
-            else:
-                st.warning("⚠️ Nenhum dado de treinamento encontrado. Por favor, treine o modelo primeiro.")
-        except Exception as e:
-            st.error(f"Erro ao verificar status do treinamento: {e}")
-
-if st.sidebar.button("Testar Busca de Texto"):
-    with st.sidebar:
-        with st.spinner("Testando busca baseada em texto..."):
+        with st.spinner("Gerando plano de treinamento..."):
             try:
-                # Test text-based search
-                test_text = "Mostre as vendas de 2024 por mês"
-                similar_questions = vn.get_similar_question_sql(test_text)
+                # Generate training plan
+                plan = vn.get_training_plan()
 
-                if similar_questions and len(similar_questions) > 0:
-                    st.success(f"✅ Busca de texto funcionando corretamente!")
-                    st.info(f"Encontradas {len(similar_questions)} perguntas similares")
+                if plan:
+                    st.success("✅ Plano gerado!")
 
-                    # Show a sample of the similar questions
-                    st.text("Amostra das perguntas similares:")
-                    for i, question in enumerate(similar_questions[:3]):
-                        st.code(f"Exemplo {i+1}: {question[:100]}...")
-                        if i >= 2:  # Show only 3 examples
-                            break
+                    # Verificar o tipo do plano
+                    plan_type = type(plan).__name__
+                    st.info(f"Tipo: {plan_type}")
+
+                    with st.spinner("Executando plano..."):
+                        try:
+                            result = vn.train(plan=plan)
+                            if result:
+                                st.success("✅ Plano executado!")
+                            else:
+                                st.error("❌ Falha na execução")
+                        except Exception as e:
+                            st.error(f"❌ Erro: {e}")
                 else:
-                    st.warning("⚠️ Nenhuma pergunta similar encontrada. Isso pode ser normal se você ainda não treinou o modelo com exemplos similares.")
+                    st.error("❌ Falha ao gerar plano")
             except Exception as e:
-                st.error(f"❌ Erro ao testar busca de texto: {e}")
+                st.error(f"❌ Erro: {e}")
 
-# Add a button to reset training data
-if st.sidebar.button("🔄 Resetar Dados de Treinamento"):
+# Adicionar botões de gerenciamento em colunas
+st.sidebar.markdown("---")
+st.sidebar.subheader("⚙️ Gerenciamento")
+col7, col8 = st.sidebar.columns(2)
+
+# Botão para resetar dados de treinamento
+if col7.button("🗑️ Resetar Dados"):
     with st.sidebar:
         try:
             # Check if the reset_training method exists
             if hasattr(vn, 'reset_training'):
-                with st.spinner("Resetando dados de treinamento..."):
+                with st.spinner("Resetando dados..."):
                     vn.reset_training()
-                st.success("✅ Dados de treinamento resetados com sucesso!")
+                st.success("✅ Dados resetados!")
             else:
                 # Try to reset by recreating the collection
                 collection = vn.get_collection()
                 if collection:
-                    with st.spinner("Resetando dados de treinamento..."):
+                    with st.spinner("Resetando dados..."):
                         # Delete and recreate the collection
                         import chromadb
                         client = chromadb.PersistentClient(path=vn.chroma_persist_directory)
                         try:
                             client.delete_collection("vanna")
                             client.get_or_create_collection("vanna")
-                            st.success("✅ Dados de treinamento resetados com sucesso!")
+                            st.success("✅ Dados resetados!")
                         except Exception as e:
-                            st.error(f"Erro ao resetar coleção: {e}")
+                            st.error(f"Erro: {e}")
                 else:
-                    st.error("❌ Não foi possível acessar a coleção ChromaDB")
+                    st.error("❌ Falha ao acessar ChromaDB")
         except Exception as e:
-            st.error(f"❌ Erro ao resetar dados de treinamento: {e}")
+            st.error(f"❌ Erro: {e}")
 
-# Add a button to manage training data
-if st.sidebar.button("🧠 Gerenciar Dados de Treinamento"):
+# Botão para gerenciar dados de treinamento
+if col8.button("📋 Gerenciar"):
     with st.sidebar:
-        st.info("Abrindo página de gerenciamento de dados de treinamento...")
-        st.markdown("""
-        Execute o seguinte comando em um novo terminal:
-        ```
-        docker-compose exec vanna-app streamlit run app/manage_training.py --server.port=8502
-        ```
+        st.info("Gerenciamento de dados:")
+        st.code("docker-compose exec vanna-app streamlit run app/manage_training.py --server.port=8502")
+        st.markdown("[Acessar http://localhost:8502](http://localhost:8502)")
+        st.caption("Execute o comando acima em um terminal separado")
 
-        Depois, acesse: http://localhost:8502
-        """)
-        st.warning("Nota: A página de gerenciamento deve ser executada em uma porta diferente (8502).")
-
-# Add a section for manual training
+# Seção de treinamento manual
 st.sidebar.markdown("---")
-st.sidebar.subheader("Treinamento Manual")
+st.sidebar.subheader("🔍 Treinamento Manual")
 
-# Add text areas for manual training
-st.sidebar.text_area("Pergunta", key="manual_question", placeholder="Digite a pergunta em linguagem natural...", height=100)
-st.sidebar.text_area("SQL", key="manual_sql", placeholder="Digite a consulta SQL correspondente...", height=200)
+# Campos para treinamento manual em formato mais compacto
+manual_question = st.sidebar.text_area("Pergunta", key="manual_question",
+                                    placeholder="Digite a pergunta em linguagem natural...",
+                                    height=80)
+manual_sql = st.sidebar.text_area("SQL", key="manual_sql",
+                                placeholder="Digite a consulta SQL correspondente...",
+                                height=120)
 
-# Add button to train with the manual example
-if st.sidebar.button("Adicionar Exemplo de Treinamento"):
+# Botão para treinar com o exemplo manual
+if st.sidebar.button("➕ Adicionar Exemplo"):
     with st.sidebar:
-        # Get the question and SQL from the text areas
-        manual_question = st.session_state.get("manual_question", "").strip()
-        manual_sql = st.session_state.get("manual_sql", "").strip()
-
-        # Validate inputs
-        if not manual_question:
-            st.error("❌ Por favor, digite uma pergunta.")
-        elif not manual_sql:
-            st.error("❌ Por favor, digite uma consulta SQL.")
+        # Validar entradas
+        if not manual_question.strip():
+            st.error("❌ Digite uma pergunta.")
+        elif not manual_sql.strip():
+            st.error("❌ Digite uma consulta SQL.")
         else:
-            # Train with the manual example
-            with st.spinner("Treinando com exemplo manual..."):
+            # Treinar com o exemplo manual
+            with st.spinner("Treinando..."):
                 try:
                     result = vn.train(question=manual_question, sql=manual_sql)
                     if result:
-                        st.success("✅ Exemplo treinado com sucesso!")
+                        st.success("✅ Exemplo treinado!")
 
-                        # Clear the text areas
+                        # Limpar os campos
                         st.session_state.manual_question = ""
                         st.session_state.manual_sql = ""
 
-                        # Verify training was successful
-                        st.info("Verificando dados de treinamento...")
+                        # Verificar se o treinamento foi bem-sucedido
                         training_data = vn.get_training_data()
                         if training_data and len(training_data) > 0:
-                            # Count by type
-                            type_counts = {}
-                            for item in training_data:
-                                item_type = item.get('type', 'unknown')
-                                type_counts[item_type] = type_counts.get(item_type, 0) + 1
-
-                            # Show total count
-                            st.success(f"✅ Dados de treinamento encontrados: {len(training_data)} exemplos")
-
-                            # Show count by type
-                            st.info("Contagem por tipo:")
-                            for item_type, count in type_counts.items():
-                                st.text(f"- {item_type}: {count} exemplos")
+                            st.success(f"✅ Total: {len(training_data)} exemplos")
                         else:
-                            st.warning("⚠️ Nenhum dado de treinamento encontrado após o treinamento. Pode haver um problema com o ChromaDB.")
+                            st.warning("⚠️ Nenhum dado encontrado")
                     else:
-                        st.error("❌ Falha ao treinar exemplo.")
+                        st.error("❌ Falha ao treinar.")
                 except Exception as e:
-                    st.error(f"❌ Erro durante o treinamento: {e}")
-                    st.info("Tente resetar os dados de treinamento e tentar novamente.")
+                    st.error(f"❌ Erro: {e}")
 
-# Database connection status
-st.sidebar.header("Conexão com Banco de Dados")
+# Status de conexão com o banco de dados
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔌 Status da Conexão")
 try:
     conn = vn.connect_to_db()
     if conn:
         conn.close()
-        st.sidebar.success("✅ Conectado ao banco de dados Odoo")
+        st.sidebar.success("✅ Conectado ao banco Odoo")
     else:
-        st.sidebar.error("❌ Falha ao conectar ao banco de dados Odoo")
+        st.sidebar.error("❌ Falha na conexão")
 except Exception as e:
-    st.sidebar.error(f"❌ Erro de conexão com o banco de dados: {e}")
-
-# Add a button to test database connection in detail
-if st.sidebar.button("Testar Conexão com Banco de Dados"):
-    with st.sidebar:
-        try:
-            conn = vn.connect_to_db()
-            if conn:
-                # Try to execute a simple query to verify connection
-                cursor = conn.cursor()
-                cursor.execute("SELECT version();")
-                version = cursor.fetchone()[0]
-                st.success(f"✅ Conexão com banco de dados bem-sucedida!")
-                st.info(f"Versão PostgreSQL: {version}")
-
-                # Try to check if sale_order table exists
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables
-                        WHERE table_schema = 'public'
-                        AND table_name = 'sale_order'
-                    );
-                """)
-                sale_order_exists = cursor.fetchone()[0]
-
-                if sale_order_exists:
-                    st.success("✅ Tabela 'sale_order' encontrada")
-
-                    # Check if date_order column exists
-                    cursor.execute("""
-                        SELECT EXISTS (
-                            SELECT FROM information_schema.columns
-                            WHERE table_schema = 'public'
-                            AND table_name = 'sale_order'
-                            AND column_name = 'date_order'
-                        );
-                    """)
-                    date_order_exists = cursor.fetchone()[0]
-
-                    if date_order_exists:
-                        st.success("✅ Coluna 'date_order' encontrada na tabela 'sale_order'")
-                    else:
-                        st.warning("⚠️ Coluna 'date_order' não encontrada na tabela 'sale_order'")
-                else:
-                    st.warning("⚠️ Tabela 'sale_order' não encontrada. O exemplo de consulta pode não funcionar.")
-
-                cursor.close()
-                conn.close()
-            else:
-                st.error("❌ Falha ao conectar ao banco de dados Odoo")
-        except Exception as e:
-            st.error(f"❌ Erro de conexão com o banco de dados: {e}")
+    st.sidebar.error(f"❌ Erro: {str(e)[:50]}...")
 
 # Main content
 st.title("🤖 Assistente de Banco de Dados Odoo com Vanna AI")
