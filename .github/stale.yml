@@ -1,0 +1,25 @@
+# Configuração para o GitHub Stale bot
+# https://github.com/actions/stale
+
+# Número de dias de inatividade antes que uma issue seja marcada como obsoleta
+daysUntilStale: 60
+# Número de dias de inatividade antes que uma issue obsoleta seja fechada
+daysUntilClose: 7
+# Issues com estas labels nunca serão consideradas obsoletas
+exemptLabels:
+  - pinned
+  - security
+  - bug
+  - enhancement
+# Label para marcar uma issue como obsoleta
+staleLabel: stale
+# Comentário para postar quando uma issue é marcada como obsoleta
+markComment: >
+  Esta issue foi automaticamente marcada como obsoleta devido à falta de atividade recente.
+  Ela será fechada se não houver mais atividade. Obrigado por sua contribuição!
+# Comentário para postar quando uma issue é fechada
+closeComment: >
+  Esta issue foi fechada automaticamente devido à falta de atividade recente.
+  Por favor, reabra se ainda for relevante. Obrigado por sua contribuição!
+# Limitar para apenas issues ou pull requests
+only: issues

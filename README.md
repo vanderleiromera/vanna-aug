@@ -277,7 +277,167 @@ Ou execute o script de verificação:
 Manage date training:
 
    docker compose -f test-vanna-aug.yaml exec vanna streamlit run app/manage_training.py --server.port=8502
+
+
+Testes:
+
+   docker compose -f test-vanna-aug.yaml exec vanna python app/tests/run_tests.py
+
+Como Executar os Testes no Contêiner Docker
+Existem várias maneiras de executar os testes no contêiner Docker. Vou mostrar as opções mais comuns:
+
+1. Usando o Script  run_tests.sh
+O script  run_tests.sh que criamos já está configurado para executar os testes no contêiner. Você pode executá-lo diretamente do host:
+
+# Executar apenas os testes que sabemos que funcionam
+./run_tests.sh
+
+# Executar todos os testes (incluindo os que podem falhar)
+./run_tests.sh --all
+Este script usa o comando docker exec para executar os testes dentro do contêiner doodba12-vanna-1.
+
+2. Usando docker exec Diretamente
+Se preferir, você pode usar o comando docker exec diretamente para executar os testes:
+# Executar todos os testes
+docker exec doodba12-vanna-1 python /app/app/tests/run_tests.py
+
+# Executar apenas os testes que sabemos que funcionam
+docker exec doodba12-vanna-1 python /app/app/tests/run_working_tests.py
+
+# Executar um arquivo de teste específico
+docker exec doodba12-vanna-1 python /app/app/tests/test_basic.py
+
+# Executar um teste específico
+docker exec doodba12-vanna-1 python -m unittest app.tests.test_basic.TestBasicFunctionality.test_pandas_functionality
+
+3. Usando docker compose exec
+Se estiver usando Docker Compose, você pode usar o comando docker compose exec:
+   # Executar todos os testes
+docker exec doodba12-vanna-1 python /app/app/tests/run_tests.py
+
+# Executar apenas os testes que sabemos que funcionam
+docker exec doodba12-vanna-1 python /app/app/tests/run_working_tests.py
+
+# Executar um arquivo de teste específico
+docker exec doodba12-vanna-1 python /app/app/tests/test_basic.py
+
+# Executar um teste específico
+docker exec doodba12-vanna-1 python -m unittest app.tests.test_basic.TestBasicFunctionality.test_pandas_functionality
+
+4. Entrando no Contêiner e Executando os Testes
+Você também pode entrar no contêiner e executar os testes de dentro dele:
+
+# Entrar no contêiner
+docker exec -it doodba12-vanna-1 bash
+
+# Dentro do contêiner, navegar para o diretório de testes
+cd /app/app/tests
+
+# Executar todos os testes
+python run_tests.py
+
+# Executar apenas os testes que sabemos que funcionam
+python run_working_tests.py
+
+# Executar um arquivo de teste específico
+python test_basic.py
+
+# Sair do contêiner quando terminar
+exit
+
+5. Executando Testes com Cobertura de Código
+Se quiser medir a cobertura de código dos seus testes, você pode usar o pacote coverage:
+# Instalar o pacote coverage no contêiner (se ainda não estiver instalado)
+docker exec doodba12-vanna-1 pip install coverage
+
+# Executar os testes com cobertura
+docker exec doodba12-vanna-1 coverage run --source=/app/app/modules /app/app/tests/run_tests.py
+
+# Gerar relatório de cobertura
+docker exec doodba12-vanna-1 coverage report
+
+# Gerar relatório HTML de cobertura
+docker exec doodba12-vanna-1 coverage html
+
+# Copiar o relatório HTML para o host (opcional)
+docker cp doodba12-vanna-1:/app/htmlcov ./htmlcov
+
+# Gerar relatório de cobertura
+docker exec doodba12-vanna-1 coverage report
+
+# Gerar relatório HTML de cobertura
+docker exec doodba12-vanna-1 coverage html
+
+# Copiar o relatório HTML para o host (opcional)
+docker cp doodba12-vanna-1:/app/htmlcov ./htmlcov
+6. Executando Testes com Pytest (Alternativa ao unittest)
+Se preferir usar pytest em vez de unittest, você pode instalá-lo e usá-lo assim:
+
+# Instalar pytest no contêiner (se ainda não estiver instalado)
+docker exec doodba12-vanna-1 pip install pytest
+
+# Executar todos os testes com pytest
+docker exec doodba12-vanna-1 pytest /app/app/tests
+
+# Executar um arquivo de teste específico
+docker exec doodba12-vanna-1 pytest /app/app/tests/test_basic.py
+
+# Executar um teste específico
+docker exec doodba12-vanna-1 pytest /app/app/tests/test_basic.py::TestBasicFunctionality::test_pandas_functionality
+
+Loading...
+Dicas Adicionais
+Verificar o Status do Contêiner:
+Verificar Logs do Contêiner:
+Reiniciar o Contêiner (se necessário):
+Atualizar Arquivos de Teste no Contêiner:
+Verificar a Estrutura de Diretórios no Contêiner:
+
    ```
+
+## CI/CD e Testes Automatizados
+
+Este projeto utiliza GitHub Actions para integração contínua e entrega contínua (CI/CD). O pipeline de CI/CD automatiza os seguintes processos:
+
+### Pipeline de CI/CD
+
+1. **Testes Automatizados**:
+   - Executa todos os testes unitários e de integração
+   - Gera relatórios de cobertura de código
+   - Verifica a qualidade do código com linters
+
+2. **Verificação de Qualidade de Código**:
+   - Executa Flake8 para verificar erros de sintaxe e estilo
+   - Executa Black para verificar a formatação do código
+   - Gera relatórios de cobertura de código com Codecov
+
+3. **Build e Deploy de Docker**:
+   - Constrói a imagem Docker automaticamente
+   - Publica a imagem no DockerHub quando o código é mesclado na branch principal
+
+### Como Executar os Testes Localmente
+
+Você pode executar os testes localmente usando o script `run_ci_tests.py`:
+
+```bash
+python run_ci_tests.py
+```
+
+Ou usando pytest diretamente:
+
+```bash
+pytest app/tests
+```
+
+Para executar os testes com cobertura de código:
+
+```bash
+pytest app/tests --cov=app/modules --cov-report=html
+```
+
+### Status do Build
+
+O status atual do build pode ser verificado na página de Actions do repositório GitHub.
 
 ## Licença
 
