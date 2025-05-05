@@ -4,20 +4,22 @@ Script para executar testes no ambiente de CI/CD.
 Este script é usado pelo pipeline de CI/CD para executar os testes automatizados.
 """
 
+import glob
 import os
+import subprocess
 import sys
 import unittest
-import subprocess
-import glob
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 
 def find_test_files():
     """Encontrar todos os arquivos de teste."""
     test_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app", "tests")
     test_files = glob.glob(os.path.join(test_dir, "test_*.py"))
     return test_files
+
 
 def run_tests_with_unittest():
     """Executar testes usando unittest."""
@@ -33,6 +35,7 @@ def run_tests_with_unittest():
     # Retornar True se todos os testes passaram
     return result.wasSuccessful()
 
+
 def run_tests_with_pytest():
     """Executar testes usando pytest com cobertura."""
     print("Executando testes com pytest e cobertura...")
@@ -40,6 +43,7 @@ def run_tests_with_pytest():
     # Verificar se o pytest está instalado
     try:
         import pytest
+
         pytest_installed = True
     except ImportError:
         pytest_installed = False
@@ -49,12 +53,14 @@ def run_tests_with_pytest():
     if pytest_installed:
         # Construir o comando pytest
         cmd = [
-            "python", "-m", "pytest",
+            "python",
+            "-m",
+            "pytest",
             "app/tests",
             "-v",
             "--cov=app/modules",
             "--cov-report=xml",
-            "--cov-report=term"
+            "--cov-report=term",
         ]
 
         # Executar o comando
@@ -67,6 +73,7 @@ def run_tests_with_pytest():
             return False
 
     return True
+
 
 def main():
     """Função principal."""
@@ -96,6 +103,7 @@ def main():
         return 0
     else:
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -6,6 +6,7 @@ Script to check if documents are stored correctly in ChromaDB.
 import os
 import sys
 import time
+
 from dotenv import load_dotenv
 
 # Add the current directory to the Python path

@@ -1,8 +1,9 @@
 import os
 import sys
-from dotenv import load_dotenv
-import psycopg2
+
 import pandas as pd
+import psycopg2
+from dotenv import load_dotenv
 
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

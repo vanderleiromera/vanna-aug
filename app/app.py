@@ -1,12 +1,13 @@
-import os
 import io
+import os
 import re
-import streamlit as st
+import sys
+
 import pandas as pd
 import plotly.express as px
-from dotenv import load_dotenv
 import requests
-import sys
+import streamlit as st
+from dotenv import load_dotenv
 
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

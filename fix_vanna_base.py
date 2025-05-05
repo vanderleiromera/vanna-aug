@@ -3,11 +3,11 @@
 Script para corrigir o problema do 'display' não definido no arquivo base.py da biblioteca vanna.
 """
 
-import os
-import sys
-import re
 import importlib.util
+import os
+import re
 import site
+import sys
 
 
 def find_vanna_base_path():

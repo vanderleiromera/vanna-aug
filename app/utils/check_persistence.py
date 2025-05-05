@@ -6,6 +6,7 @@ Script to check if ChromaDB persistence is working correctly.
 import os
 import sys
 import time
+
 import chromadb
 from dotenv import load_dotenv
 

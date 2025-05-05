@@ -3,9 +3,9 @@
 Módulo de funções de visualização para a aplicação Vanna AI Odoo.
 """
 
-import pandas as pd
-import numpy as np
 import dateutil.parser  # Importar dateutil.parser no início do módulo
+import numpy as np
+import pandas as pd
 
 
 def is_date_column(df, col_name):

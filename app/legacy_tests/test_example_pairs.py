@@ -5,14 +5,16 @@ Script para testar a adição de exemplos ao ChromaDB.
 
 import os
 import sys
+
 from dotenv import load_dotenv
 
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from modules.example_pairs import get_example_pairs
+
 # Import the VannaOdoo class and example pairs from the modules directory
 from modules.vanna_odoo import VannaOdoo
-from modules.example_pairs import get_example_pairs
 
 # Load environment variables
 load_dotenv()

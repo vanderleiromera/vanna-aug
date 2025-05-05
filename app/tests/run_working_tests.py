@@ -3,9 +3,9 @@
 Script para executar apenas os testes que sabemos que funcionam.
 """
 
-import unittest
-import sys
 import os
+import sys
+import unittest
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

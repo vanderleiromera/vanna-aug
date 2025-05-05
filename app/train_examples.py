@@ -9,9 +9,10 @@ import sys
 # Adicionar o diretório atual ao Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from modules.example_pairs import get_example_pairs
+
 # Importar a classe VannaOdoo e os exemplos
 from modules.vanna_odoo import VannaOdoo
-from modules.example_pairs import get_example_pairs
 
 # Carregar variáveis de ambiente (sem depender do dotenv)
 try:

@@ -3,7 +3,7 @@ Módulo para avaliação da qualidade de consultas SQL
 """
 
 import re
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def evaluate_sql_quality(sql: str) -> Dict[str, Any]:
@@ -39,9 +39,12 @@ def evaluate_sql_quality(sql: str) -> Dict[str, Any]:
     results["issues"].extend(syntax_issues)
 
     # Verificar práticas recomendadas
-    best_practices_score, best_practices_issues, warnings, suggestions = (
-        check_best_practices(sql)
-    )
+    (
+        best_practices_score,
+        best_practices_issues,
+        warnings,
+        suggestions,
+    ) = check_best_practices(sql)
     results["score"] += best_practices_score
     results["issues"].extend(best_practices_issues)
     results["warnings"].extend(warnings)

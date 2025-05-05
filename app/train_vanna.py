@@ -3,17 +3,19 @@
 Script to train Vanna AI on Odoo database.
 """
 
-import os
 import argparse
+import os
 import sys
+
 from dotenv import load_dotenv
 
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from modules.example_pairs import get_example_pairs
+
 # Import the VannaOdoo class and example pairs from the modules directory
 from modules.vanna_odoo import VannaOdoo
-from modules.example_pairs import get_example_pairs
 
 # Load environment variables
 load_dotenv()
@@ -142,9 +144,7 @@ def train_vanna():
             if plan:
                 # Verificar o tipo do plano sem usar len()
                 plan_type = type(plan).__name__
-                print(
-                    f"✅ Training plan generated successfully! Plan type: {plan_type}"
-                )
+                print(f"✅ Training plan generated successfully! Plan type: {plan_type}")
 
                 # Adicionar informações adicionais sobre o plano
                 print(

@@ -5,6 +5,7 @@ Script para treinar o Vanna AI com exemplos de SQL para as tabelas principais do
 
 import os
 import sys
+
 from dotenv import load_dotenv
 
 # Adicionar o diretório atual ao Python path

@@ -3,9 +3,9 @@
 Script para verificar a estrutura de diretórios e módulos disponíveis.
 """
 
+import importlib
 import os
 import sys
-import importlib
 
 
 def check_directory(path):

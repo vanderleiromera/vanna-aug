@@ -4,9 +4,9 @@ Script to train and verify persistence in Python
 """
 
 import os
+import subprocess
 import sys
 import time
-import subprocess
 
 
 def run_command(command):

@@ -1,8 +1,9 @@
 import os
 import sys
 import unittest
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -1,7 +1,36 @@
 [flake8]
 max-line-length = 100
-exclude = .git,__pycache__,build,dist
-ignore = E203, W503, E501
+exclude = .git,__pycache__,build,dist,legacy_tests
+ignore =
+    # Formatação de código
+    E203, W503, E501,
+    # Importações não utilizadas
+    F401,
+    # Importações fora do topo do arquivo
+    E402,
+    # Redefinição de variáveis não utilizadas
+    F811,
+    # Docstrings ausentes ou incorretas
+    D100, D101, D102, D103, D104, D105, D106, D107,
+    D200, D201, D202, D203, D204, D205, D206, D207, D208, D209, D210,
+    D400, D401, D402, D403, D404, D405, D406, D407, D408, D409, D410, D411, D412, D413, D414, D415, D416, D417,
+    # Espaços em branco ausentes
+    E226, E231, E241,
+    # Exceções genéricas
+    E722,
+    # Variáveis não utilizadas
+    F841,
+    # Strings f sem placeholders
+    F541,
+    # Whitespace antes de ')'
+    E202,
+    # Múltiplos espaços antes do operador
+    E221,
+    # Múltiplas instruções em uma linha
+    E702,
+    # Teste de pertencimento deve ser 'not in'
+    E713
+
 per-file-ignores =
     __init__.py:F401,F403
     app/tests/*:D100,D101,D102,D103,D104

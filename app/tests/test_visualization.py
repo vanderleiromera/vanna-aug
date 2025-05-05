@@ -1,9 +1,10 @@
 import os
 import sys
 import unittest
-import pandas as pd
+from unittest.mock import MagicMock, patch
+
 import numpy as np
-from unittest.mock import patch, MagicMock
+import pandas as pd
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -5,6 +5,7 @@ Script para testar uma consulta específica diretamente.
 
 import os
 import sys
+
 import pandas as pd
 from sqlalchemy import create_engine
 
@@ -37,49 +38,49 @@ def run_query(year=2025, num_products=20):
         # Consulta SQL
         sql = f"""
         WITH mais_vendidos_valor AS (
-            SELECT 
+            SELECT
                 pp.id AS product_id,
                 pt.name AS product_name,
                 SUM(sol.price_total) AS valor_total_vendido
-            FROM 
+            FROM
                 sale_order_line sol
-            JOIN 
+            JOIN
                 sale_order so ON sol.order_id = so.id
-            JOIN 
+            JOIN
                 product_product pp ON sol.product_id = pp.id
-            JOIN 
+            JOIN
                 product_template pt ON pp.product_tmpl_id = pt.id
-            WHERE 
+            WHERE
                 so.state IN ('sale', 'done')
                 AND EXTRACT(YEAR FROM so.date_order) = {year}
-            GROUP BY 
+            GROUP BY
                 pp.id, pt.name
-            ORDER BY 
+            ORDER BY
                 valor_total_vendido DESC
             LIMIT {num_products}
         ),
         estoque AS (
-            SELECT 
+            SELECT
                 sq.product_id,
                 SUM(sq.quantity - sq.reserved_quantity) AS estoque_disponivel
-            FROM 
+            FROM
                 stock_quant sq
-            JOIN 
+            JOIN
                 stock_location sl ON sq.location_id = sl.id
-            WHERE 
+            WHERE
                 sl.usage = 'internal'
-            GROUP BY 
+            GROUP BY
                 sq.product_id
         )
-        SELECT 
+        SELECT
             mv.product_name,
             mv.valor_total_vendido,
             COALESCE(e.estoque_disponivel, 0) AS estoque_atual
-        FROM 
+        FROM
             mais_vendidos_valor mv
-        LEFT JOIN 
+        LEFT JOIN
             estoque e ON mv.product_id = e.product_id
-        ORDER BY 
+        ORDER BY
             mv.valor_total_vendido DESC;
         """
 

@@ -3,9 +3,9 @@
 Script para executar todos os testes da aplicação.
 """
 
-import unittest
-import sys
 import os
+import sys
+import unittest
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

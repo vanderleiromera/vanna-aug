@@ -8,11 +8,11 @@ sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêi
 
 # Importar o módulo a ser testado
 from app.modules.sql_evaluator import (
-    evaluate_sql_quality,
     check_basic_syntax,
     check_best_practices,
     check_performance,
     check_security,
+    evaluate_sql_quality,
 )
 
 

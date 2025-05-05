@@ -5,6 +5,7 @@ Script to reset the ChromaDB collection and recreate it with the correct embeddi
 
 import os
 import sys
+
 from dotenv import load_dotenv
 
 # Add the current directory to the Python path

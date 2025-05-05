@@ -1,8 +1,9 @@
 import os
 import sys
 import unittest
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
-from unittest.mock import patch, MagicMock
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,6 +12,7 @@ sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêi
 # Verificar se os módulos necessários estão disponíveis
 try:
     import vanna
+
     VANNA_LIB_AVAILABLE = True
 except ImportError:
     print("Biblioteca vanna não está disponível. Testes serão pulados.")
@@ -18,6 +20,7 @@ except ImportError:
 
 try:
     import streamlit
+
     STREAMLIT_AVAILABLE = True
 except ImportError:
     print("Biblioteca streamlit não disponível. Alguns testes serão pulados.")
@@ -25,6 +28,7 @@ except ImportError:
 
 try:
     from app.modules.vanna_odoo import VannaOdoo
+
     VANNAODOO_AVAILABLE = True
 except (ImportError, AttributeError):
     print("Módulo VannaOdoo não está disponível. Testes serão pulados.")
@@ -32,12 +36,15 @@ except (ImportError, AttributeError):
 
 try:
     from app.modules.vanna_odoo_extended import VannaOdooExtended
+
     VANNAODOOEXTENDED_AVAILABLE = True
 except (ImportError, AttributeError):
     print("Módulo VannaOdooExtended não está disponível. Testes serão pulados.")
+
     # Criar uma classe mock para VannaOdooExtended
     class VannaOdooExtended:
         """Classe mock para VannaOdooExtended."""
+
         def __init__(self, config=None):
             """Inicializar com configuração."""
             self.config = config or {}
@@ -61,13 +68,17 @@ except (ImportError, AttributeError):
     VANNAODOOEXTENDED_AVAILABLE = False
 
 # Definir se os testes devem ser executados
-VANNA_AVAILABLE = VANNA_LIB_AVAILABLE and VANNAODOO_AVAILABLE and VANNAODOOEXTENDED_AVAILABLE
+VANNA_AVAILABLE = (
+    VANNA_LIB_AVAILABLE and VANNAODOO_AVAILABLE and VANNAODOOEXTENDED_AVAILABLE
+)
 
 # Criar um mock para streamlit se não estiver disponível
-if not 'STREAMLIT_AVAILABLE' in locals() or not STREAMLIT_AVAILABLE:
+if not "STREAMLIT_AVAILABLE" in locals() or not STREAMLIT_AVAILABLE:
     import sys
+
     class StreamlitMock:
         """Mock para o módulo streamlit."""
+
         @staticmethod
         def title(*args, **kwargs):
             """Mock para streamlit.title."""
@@ -99,7 +110,7 @@ if not 'STREAMLIT_AVAILABLE' in locals() or not STREAMLIT_AVAILABLE:
             pass
 
     # Adicionar o mock ao sys.modules
-    sys.modules['streamlit'] = StreamlitMock()
+    sys.modules["streamlit"] = StreamlitMock()
 
 
 # Criar mocks para o Streamlit
@@ -386,8 +397,10 @@ class MockExpander:
 class TestStreamlitInterface(unittest.TestCase):
     """Testes para a interface Streamlit"""
 
-    @unittest.skipIf(not VANNA_AVAILABLE or not STREAMLIT_AVAILABLE,
-                 "Vanna ou Streamlit não estão disponíveis")
+    @unittest.skipIf(
+        not VANNA_AVAILABLE or not STREAMLIT_AVAILABLE,
+        "Vanna ou Streamlit não estão disponíveis",
+    )
     def test_main_interface(self):
         """Testar a interface principal do Streamlit"""
         # Usar mocks diretamente em vez de decoradores de patch
@@ -447,15 +460,20 @@ class TestStreamlitInterface(unittest.TestCase):
             "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '30 days'"
         )
 
-    @unittest.skipIf(not VANNA_AVAILABLE or not STREAMLIT_AVAILABLE,
-                 "Vanna ou Streamlit não estão disponíveis")
+    @unittest.skipIf(
+        not VANNA_AVAILABLE or not STREAMLIT_AVAILABLE,
+        "Vanna ou Streamlit não estão disponíveis",
+    )
     def test_training_interface(self):
         """Testar a interface de treinamento"""
         # Configurar o mock do VannaOdooExtended
         mock_vanna_instance = MagicMock()
         mock_vanna_instance.train.return_value = True
         mock_vanna_instance.get_training_data.return_value = [
-            {"question": "Quais são as vendas do mês passado?", "sql": "SELECT * FROM sales WHERE date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND date < DATE_TRUNC('month', CURRENT_DATE)"}
+            {
+                "question": "Quais são as vendas do mês passado?",
+                "sql": "SELECT * FROM sales WHERE date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND date < DATE_TRUNC('month', CURRENT_DATE)",
+            }
         ]
         mock_vanna = MagicMock(return_value=mock_vanna_instance)
 

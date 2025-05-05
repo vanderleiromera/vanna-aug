@@ -4,6 +4,7 @@ Script para verificar o modelo de embeddings atual
 """
 
 import os
+
 from dotenv import load_dotenv
 from modules.vanna_odoo import VannaOdoo
 

@@ -3,9 +3,10 @@
 Script to debug ChromaDB persistence issues.
 """
 
+import json
 import os
 import sys
-import json
+
 import chromadb
 from dotenv import load_dotenv
 

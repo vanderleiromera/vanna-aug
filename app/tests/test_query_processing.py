@@ -1,8 +1,9 @@
 import os
 import sys
 import unittest
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
-from unittest.mock import patch, MagicMock
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,6 +12,7 @@ sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêi
 # Verificar se os módulos necessários estão disponíveis
 try:
     import vanna
+
     VANNA_LIB_AVAILABLE = True
 except ImportError:
     print("Biblioteca vanna não está disponível. Testes serão pulados.")
@@ -18,30 +20,41 @@ except ImportError:
 
 try:
     from app.modules.vanna_odoo import VannaOdoo
+
     VANNAODOO_AVAILABLE = True
 except (ImportError, AttributeError):
     print("Módulo VannaOdoo não está disponível. Testes serão pulados.")
+
     # Criar uma classe mock para VannaOdoo
     class VannaOdoo:
         """Classe mock para VannaOdoo."""
+
         def __init__(self, config=None):
             """Inicializar com configuração."""
             self.config = config or {}
-            self.chroma_persist_directory = self.config.get("chroma_persist_directory", "")
+            self.chroma_persist_directory = self.config.get(
+                "chroma_persist_directory", ""
+            )
+
     VANNAODOO_AVAILABLE = False
 
 try:
     from app.modules.vanna_odoo_extended import VannaOdooExtended
+
     VANNAODOOEXTENDED_AVAILABLE = True
 except (ImportError, AttributeError):
     print("Módulo VannaOdooExtended não está disponível. Testes serão pulados.")
+
     # Criar uma classe mock para VannaOdooExtended
     class VannaOdooExtended:
         """Classe mock para VannaOdooExtended."""
+
         def __init__(self, config=None):
             """Inicializar com configuração."""
             self.config = config or {}
-            self.chroma_persist_directory = self.config.get("chroma_persist_directory", "")
+            self.chroma_persist_directory = self.config.get(
+                "chroma_persist_directory", ""
+            )
 
         def normalize_question(self, question):
             """Normalizar pergunta."""
@@ -62,10 +75,13 @@ except (ImportError, AttributeError):
         def ask(self, question):
             """Perguntar."""
             return ""
+
     VANNAODOOEXTENDED_AVAILABLE = False
 
 # Definir se os testes devem ser executados
-VANNA_AVAILABLE = VANNA_LIB_AVAILABLE and VANNAODOO_AVAILABLE and VANNAODOOEXTENDED_AVAILABLE
+VANNA_AVAILABLE = (
+    VANNA_LIB_AVAILABLE and VANNAODOO_AVAILABLE and VANNAODOOEXTENDED_AVAILABLE
+)
 
 
 class TestQueryProcessing(unittest.TestCase):
@@ -99,10 +115,15 @@ class TestQueryProcessing(unittest.TestCase):
         question1 = "Mostre as vendas dos últimos 30 dias"
 
         # Configurar o mock especificamente para este teste
-        self.vanna.normalize_question = MagicMock(side_effect=[
-            ("Mostre as vendas dos últimos X dias", {"X": 30}),
-            ("Mostre os X principais clientes com vendas acima de Y reais", {"X": 10, "Y": 1000})
-        ])
+        self.vanna.normalize_question = MagicMock(
+            side_effect=[
+                ("Mostre as vendas dos últimos X dias", {"X": 30}),
+                (
+                    "Mostre os X principais clientes com vendas acima de Y reais",
+                    {"X": 10, "Y": 1000},
+                ),
+            ]
+        )
 
         normalized, values = self.vanna.normalize_question(question1)
 
@@ -139,11 +160,13 @@ class TestQueryProcessing(unittest.TestCase):
     def test_adapt_sql_to_values(self):
         """Testar adaptação de SQL com valores"""
         # Configurar o mock especificamente para este teste
-        self.vanna.adapt_sql_to_values = MagicMock(side_effect=[
-            "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '60 days' LIMIT 20",
-            "SELECT * FROM customers WHERE status = 'active'",
-            "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '60 days'"
-        ])
+        self.vanna.adapt_sql_to_values = MagicMock(
+            side_effect=[
+                "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '60 days' LIMIT 20",
+                "SELECT * FROM customers WHERE status = 'active'",
+                "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '60 days'",
+            ]
+        )
 
         # SQL original com placeholders
         sql1 = "SELECT * FROM sales WHERE date >= NOW() - INTERVAL 'X days' LIMIT Y"

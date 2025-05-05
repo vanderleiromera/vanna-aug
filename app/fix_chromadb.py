@@ -4,8 +4,9 @@ Script to fix ChromaDB persistence issues.
 """
 
 import os
-import sys
 import shutil
+import sys
+
 import chromadb
 from chromadb.config import Settings
 from dotenv import load_dotenv

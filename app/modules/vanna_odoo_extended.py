@@ -4,6 +4,7 @@ Extensão da classe VannaOdoo com métodos adicionais para processamento de cons
 
 import os
 import re
+
 import pandas as pd
 from modules.vanna_odoo_numeric import VannaOdooNumeric
 

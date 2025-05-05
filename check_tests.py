@@ -4,12 +4,13 @@ Script para verificar a estrutura dos testes.
 Este script verifica se os arquivos de teste estão estruturados corretamente.
 """
 
-import os
-import sys
 import glob
 import importlib.util
 import inspect
+import os
+import sys
 import unittest
+
 
 def find_test_files():
     """Encontrar todos os arquivos de teste."""
@@ -17,29 +18,35 @@ def find_test_files():
     test_files = glob.glob(os.path.join(test_dir, "test_*.py"))
     return test_files
 
+
 def check_test_file(file_path):
     """Verificar se um arquivo de teste está estruturado corretamente."""
     print(f"Verificando {os.path.basename(file_path)}...")
 
     # Verificar o conteúdo do arquivo sem importá-lo
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         content = f.read()
 
     # Verificar se o arquivo contém classes de teste usando expressões regulares
     import re
-    class_pattern = r'class\s+(\w+)\s*\(\s*(?:unittest\.)?TestCase\s*\)'
+
+    class_pattern = r"class\s+(\w+)\s*\(\s*(?:unittest\.)?TestCase\s*\)"
     test_classes = re.findall(class_pattern, content)
 
     if not test_classes:
-        print(f"  AVISO: Nenhuma classe de teste encontrada em {os.path.basename(file_path)}")
+        print(
+            f"  AVISO: Nenhuma classe de teste encontrada em {os.path.basename(file_path)}"
+        )
         return False
 
     # Verificar se as classes contêm métodos de teste
-    method_pattern = r'def\s+(test_\w+)\s*\('
+    method_pattern = r"def\s+(test_\w+)\s*\("
     test_methods = re.findall(method_pattern, content)
 
     if not test_methods:
-        print(f"  AVISO: Nenhum método de teste encontrado em {os.path.basename(file_path)}")
+        print(
+            f"  AVISO: Nenhum método de teste encontrado em {os.path.basename(file_path)}"
+        )
         return False
 
     # Tentar carregar o módulo para verificação mais detalhada
@@ -56,34 +63,51 @@ def check_test_file(file_path):
         # Verificar se o módulo contém classes de teste
         loaded_test_classes = []
         for name, obj in inspect.getmembers(module):
-            if inspect.isclass(obj) and issubclass(obj, unittest.TestCase) and obj != unittest.TestCase:
+            if (
+                inspect.isclass(obj)
+                and issubclass(obj, unittest.TestCase)
+                and obj != unittest.TestCase
+            ):
                 loaded_test_classes.append(obj)
 
         # Verificar se as classes de teste contêm métodos de teste
         for test_class in loaded_test_classes:
             test_methods = []
-            for name, method in inspect.getmembers(test_class, predicate=inspect.isfunction):
+            for name, method in inspect.getmembers(
+                test_class, predicate=inspect.isfunction
+            ):
                 if name.startswith("test_"):
                     test_methods.append(name)
 
-            print(f"  Classe {test_class.__name__}: {len(test_methods)} métodos de teste")
+            print(
+                f"  Classe {test_class.__name__}: {len(test_methods)} métodos de teste"
+            )
 
         return True
 
     except ImportError as e:
         # Se falhar por causa de uma dependência ausente, ainda consideramos o arquivo válido
         # se encontramos classes e métodos de teste usando expressões regulares
-        print(f"  AVISO: Dependência ausente ao carregar {os.path.basename(file_path)}: {str(e)}")
-        print(f"  Encontradas {len(test_classes)} classes de teste e {len(test_methods)} métodos de teste usando análise estática")
+        print(
+            f"  AVISO: Dependência ausente ao carregar {os.path.basename(file_path)}: {str(e)}"
+        )
+        print(
+            f"  Encontradas {len(test_classes)} classes de teste e {len(test_methods)} métodos de teste usando análise estática"
+        )
         return True
 
     except Exception as e:
-        print(f"  ERRO: Falha ao carregar o módulo {os.path.basename(file_path)}: {str(e)}")
+        print(
+            f"  ERRO: Falha ao carregar o módulo {os.path.basename(file_path)}: {str(e)}"
+        )
         # Se encontramos classes e métodos de teste usando expressões regulares, consideramos o arquivo parcialmente válido
         if test_classes and test_methods:
-            print(f"  Encontradas {len(test_classes)} classes de teste e {len(test_methods)} métodos de teste usando análise estática")
+            print(
+                f"  Encontradas {len(test_classes)} classes de teste e {len(test_methods)} métodos de teste usando análise estática"
+            )
             return True
         return False
+
 
 def main():
     """Função principal."""
@@ -103,9 +127,12 @@ def main():
             success_count += 1
 
     # Resumo
-    print(f"\nResumo: {success_count}/{len(test_files)} arquivos de teste estão estruturados corretamente.")
+    print(
+        f"\nResumo: {success_count}/{len(test_files)} arquivos de teste estão estruturados corretamente."
+    )
 
     return 0 if success_count == len(test_files) else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

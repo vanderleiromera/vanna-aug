@@ -3,7 +3,8 @@ Módulo que estende a classe VannaOdoo para lidar com valores numéricos em perg
 """
 
 import re
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 from modules.vanna_odoo import VannaOdoo
 
 

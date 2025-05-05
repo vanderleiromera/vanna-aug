@@ -5,6 +5,7 @@ Script to test the query functionality with training data.
 
 import os
 import sys
+
 from dotenv import load_dotenv
 
 # Add the current directory to the Python path

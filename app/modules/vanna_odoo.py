@@ -1,10 +1,11 @@
 import os
-import psycopg2
+
 import pandas as pd
-from sqlalchemy import create_engine
+import psycopg2
 from dotenv import load_dotenv
-from vanna.openai.openai_chat import OpenAI_Chat
+from sqlalchemy import create_engine
 from vanna.chromadb.chromadb_vector import ChromaDB_VectorStore
+from vanna.openai.openai_chat import OpenAI_Chat
 
 # Load environment variables
 load_dotenv()

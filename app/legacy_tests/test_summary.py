@@ -5,6 +5,7 @@ Script to test the data summary functionality.
 
 import os
 import sys
+
 import pandas as pd
 from dotenv import load_dotenv
 
