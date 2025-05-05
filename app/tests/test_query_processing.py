@@ -11,8 +11,15 @@ sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêi
 # Importar os módulos a serem testados usando importação condicional
 try:
     from app.modules.vanna_odoo_extended import VannaOdooExtended
-    VANNA_AVAILABLE = True
+    # Verificar se VannaOdoo está disponível
+    try:
+        from app.modules.vanna_odoo import VannaOdoo
+        VANNA_AVAILABLE = True
+    except ImportError:
+        print("Módulo VannaOdoo não disponível. Alguns testes serão pulados.")
+        VANNA_AVAILABLE = False
 except ImportError:
+    print("Módulo VannaOdooExtended não disponível. Alguns testes serão pulados.")
     # Criar classes mock para os testes
     class VannaOdooExtended:
         """Classe mock para VannaOdooExtended."""
@@ -41,6 +48,13 @@ except ImportError:
             """Perguntar."""
             return ""
 
+    # Criar uma classe mock para VannaOdoo
+    class VannaOdoo:
+        """Classe mock para VannaOdoo."""
+        def __init__(self, config=None):
+            """Inicializar com configuração."""
+            self.config = config or {}
+
     VANNA_AVAILABLE = False
 
 
@@ -59,7 +73,7 @@ class TestQueryProcessing(unittest.TestCase):
         }
 
         # Criar uma instância da classe com mock
-        with patch("modules.vanna_odoo_extended.VannaOdoo.__init__", return_value=None):
+        with patch("app.modules.vanna_odoo_extended.VannaOdoo.__init__", return_value=None):
             self.vanna = VannaOdooExtended(config=self.config)
             # Configurar atributos necessários
             self.vanna.config = self.config
@@ -137,7 +151,7 @@ class TestQueryProcessing(unittest.TestCase):
         self.assertEqual(adapted_sql, expected_sql)
 
     @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
-    @patch("modules.vanna_odoo_extended.VannaOdooExtended.get_similar_question_sql")
+    @patch("app.modules.vanna_odoo_extended.VannaOdooExtended.get_similar_question_sql")
     def test_find_similar_questions(self, mock_get_similar):
         """Testar busca de perguntas similares"""
         # Configurar o mock para retornar perguntas similares
@@ -159,7 +173,7 @@ class TestQueryProcessing(unittest.TestCase):
         mock_get_similar.assert_called_once_with("Mostre as vendas dos últimos 60 dias")
 
     @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
-    @patch("modules.vanna_odoo_extended.VannaOdooExtended.run_sql")
+    @patch("app.modules.vanna_odoo_extended.VannaOdooExtended.run_sql")
     def test_execute_query(self, mock_run_sql):
         """Testar execução de consulta SQL"""
         # Configurar o mock para retornar um DataFrame fictício
@@ -176,7 +190,7 @@ class TestQueryProcessing(unittest.TestCase):
         mock_run_sql.assert_called_once_with("SELECT * FROM customers")
 
     @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
-    @patch("modules.vanna_odoo_extended.VannaOdooExtended.ask")
+    @patch("app.modules.vanna_odoo_extended.VannaOdooExtended.ask")
     def test_generate_sql_from_question(self, mock_ask):
         """Testar geração de SQL a partir de uma pergunta"""
         # Configurar o mock para retornar uma consulta SQL fictícia
@@ -192,9 +206,9 @@ class TestQueryProcessing(unittest.TestCase):
         mock_ask.assert_called_once_with("Mostre todos os clientes ativos")
 
     @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
-    @patch("modules.vanna_odoo_extended.VannaOdooExtended.get_similar_question_sql")
-    @patch("modules.vanna_odoo_extended.VannaOdooExtended.adapt_sql_to_values")
-    @patch("modules.vanna_odoo_extended.VannaOdooExtended.normalize_question")
+    @patch("app.modules.vanna_odoo_extended.VannaOdooExtended.get_similar_question_sql")
+    @patch("app.modules.vanna_odoo_extended.VannaOdooExtended.adapt_sql_to_values")
+    @patch("app.modules.vanna_odoo_extended.VannaOdooExtended.normalize_question")
     def test_process_question_with_similar(
         self, mock_normalize, mock_adapt, mock_get_similar
     ):

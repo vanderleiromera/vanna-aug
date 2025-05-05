@@ -69,6 +69,7 @@ jobs:
           echo "Executando os testes..."
           python run_ci_tests.py
         env:
+          PYTHONPATH: ${{ github.workspace }}
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: odoo

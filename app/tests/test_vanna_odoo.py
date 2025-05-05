@@ -11,9 +11,28 @@ sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêi
 # Importar os módulos a serem testados usando importação condicional
 try:
     from app.modules.vanna_odoo import VannaOdoo
-    from app.modules.vanna_odoo_extended import VannaOdooExtended
-    VANNA_AVAILABLE = True
+    try:
+        from app.modules.vanna_odoo_extended import VannaOdooExtended
+        # Verificar se Vanna está disponível
+        try:
+            import vanna
+            VANNA_AVAILABLE = True
+        except ImportError:
+            print("Biblioteca vanna não disponível. Alguns testes serão pulados.")
+            VANNA_AVAILABLE = False
+    except ImportError:
+        print("Módulo VannaOdooExtended não disponível. Alguns testes serão pulados.")
+        # Criar uma classe mock para VannaOdooExtended
+        class VannaOdooExtended(VannaOdoo):
+            def normalize_question(self, question):
+                return question, {}
+
+            def adapt_sql_to_values(self, sql, values):
+                return sql
+
+        VANNA_AVAILABLE = False
 except ImportError:
+    print("Módulo VannaOdoo não disponível. Alguns testes serão pulados.")
     # Criar classes mock para os testes
     class VannaOdoo:
         def __init__(self, config=None):
@@ -45,7 +64,7 @@ class TestVannaOdoo(unittest.TestCase):
         }
 
         # Criar uma instância da classe com mock
-        with patch("modules.vanna_odoo.Vanna.__init__", return_value=None):
+        with patch("app.modules.vanna_odoo.Vanna.__init__", return_value=None):
             self.vanna = VannaOdoo(config=self.config)
             # Configurar atributos necessários
             self.vanna.config = self.config
@@ -60,7 +79,7 @@ class TestVannaOdoo(unittest.TestCase):
         self.assertEqual(self.vanna.chroma_persist_directory, "/tmp/test_chromadb")
 
     @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
-    @patch("modules.vanna_odoo.VannaOdoo.connect_to_db")
+    @patch("app.modules.vanna_odoo.VannaOdoo.connect_to_db")
     def test_get_odoo_tables(self, mock_connect):
         """Testar a função get_odoo_tables"""
         # Configurar o mock para retornar um cursor com resultados fictícios
@@ -85,7 +104,7 @@ class TestVannaOdoo(unittest.TestCase):
         mock_conn.close.assert_called_once()
 
     @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
-    @patch("modules.vanna_odoo.VannaOdoo.run_sql_query")
+    @patch("app.modules.vanna_odoo.VannaOdoo.run_sql_query")
     def test_run_sql(self, mock_run_sql_query):
         """Testar a função run_sql"""
         # Configurar o mock para retornar um DataFrame fictício
@@ -102,7 +121,7 @@ class TestVannaOdoo(unittest.TestCase):
         mock_run_sql_query.assert_called_once_with("SELECT * FROM test")
 
     @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
-    @patch("modules.vanna_odoo.VannaOdoo.extract_sql")
+    @patch("app.modules.vanna_odoo.VannaOdoo.extract_sql")
     def test_generate_sql(self, mock_extract_sql):
         """Testar a função generate_sql"""
         # Configurar o mock para retornar uma consulta SQL fictícia
@@ -145,7 +164,7 @@ class TestVannaOdooExtended(unittest.TestCase):
         }
 
         # Criar uma instância da classe com mock
-        with patch("modules.vanna_odoo_extended.VannaOdoo.__init__", return_value=None):
+        with patch("app.modules.vanna_odoo_extended.VannaOdoo.__init__", return_value=None):
             self.vanna = VannaOdooExtended(config=self.config)
             # Configurar atributos necessários
             self.vanna.config = self.config

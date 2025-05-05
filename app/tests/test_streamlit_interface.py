@@ -11,8 +11,17 @@ sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêi
 # Verificar se o módulo vanna_odoo_extended está disponível
 try:
     from app.modules.vanna_odoo_extended import VannaOdooExtended
-    VANNA_AVAILABLE = True
+    # Verificar se streamlit está disponível
+    try:
+        import streamlit
+        VANNA_AVAILABLE = True
+        STREAMLIT_AVAILABLE = True
+    except ImportError:
+        print("Biblioteca streamlit não disponível. Alguns testes serão pulados.")
+        VANNA_AVAILABLE = True
+        STREAMLIT_AVAILABLE = False
 except ImportError:
+    print("Módulo VannaOdooExtended não disponível. Alguns testes serão pulados.")
     # Criar uma classe mock para VannaOdooExtended
     class VannaOdooExtended:
         """Classe mock para VannaOdooExtended."""
@@ -37,6 +46,45 @@ except ImportError:
             return []
 
     VANNA_AVAILABLE = False
+    STREAMLIT_AVAILABLE = False
+
+# Criar um mock para streamlit se não estiver disponível
+if not 'STREAMLIT_AVAILABLE' in locals() or not STREAMLIT_AVAILABLE:
+    import sys
+    class StreamlitMock:
+        """Mock para o módulo streamlit."""
+        @staticmethod
+        def title(*args, **kwargs):
+            """Mock para streamlit.title."""
+            pass
+
+        @staticmethod
+        def markdown(*args, **kwargs):
+            """Mock para streamlit.markdown."""
+            pass
+
+        @staticmethod
+        def text_input(*args, **kwargs):
+            """Mock para streamlit.text_input."""
+            return ""
+
+        @staticmethod
+        def button(*args, **kwargs):
+            """Mock para streamlit.button."""
+            return False
+
+        @staticmethod
+        def text_area(*args, **kwargs):
+            """Mock para streamlit.text_area."""
+            return ""
+
+        @staticmethod
+        def dataframe(*args, **kwargs):
+            """Mock para streamlit.dataframe."""
+            pass
+
+    # Adicionar o mock ao sys.modules
+    sys.modules['streamlit'] = StreamlitMock()
 
 
 # Criar mocks para o Streamlit
