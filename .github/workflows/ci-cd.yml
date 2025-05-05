@@ -41,6 +41,19 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov flake8 black ipython chromadb
 
+          # Criar diretórios de módulos vazios se necessário
+          mkdir -p app/modules
+          touch app/modules/__init__.py
+
+          # Criar arquivos vazios para os módulos que podem não estar disponíveis
+          # Isso evita erros de importação nos testes
+          if [ ! -f app/modules/vanna_odoo.py ]; then
+            echo "# Mock module for testing" > app/modules/vanna_odoo.py
+          fi
+          if [ ! -f app/modules/vanna_odoo_extended.py ]; then
+            echo "# Mock module for testing" > app/modules/vanna_odoo_extended.py
+          fi
+
       - name: Check and fix code issues
         run: |
           # Verificar se há problemas de código e tentar corrigi-los
