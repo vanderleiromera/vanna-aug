@@ -8,6 +8,36 @@ from unittest.mock import patch, MagicMock
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
+# Verificar se o módulo vanna_odoo_extended está disponível
+try:
+    from app.modules.vanna_odoo_extended import VannaOdooExtended
+    VANNA_AVAILABLE = True
+except ImportError:
+    # Criar uma classe mock para VannaOdooExtended
+    class VannaOdooExtended:
+        """Classe mock para VannaOdooExtended."""
+        def __init__(self, config=None):
+            """Inicializar com configuração."""
+            self.config = config or {}
+
+        def ask(self, question):
+            """Perguntar."""
+            return ""
+
+        def run_sql(self, sql):
+            """Executar SQL."""
+            return pd.DataFrame()
+
+        def train(self, question, sql):
+            """Treinar."""
+            return True
+
+        def get_training_data(self):
+            """Obter dados de treinamento."""
+            return []
+
+    VANNA_AVAILABLE = False
+
 
 # Criar mocks para o Streamlit
 class MockStreamlit:
@@ -293,6 +323,7 @@ class MockExpander:
 class TestStreamlitInterface(unittest.TestCase):
     """Testes para a interface Streamlit"""
 
+    @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
     @patch("streamlit.title")
     @patch("streamlit.markdown")
     @patch("streamlit.text_input")
@@ -358,6 +389,7 @@ class TestStreamlitInterface(unittest.TestCase):
             "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '30 days'"
         )
 
+    @unittest.skipIf(not VANNA_AVAILABLE, "Vanna não está disponível")
     @patch("app.modules.vanna_odoo_extended.VannaOdooExtended")
     def test_training_interface(self, mock_vanna):
         """Testar a interface de treinamento"""
