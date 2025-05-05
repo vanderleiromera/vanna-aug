@@ -79,7 +79,7 @@ jobs:
           CHROMA_PERSIST_DIRECTORY: /tmp/chromadb
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5.0.0
+        uses: codecov/codecov-action@v5.4.2
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
