@@ -7,6 +7,7 @@ Uma aplicação que usa Vanna AI para consultar bancos de dados Odoo usando ling
 - Interface web Streamlit para interação com o banco de dados Odoo
 - Geração de consultas SQL a partir de perguntas em linguagem natural
 - Visualização automática de resultados
+- Detecção de anomalias nos dados com múltiplos algoritmos
 - Treinamento do modelo em esquemas de banco de dados Odoo
 - Persistência de dados de treinamento usando ChromaDB
 - Avaliação de qualidade de consultas SQL geradas
@@ -25,6 +26,8 @@ vanna-ai-odoo/
 │   │   ├── vanna_odoo_extended.py    # Extensão com métodos adicionais
 │   │   ├── sql_evaluator.py          # Avaliador de qualidade de SQL
 │   │   ├── example_pairs.py          # Exemplos de pares pergunta-SQL
+│   │   ├── anomaly_detection.py      # Detecção de anomalias nos dados
+│   │   ├── visualization.py          # Funções de visualização de dados
 │   │   └── odoo_priority_tables.py   # Lista de tabelas prioritárias do Odoo
 │   ├── app.py              # Aplicação Streamlit
 │   ├── train_vanna.py      # Script para treinar o modelo
@@ -206,6 +209,41 @@ Por exemplo, você pode perguntar:
 
 E a aplicação gerará consultas SQL diferentes com os valores numéricos corretos.
 
+### Detecção de Anomalias
+
+A aplicação inclui um sistema avançado de detecção de anomalias que permite identificar valores atípicos nos dados:
+
+#### Algoritmos Disponíveis
+
+- **Estatístico (Z-score)**: Detecta valores que estão a mais de N desvios padrão da média
+- **Intervalo Interquartil (IQR)**: Detecta valores fora do intervalo definido pelos quartis
+- **Isolation Forest**: Algoritmo de aprendizado de máquina que isola observações anômalas
+- **K-Nearest Neighbors (KNN)**: Detecta anomalias com base na distância aos vizinhos mais próximos
+
+#### Funcionalidades
+
+- Interface interativa para selecionar colunas e algoritmos
+- Visualizações automáticas destacando anomalias
+- Resumo estatístico das anomalias detectadas
+- Exportação de dados com anomalias destacadas
+- Personalização de parâmetros para cada algoritmo
+
+#### Como Usar
+
+1. Execute uma consulta SQL que retorne dados numéricos
+2. Acesse a aba "Detecção de Anomalias" nas visualizações
+3. Selecione o algoritmo desejado e as colunas para análise
+4. Ajuste os parâmetros conforme necessário
+5. Clique em "Detectar Anomalias"
+
+A aplicação irá destacar automaticamente os valores atípicos e fornecer um resumo estatístico das anomalias encontradas.
+
+Para informações detalhadas sobre a funcionalidade de detecção de anomalias, consulte:
+
+- [Documentação completa de detecção de anomalias](docs/anomaly_detection.md) - Visão geral, algoritmos, casos de uso e interpretação
+- [Exemplos práticos de detecção de anomalias](docs/anomaly_detection_examples.md) - Cenários de negócio com consultas SQL e interpretações
+- [Guia de referência dos algoritmos](docs/anomaly_detection_algorithms.md) - Comparação detalhada dos algoritmos e guia de seleção
+
 ### Treinamento Automático vs. Manual
 
 A aplicação oferece duas opções para adicionar consultas ao treinamento:
@@ -323,6 +361,7 @@ docker exec doodba12-vanna-1 python /app/app/tests/test_basic.py
 
 # Executar um teste específico
 docker exec doodba12-vanna-1 python -m unittest app.tests.test_basic.TestBasicFunctionality.test_pandas_functionality
+docker exec doodba12-vanna-1 python -m unittest /app/app/tests/test_anomaly_detection.py
 
 4. Entrando no Contêiner e Executando os Testes
 Você também pode entrar no contêiner e executar os testes de dentro dele:

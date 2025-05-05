@@ -3,9 +3,23 @@
 Módulo de funções de visualização para a aplicação Vanna AI Odoo.
 """
 
+from typing import Dict, List, Optional, Tuple, Union
+
 import dateutil.parser  # Importar dateutil.parser no início do módulo
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+
+# Importar o módulo de detecção de anomalias
+from .anomaly_detection import (
+    detect_iqr_outliers,
+    detect_isolation_forest_outliers,
+    detect_knn_outliers,
+    detect_statistical_outliers,
+    get_anomaly_summary,
+    highlight_outliers,
+)
 
 
 def is_date_column(df, col_name):
@@ -232,3 +246,297 @@ def determine_best_chart_type(
 
     # Caso padrão: gráfico de barras simples
     return "bar_chart"
+
+
+def create_anomaly_visualization(df, method="statistical", columns=None, **kwargs):
+    """
+    Cria uma visualização com detecção de anomalias.
+
+    Args:
+        df (pandas.DataFrame): O DataFrame contendo os dados
+        method (str): Método de detecção de anomalias ('statistical', 'iqr', 'isolation_forest', 'knn')
+        columns (list): Lista de colunas para verificar anomalias (se None, usa todas as colunas numéricas)
+        **kwargs: Argumentos adicionais para o método de detecção
+
+    Returns:
+        tuple: (figura Plotly, DataFrame com anomalias destacadas, resumo das anomalias)
+    """
+    if columns is None:
+        columns = df.select_dtypes(include=np.number).columns.tolist()
+
+    if not columns:
+        return None, df, {"error": "Nenhuma coluna numérica encontrada"}
+
+    # Detectar anomalias
+    try:
+        df_with_outliers = highlight_outliers(
+            df, method=method, columns=columns, **kwargs
+        )
+        anomaly_summary = get_anomaly_summary(df, df_with_outliers)
+    except Exception as e:
+        return None, df, {"error": f"Erro ao detectar anomalias: {str(e)}"}
+
+    # Criar visualização
+    fig = None
+
+    # Determinar o tipo de visualização com base nas características dos dados
+    date_cols = [col for col in df.columns if is_date_column(df, col)]
+    categorical_cols = [
+        col
+        for col in df.columns
+        if is_categorical_column(df, col, numeric_cols=columns, date_cols=date_cols)
+    ]
+    measure_cols = [
+        col for col in columns if is_measure_column(df, col, numeric_cols=columns)
+    ]
+
+    chart_type = determine_best_chart_type(
+        df, date_cols, categorical_cols, columns, measure_cols
+    )
+
+    # Criar visualização com base no tipo de gráfico
+    if chart_type == "time_series" and date_cols:
+        # Série temporal com anomalias destacadas
+        date_col = date_cols[0]
+        measure_col = measure_cols[0] if measure_cols else columns[0]
+
+        # Ordenar por data
+        df_sorted = df.sort_values(by=date_col)
+
+        # Criar figura
+        fig = go.Figure()
+
+        # Adicionar linha principal
+        fig.add_trace(
+            go.Scatter(
+                x=df_sorted[date_col],
+                y=df_sorted[measure_col],
+                mode="lines+markers",
+                name=measure_col,
+                line=dict(color="blue"),
+            )
+        )
+
+        # Adicionar anomalias
+        outlier_indices = df_with_outliers[df_with_outliers["contains_outliers"]].index
+        if len(outlier_indices) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=df_sorted.loc[outlier_indices, date_col],
+                    y=df_sorted.loc[outlier_indices, measure_col],
+                    mode="markers",
+                    name="Anomalias",
+                    marker=dict(color="red", size=10, symbol="circle-open"),
+                )
+            )
+
+        fig.update_layout(
+            title=f"Série Temporal de {measure_col} com Detecção de Anomalias",
+            xaxis_title=date_col,
+            yaxis_title=measure_col,
+            legend_title="Legenda",
+        )
+
+    elif chart_type == "bar_chart" and categorical_cols:
+        # Gráfico de barras com anomalias destacadas
+        cat_col = categorical_cols[0]
+        measure_col = measure_cols[0] if measure_cols else columns[0]
+
+        # Agrupar por categoria
+        df_grouped = df.groupby(cat_col)[measure_col].sum().reset_index()
+
+        # Criar figura
+        fig = go.Figure()
+
+        # Adicionar barras normais
+        fig.add_trace(
+            go.Bar(
+                x=df_grouped[cat_col],
+                y=df_grouped[measure_col],
+                name=measure_col,
+                marker_color="blue",
+            )
+        )
+
+        # Adicionar anomalias
+        outlier_indices = df_with_outliers[df_with_outliers["contains_outliers"]].index
+        if len(outlier_indices) > 0:
+            # Agrupar anomalias por categoria
+            df_outliers = df.loc[outlier_indices]
+            if not df_outliers.empty:
+                df_outliers_grouped = (
+                    df_outliers.groupby(cat_col)[measure_col].sum().reset_index()
+                )
+
+                fig.add_trace(
+                    go.Bar(
+                        x=df_outliers_grouped[cat_col],
+                        y=df_outliers_grouped[measure_col],
+                        name="Anomalias",
+                        marker_color="red",
+                    )
+                )
+
+        fig.update_layout(
+            title=f"Distribuição de {measure_col} por {cat_col} com Detecção de Anomalias",
+            xaxis_title=cat_col,
+            yaxis_title=measure_col,
+            legend_title="Legenda",
+            barmode="group",
+        )
+
+    elif chart_type == "scatter_plot" and len(columns) >= 2:
+        # Gráfico de dispersão com anomalias destacadas
+        x_col = columns[0]
+        y_col = columns[1]
+
+        # Criar figura
+        fig = go.Figure()
+
+        # Adicionar pontos normais
+        normal_indices = df_with_outliers[~df_with_outliers["contains_outliers"]].index
+        fig.add_trace(
+            go.Scatter(
+                x=df.loc[normal_indices, x_col],
+                y=df.loc[normal_indices, y_col],
+                mode="markers",
+                name="Dados Normais",
+                marker=dict(color="blue"),
+            )
+        )
+
+        # Adicionar anomalias
+        outlier_indices = df_with_outliers[df_with_outliers["contains_outliers"]].index
+        if len(outlier_indices) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=df.loc[outlier_indices, x_col],
+                    y=df.loc[outlier_indices, y_col],
+                    mode="markers",
+                    name="Anomalias",
+                    marker=dict(color="red", size=10, symbol="circle-open"),
+                )
+            )
+
+        fig.update_layout(
+            title=f"Relação entre {x_col} e {y_col} com Detecção de Anomalias",
+            xaxis_title=x_col,
+            yaxis_title=y_col,
+            legend_title="Legenda",
+        )
+
+    elif chart_type == "histogram" and columns:
+        # Histograma com anomalias destacadas
+        num_col = columns[0]
+
+        # Criar figura
+        fig = go.Figure()
+
+        # Adicionar histograma para todos os dados
+        fig.add_trace(
+            go.Histogram(
+                x=df[num_col], name="Todos os Dados", marker_color="blue", opacity=0.7
+            )
+        )
+
+        # Adicionar histograma para anomalias
+        outlier_indices = df_with_outliers[df_with_outliers["contains_outliers"]].index
+        if len(outlier_indices) > 0:
+            fig.add_trace(
+                go.Histogram(
+                    x=df.loc[outlier_indices, num_col],
+                    name="Anomalias",
+                    marker_color="red",
+                    opacity=0.7,
+                )
+            )
+
+        fig.update_layout(
+            title=f"Distribuição de {num_col} com Detecção de Anomalias",
+            xaxis_title=num_col,
+            yaxis_title="Frequência",
+            legend_title="Legenda",
+            barmode="overlay",
+        )
+
+    else:
+        # Caso padrão: gráfico de linha com anomalias destacadas
+        measure_col = measure_cols[0] if measure_cols else columns[0]
+
+        # Criar figura
+        fig = go.Figure()
+
+        # Adicionar linha principal
+        fig.add_trace(
+            go.Scatter(
+                x=list(range(len(df))),
+                y=df[measure_col],
+                mode="lines+markers",
+                name=measure_col,
+                line=dict(color="blue"),
+            )
+        )
+
+        # Adicionar anomalias
+        outlier_indices = df_with_outliers[df_with_outliers["contains_outliers"]].index
+        if len(outlier_indices) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=outlier_indices,
+                    y=df.loc[outlier_indices, measure_col],
+                    mode="markers",
+                    name="Anomalias",
+                    marker=dict(color="red", size=10, symbol="circle-open"),
+                )
+            )
+
+        fig.update_layout(
+            title=f"Valores de {measure_col} com Detecção de Anomalias",
+            xaxis_title="Índice",
+            yaxis_title=measure_col,
+            legend_title="Legenda",
+        )
+
+    return fig, df_with_outliers, anomaly_summary
+
+
+def format_anomaly_summary(summary):
+    """
+    Formata o resumo das anomalias para exibição.
+
+    Args:
+        summary (dict): Resumo das anomalias
+
+    Returns:
+        str: Resumo formatado em markdown
+    """
+    if "error" in summary:
+        return f"**Erro:** {summary['error']}"
+
+    markdown = "## Resumo das Anomalias Detectadas\n\n"
+
+    # Informações gerais
+    markdown += f"**Total de registros:** {summary['total_rows']}\n\n"
+    markdown += f"**Registros com anomalias:** {summary['outlier_rows']} ({summary['outlier_percentage']}%)\n\n"
+
+    # Detalhes por coluna
+    if summary["columns_with_outliers"]:
+        markdown += "### Detalhes por Coluna\n\n"
+
+        for col, details in summary["columns_with_outliers"].items():
+            markdown += f"#### {col}\n\n"
+            markdown += (
+                f"- **Anomalias:** {details['count']} ({details['percentage']}%)\n"
+            )
+            markdown += f"- **Valor mínimo:** {details['min_value']}\n"
+            markdown += f"- **Valor máximo:** {details['max_value']}\n"
+            markdown += f"- **Média:** {details['mean']:.2f}\n"
+            markdown += f"- **Mediana:** {details['median']:.2f}\n"
+            markdown += f"- **Desvio padrão:** {details['std']:.2f}\n\n"
+    else:
+        markdown += "### Nenhuma anomalia detectada nas colunas analisadas.\n\n"
+
+    markdown += "---\n\n"
+    markdown += "_Nota: Anomalias são valores que se desviam significativamente do padrão normal dos dados._"
+
+    return markdown

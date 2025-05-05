@@ -9,8 +9,13 @@ import requests
 import streamlit as st
 from dotenv import load_dotenv
 
-# Add the current directory to the Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Configurar o Streamlit
+st.set_page_config(
+    page_title="Assistente de Banco de Dados Odoo com Vanna AI",
+    page_icon="🤖",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 # Import the VannaOdooExtended class from the modules directory
 from modules.vanna_odoo_extended import VannaOdooExtended
@@ -28,9 +33,6 @@ else:
 
 # Load environment variables
 load_dotenv()
-
-# Set page configuration
-st.set_page_config(page_title="Vanna AI Odoo Assistant", page_icon="🤖", layout="wide")
 
 
 # Initialize Vanna with OpenAI API key
@@ -919,6 +921,7 @@ if user_question:
                             "Gráfico de Linha",
                             "Gráfico de Pizza",
                             "Tabela Dinâmica",
+                            "Detecção de Anomalias",
                         ]
                     )
 
@@ -1621,6 +1624,210 @@ if user_question:
                     # Aba 5: Tabela Dinâmica
                     with viz_tabs[4]:
                         st.subheader("Tabela Dinâmica")
+
+                    # Aba 6: Detecção de Anomalias
+                    with viz_tabs[5]:
+                        st.subheader("Detecção de Anomalias")
+
+                        # Importar o módulo de visualização
+                        from modules.visualization import (
+                            create_anomaly_visualization,
+                            format_anomaly_summary,
+                        )
+
+                        # Permitir ao usuário selecionar o método de detecção
+                        method = st.selectbox(
+                            "Método de detecção:",
+                            ["statistical", "iqr", "isolation_forest", "knn"],
+                            format_func=lambda x: {
+                                "statistical": "Estatístico (Z-score)",
+                                "iqr": "Intervalo Interquartil (IQR)",
+                                "isolation_forest": "Isolation Forest",
+                                "knn": "K-Nearest Neighbors (KNN)",
+                            }.get(x, x),
+                            key="anomaly_method",
+                        )
+
+                        # Permitir ao usuário selecionar colunas para análise
+                        available_columns = numeric_cols if numeric_cols else []
+                        if available_columns:
+                            selected_columns = st.multiselect(
+                                "Colunas para análise:",
+                                available_columns,
+                                default=(
+                                    measure_cols
+                                    if measure_cols
+                                    else available_columns[:1]
+                                ),
+                                key="anomaly_columns",
+                            )
+                        else:
+                            st.warning(
+                                "Não há colunas numéricas disponíveis para detecção de anomalias"
+                            )
+                            selected_columns = []
+
+                        # Parâmetros específicos para cada método
+                        params = {}
+
+                        if method == "statistical":
+                            params["z_threshold"] = st.slider(
+                                "Limiar Z-score:",
+                                min_value=1.0,
+                                max_value=5.0,
+                                value=3.0,
+                                step=0.1,
+                                key="z_threshold",
+                            )
+
+                        elif method == "iqr":
+                            params["iqr_multiplier"] = st.slider(
+                                "Multiplicador IQR:",
+                                min_value=0.5,
+                                max_value=3.0,
+                                value=1.5,
+                                step=0.1,
+                                key="iqr_multiplier",
+                            )
+
+                        elif method == "isolation_forest" or method == "knn":
+                            params["contamination"] = st.slider(
+                                "Contaminação esperada (%):",
+                                min_value=0.01,
+                                max_value=0.5,
+                                value=0.05,
+                                step=0.01,
+                                key="contamination",
+                            )
+
+                            if method == "knn":
+                                params["n_neighbors"] = st.slider(
+                                    "Número de vizinhos:",
+                                    min_value=1,
+                                    max_value=20,
+                                    value=5,
+                                    step=1,
+                                    key="n_neighbors",
+                                )
+
+                        # Botão para executar a detecção
+                        if (
+                            st.button("Detectar Anomalias", key="detect_anomalies")
+                            and selected_columns
+                        ):
+                            try:
+                                with st.spinner("Detectando anomalias..."):
+                                    # Criar visualização com detecção de anomalias
+                                    (
+                                        fig,
+                                        df_with_outliers,
+                                        anomaly_summary,
+                                    ) = create_anomaly_visualization(
+                                        results,
+                                        method=method,
+                                        columns=selected_columns,
+                                        **params,
+                                    )
+
+                                    # Exibir o gráfico
+                                    if fig:
+                                        st.plotly_chart(fig, use_container_width=True)
+                                    else:
+                                        st.warning(
+                                            "Não foi possível criar uma visualização para os dados selecionados"
+                                        )
+
+                                    # Exibir resumo das anomalias
+                                    st.markdown(format_anomaly_summary(anomaly_summary))
+
+                                    # Exibir dados com anomalias destacadas
+                                    if "contains_outliers" in df_with_outliers.columns:
+                                        st.subheader("Dados com Anomalias Destacadas")
+
+                                        # Função para destacar anomalias
+                                        def highlight_anomalies(row):
+                                            try:
+                                                if (
+                                                    "contains_outliers" in row
+                                                    and row["contains_outliers"]
+                                                ):
+                                                    return [
+                                                        "background-color: rgba(255, 0, 0, 0.2)"
+                                                    ] * len(row)
+                                            except Exception as e:
+                                                st.error(
+                                                    f"Erro ao destacar anomalias: {str(e)}"
+                                                )
+                                            return [""] * len(row)
+
+                                        # Exibir DataFrame estilizado
+                                        try:
+                                            # Criar uma cópia do DataFrame para não modificar o original
+                                            display_df = df_with_outliers.copy()
+
+                                            # Remover a coluna 'contains_outliers' se existir
+                                            if (
+                                                "contains_outliers"
+                                                in display_df.columns
+                                            ):
+                                                display_df = display_df.drop(
+                                                    columns=["contains_outliers"]
+                                                )
+
+                                            # Aplicar o estilo
+                                            styled_df = display_df.style.apply(
+                                                highlight_anomalies, axis=1
+                                            )
+                                            st.dataframe(
+                                                styled_df, use_container_width=True
+                                            )
+                                        except Exception as e:
+                                            st.error(
+                                                f"Erro ao exibir dados com anomalias: {str(e)}"
+                                            )
+                                            # Exibir o DataFrame sem estilo como fallback
+                                            st.dataframe(
+                                                df_with_outliers,
+                                                use_container_width=True,
+                                            )
+
+                                        # Opção para baixar os dados com anomalias
+                                        try:
+                                            # Criar uma cópia do DataFrame para não modificar o original
+                                            download_df = df_with_outliers.copy()
+
+                                            # Adicionar uma coluna 'é_anomalia' para indicar se a linha é uma anomalia
+                                            if (
+                                                "contains_outliers"
+                                                in download_df.columns
+                                            ):
+                                                download_df["é_anomalia"] = download_df[
+                                                    "contains_outliers"
+                                                ]
+                                                download_df = download_df.drop(
+                                                    columns=["contains_outliers"]
+                                                )
+
+                                            # Converter para CSV
+                                            csv = download_df.to_csv(index=False)
+
+                                            # Botão de download
+                                            st.download_button(
+                                                "Baixar Dados com Anomalias (CSV)",
+                                                csv,
+                                                "anomalias_detectadas.csv",
+                                                "text/csv",
+                                                key="download_anomalies",
+                                            )
+                                        except Exception as e:
+                                            st.error(
+                                                f"Erro ao preparar dados para download: {str(e)}"
+                                            )
+                            except Exception as e:
+                                st.error(f"Erro ao detectar anomalias: {str(e)}")
+                                st.info(
+                                    "Verifique se as colunas selecionadas são adequadas para o método escolhido."
+                                )
 
                         # Permitir ao usuário selecionar colunas
                         cols = list(results.columns)
