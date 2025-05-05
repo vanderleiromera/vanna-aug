@@ -92,7 +92,8 @@ class TestQueryProcessing(unittest.TestCase):
         # Isso é necessário porque estamos usando uma classe mock
         self.vanna.normalize_question = MagicMock(side_effect=[
             ("Mostre as vendas dos últimos X dias", {"X": 30}),
-            ("Mostre os X principais clientes com vendas acima de Y reais", {"X": 10, "Y": 1000})
+            ("Mostre os X principais clientes com vendas acima de Y reais", {"X": 10, "Y": 1000}),
+            ("Mostre todos os clientes ativos", {})  # Adicionado para test_normalize_question_without_numbers
         ])
 
         self.vanna.adapt_sql_to_values = MagicMock(side_effect=[

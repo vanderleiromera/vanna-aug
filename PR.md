@@ -7,6 +7,7 @@ Este PR corrige os problemas com a execução dos testes no pipeline de CI/CD. O
 1. Caminhos de importação incorretos nos arquivos de teste
 2. Falta de tratamento para módulos ausentes no ambiente CI/CD
 3. Problemas com o teste `test_main_interface` no arquivo `test_streamlit_interface.py`
+4. Falhas em testes específicos devido a conflitos entre mocks e decoradores de patch
 
 ## Alterações
 
@@ -27,7 +28,13 @@ Este PR corrige os problemas com a execução dos testes no pipeline de CI/CD. O
 - Corrigido o teste `test_training_interface` para usar a mesma abordagem.
 - Adicionada verificação de disponibilidade de `streamlit` para pular os testes quando necessário.
 
-### 4. Atualização da Configuração do CI/CD
+### 4. Correção de Testes Específicos
+
+- Corrigido o teste `test_normalize_question_without_numbers` no arquivo `test_query_processing.py` para retornar o valor correto.
+- Corrigidos os testes `test_get_odoo_tables`, `test_run_sql` e `test_generate_sql` no arquivo `test_vanna_odoo.py` para usar mocks diretamente em vez de decoradores de patch.
+- Removidos decoradores de patch que estavam causando conflitos com os mocks configurados no método `setUp`.
+
+### 5. Atualização da Configuração do CI/CD
 
 - Adicionada a variável de ambiente `PYTHONPATH` no arquivo de configuração do CI/CD para garantir que os módulos possam ser encontrados corretamente.
 - Adicionada criação de arquivos vazios para os módulos que podem não estar disponíveis no ambiente CI/CD.
