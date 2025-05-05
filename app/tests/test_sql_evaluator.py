@@ -4,7 +4,7 @@ import unittest
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append('/app')  # Adicionar o diretório raiz da aplicação no contêiner Docker
+sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
 # Importar o módulo a ser testado
 from app.modules.sql_evaluator import (
@@ -12,8 +12,9 @@ from app.modules.sql_evaluator import (
     check_basic_syntax,
     check_best_practices,
     check_performance,
-    check_security
+    check_security,
 )
+
 
 class TestSQLEvaluator(unittest.TestCase):
     """Testes para o módulo de avaliação de SQL"""
@@ -119,7 +120,9 @@ class TestSQLEvaluator(unittest.TestCase):
         self.assertTrue(len(warnings) > 0)
 
         # SQL com DISTINCT e GROUP BY
-        sql_distinct_group = "SELECT DISTINCT customer_id FROM orders GROUP BY customer_id;"
+        sql_distinct_group = (
+            "SELECT DISTINCT customer_id FROM orders GROUP BY customer_id;"
+        )
         score, issues, warnings, suggestions = check_performance(sql_distinct_group)
         self.assertTrue(score < 20)
         self.assertTrue(len(warnings) > 0)
@@ -150,5 +153,6 @@ class TestSQLEvaluator(unittest.TestCase):
         self.assertTrue(score < 20)
         self.assertTrue(len(warnings) > 0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

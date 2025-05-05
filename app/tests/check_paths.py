@@ -7,6 +7,7 @@ import os
 import sys
 import importlib
 
+
 def check_directory(path):
     """Verifica o conteúdo de um diretório"""
     print(f"Verificando diretório: {path}")
@@ -20,6 +21,7 @@ def check_directory(path):
     except Exception as e:
         print(f"  Erro ao verificar diretório: {e}")
 
+
 def check_module(module_name):
     """Verifica se um módulo pode ser importado"""
     print(f"Verificando módulo: {module_name}")
@@ -30,36 +32,38 @@ def check_module(module_name):
     except Exception as e:
         print(f"  Erro ao importar módulo: {e}")
 
+
 def check_sys_path():
     """Verifica o sys.path"""
     print("Verificando sys.path:")
     for i, path in enumerate(sys.path):
         print(f"  {i}: {path}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Verificar o diretório atual
     print(f"Diretório atual: {os.getcwd()}")
-    
+
     # Verificar o sys.path
     check_sys_path()
-    
+
     # Verificar diretórios importantes
-    check_directory('/app')
-    check_directory('/app/modules')
-    check_directory('/app/tests')
-    
+    check_directory("/app")
+    check_directory("/app/modules")
+    check_directory("/app/tests")
+
     # Verificar módulos
     try:
-        check_module('modules')
+        check_module("modules")
     except:
         pass
-    
+
     try:
-        check_module('modules.vanna_odoo')
+        check_module("modules.vanna_odoo")
     except:
         pass
-    
+
     try:
-        check_module('modules.sql_evaluator')
+        check_module("modules.sql_evaluator")
     except:
         pass

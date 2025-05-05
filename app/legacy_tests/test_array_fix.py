@@ -16,15 +16,18 @@ from modules.vanna_odoo import VannaOdoo
 # Load environment variables
 load_dotenv()
 
+
 def test_embedding_condition():
     """
     Test the embedding condition in the VannaOdoo class.
     """
     # Initialize VannaOdoo
     config = {
-        'api_key': os.getenv('OPENAI_API_KEY'),
-        'model': os.getenv('OPENAI_MODEL', 'gpt-4'),
-        'chroma_persist_directory': os.getenv('CHROMA_PERSIST_DIRECTORY', '/app/data/chromadb')
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": os.getenv("OPENAI_MODEL", "gpt-4"),
+        "chroma_persist_directory": os.getenv(
+            "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"
+        ),
     }
 
     print(f"Initializing VannaOdoo with config: {config}")
@@ -51,6 +54,7 @@ def test_embedding_condition():
 
     sql = vn.ask(test_question)
     print(f"Generated SQL: {sql}")
+
 
 if __name__ == "__main__":
     test_embedding_condition()

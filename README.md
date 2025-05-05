@@ -435,6 +435,50 @@ Para executar os testes com cobertura de código:
 pytest app/tests --cov=app/modules --cov-report=html
 ```
 
+### Formatação de Código
+
+Este projeto usa o Black para formatação de código. Para garantir que seu código esteja formatado corretamente:
+
+1. Instale o Black:
+   ```bash
+   pip install black
+   ```
+
+2. Execute o Black em todo o projeto:
+   ```bash
+   black .
+   ```
+
+3. Ou use o script de formatação fornecido:
+   ```bash
+   ./format_code.sh
+   ```
+
+Você também pode configurar seu editor para formatar automaticamente o código ao salvar. Consulte a [documentação do Black](https://black.readthedocs.io/en/stable/integrations/editors.html) para instruções.
+
+### Correção de Problemas Comuns
+
+#### Problema com `display` não definido
+
+Se você encontrar o erro `undefined name 'display'` ao executar o linter ou os testes, isso geralmente ocorre porque a função `display` da biblioteca IPython está sendo usada sem ser importada. Para corrigir:
+
+1. Instale a dependência IPython:
+   ```bash
+   pip install ipython
+   ```
+
+2. Execute o script de correção automática:
+   ```bash
+   python fix_vanna_base.py
+   ```
+
+3. Ou adicione manualmente a importação no início do arquivo que usa a função:
+   ```python
+   from IPython.display import display, Code
+   ```
+
+Este problema geralmente ocorre no arquivo `base.py` da biblioteca vanna, que pode ser corrigido automaticamente com o script fornecido.
+
 ### Status do Build
 
 O status atual do build pode ser verificado na página de Actions do repositório GitHub.

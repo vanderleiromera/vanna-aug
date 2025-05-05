@@ -23,3 +23,6 @@ xlsxwriter>=3.2.0
 # Documentação
 pydantic>=2.11.4
 python-dateutil
+
+# Dependências para desenvolvimento e testes
+ipython>=8.12.0

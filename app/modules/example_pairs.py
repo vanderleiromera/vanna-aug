@@ -2,6 +2,7 @@
 Module containing example question-SQL pairs for training.
 """
 
+
 def get_example_pairs():
     """
     Return a list of example question-SQL pairs for training.
@@ -26,7 +27,7 @@ GROUP BY
     TO_CHAR(so.date_order, 'TMMonth')
 ORDER BY
     month;
-"""
+""",
         },
         {
             "question": "Quais são os clientes ativos com e-mail cadastrado?",
@@ -37,7 +38,7 @@ FROM
     res_partner
 WHERE
     active = TRUE AND customer = TRUE AND email IS NOT NULL;
-"""
+""",
         },
         {
             "question": "Quais são os 10 clientes com maior valor de vendas?",
@@ -56,7 +57,7 @@ GROUP BY
 ORDER BY
     total_vendas DESC
 LIMIT 10
-"""
+""",
         },
         {
             "question": "Mostre o nivel de estoque de 50 produtos, mas vendidos em valor de 2024",
@@ -106,7 +107,7 @@ LEFT JOIN
     estoque e ON mv.product_id = e.product_id
 ORDER BY
     mv.valor_total_vendido DESC;
-"""
+""",
         },
         {
             "question": "Qual o total de vendas por produto?",
@@ -123,7 +124,7 @@ GROUP BY
     sol.product_id, pt.name
 ORDER BY
     total_vendas DESC;
-"""
+""",
         },
         {
             "question": "Quais produtos foram vendidos nos últimos 30 dias, mas não têm estoque em mãos?",
@@ -148,9 +149,8 @@ GROUP BY
     pt.id, pt.name, pt.default_code
 HAVING SUM
     (sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) = 0;
-"""
-        }
-        ,
+""",
+        },
         {
             "question": "Quais produtos não têm estoque disponível?",
             "sql": """
@@ -170,7 +170,7 @@ HAVING
     COALESCE(SUM(sq.quantity), 0) <= 0
 ORDER BY
     pt.name
-"""
+""",
         },
         {
             "question": "Quantos clientes estão cadastrados no sistema?",
@@ -180,7 +180,7 @@ FROM
     res_partner
 WHERE
     customer = TRUE;
-"""
+""",
         },
         {
             "question": "Quais são os produtos ativos?",
@@ -191,7 +191,7 @@ FROM
     product_template
 WHERE
     active = TRUE;
-"""
+""",
         },
         {
             "question": "Quais pedidos de venda foram confirmados este mês?",
@@ -202,7 +202,7 @@ FROM
     sale_order
 WHERE
     state IN ('done', 'sale') AND date_order >= date_trunc('month', CURRENT_DATE);
-"""
+""",
         },
         {
             "question": "Quais pedidos de venda foram cancelados?",
@@ -213,7 +213,7 @@ FROM
     sale_order
 WHERE
     state = 'cancel';
-"""
+""",
         },
         {
             "question": "Quais foram as vendas dos últimos 7 dias?",
@@ -224,7 +224,7 @@ FROM
     sale_order
 WHERE
     state IN ('sale', 'done') AND date_order >= CURRENT_DATE - INTERVAL '7 days';
-"""
+""",
         },
         {
             "question": "Quais são os produtos mais vendidos?",
@@ -242,7 +242,7 @@ GROUP BY
 ORDER BY
     quantidade_vendida DESC
 LIMIT 10;
-"""
+""",
         },
         {
             "question": "Quais faturas estão em aberto?",
@@ -253,7 +253,7 @@ FROM
     account_invoice
 WHERE
     state = 'open';
-"""
+""",
         },
         {
             "question": "Qual o valor total faturado este ano?",
@@ -264,7 +264,7 @@ FROM
     account_invoice
 WHERE
     state = 'paid' AND date_invoice >= DATE_TRUNC('year', CURRENT_DATE);
-"""
+""",
         },
         {
             "question": "Quais pedidos de compra foram aprovados este mês?",
@@ -275,7 +275,7 @@ FROM
     purchase_order
 WHERE
     state IN ('purchase', 'done') AND date_order >= date_trunc('month', CURRENT_DATE);
-"""
+""",
         },
         {
             "question": "Qual o total de compras por fornecedor?",
@@ -290,7 +290,7 @@ GROUP BY
     partner_id
 ORDER BY
     total DESC;
-"""
+""",
         },
         {
             "question": "Quais produtos foram mais vendidos em valor, em ordem decrescente?",
@@ -307,7 +307,7 @@ GROUP BY
     pt.name
 ORDER BY
     total_vendas DESC;
-"""
+""",
         },
         {
             "question": "Qual o total de vendas do produto de código 222 em valor e quantidade no mês 06/2024?",
@@ -331,7 +331,7 @@ WHERE
     AND DATE_TRUNC('month', so.date_order) = DATE '2024-06-01'
 GROUP BY
     pt.name, pp.default_code;
-"""
+""",
         },
         {
             "question": "Quais produtos têm 'caixa' no nome?",
@@ -344,7 +344,7 @@ WHERE
     pt.name ILIKE '%Caixa%'
 ORDER BY
     pt.name;
-"""
+""",
         },
         {
             "question": "Quais produtos estão com quantidade disponível abaixo de 10?",
@@ -366,7 +366,7 @@ GROUP
     BY pt.name
 HAVING
     SUM(quant.quantity) < 10 AND SUM(quant.quantity) >= 0;
-"""
+""",
         },
         {
             "question": "Quais produtos foram movimentados no último mês?",
@@ -384,7 +384,7 @@ JOIN product_template pt ON pp.product_tmpl_id = pt.id
 JOIN stock_location sl_from ON sm.location_id = sl_from.id
 JOIN stock_location sl_to ON sm.location_dest_id = sl_to.id
 WHERE sm.date >= now() - interval '1 month';
-"""
+""",
         },
         {
             "question": "Quais produtos têm fornecedor e estoque disponível abaixo de 5 unidades?",
@@ -401,7 +401,7 @@ LEFT JOIN res_partner rp ON psi.name = rp.id
 WHERE sq.quantity > 0
 GROUP BY pt.name, rp.name
 HAVING SUM(sq.quantity) < 5;
-"""
+""",
         },
         {
             "question": "Quais são as condições de pagamento usadas nas vendas?",
@@ -412,7 +412,7 @@ SELECT
 FROM sale_order so
 LEFT JOIN account_payment_term pt ON so.payment_term_id = pt.id
 ORDER BY so.date_order DESC;
-"""
+""",
         },
         {
             "question": "Mostre o nivel de estoque de 20 produtos, mas vendidos em valor de 2025",
@@ -462,6 +462,6 @@ LEFT JOIN
     estoque e ON mv.product_id = e.product_id
 ORDER BY
     mv.valor_total_vendido DESC;
-"""
-        }
+""",
+        },
     ]

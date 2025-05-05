@@ -25,7 +25,6 @@ ODOO_DOCUMENTATION = [
     """
     Campos como create_date, write_date são comuns para auditoria
     """,
-
     # Estrutura de produtos
     """
     Estrutura de produtos no Odoo:
@@ -33,14 +32,12 @@ ODOO_DOCUMENTATION = [
     - product_product: representa variantes específicas de produtos e se relaciona com product_template através do campo product_tmpl_id
     - Para consultar o nome de produtos em sale_order_line, deve-se fazer JOIN entre sale_order_line, product_product e product_template
     """,
-
     # Estrutura de vendas
     """
     Estrutura de vendas no Odoo:
     - sale_order: cabeçalho da venda com data (date_order), cliente (partner_id), etc.
     - sale_order_line: itens da venda com produto (product_id -> product_product), quantidade (product_uom_qty), valor unitário (price_unit), subtotal (price_subtotal)
     """,
-
     # Estrutura de estoque
     """
     Estrutura de estoque no Odoo:
@@ -52,7 +49,6 @@ ODOO_DOCUMENTATION = [
     - stock_picking_type: define tipos de operações de estoque (recebimento, entrega, transferência interna)
     - stock_inventory: usado para inventários físicos e ajustes de estoque
     """,
-
     # Estrutura de compras
     """
     Estrutura de compras no Odoo:
@@ -63,7 +59,6 @@ ODOO_DOCUMENTATION = [
     - product_supplierinfo: contém informações específicas de fornecedores para produtos (preços, códigos de referência, tempo de entrega)
     - purchase_report: visão analítica das compras para relatórios
     """,
-
     # Fluxo de aprovação de compras
     """
     Fluxo de aprovação de compras:
@@ -73,7 +68,6 @@ ODOO_DOCUMENTATION = [
     - purchase_order.notes: notas internas da compra
     - purchase_order.date_planned: data planejada para recebimento
     """,
-
     # Acordos com fornecedores
     """
     Acordos com fornecedores:
@@ -82,7 +76,6 @@ ODOO_DOCUMENTATION = [
     - purchase_order.fiscal_position_id: posição fiscal aplicada à compra
     - purchase_order.payment_term_id: condições de pagamento acordadas
     """,
-
     # Estrutura de faturas
     """
     Estrutura de faturas no Odoo:
@@ -93,14 +86,12 @@ ODOO_DOCUMENTATION = [
     - account_payment: registra pagamentos de clientes e a fornecedores
     - account_journal: define os diários contábeis (vendas, compras, banco, caixa)
     """,
-
     # Rastreabilidade de produtos
     """
     Rastreabilidade de produtos:
     - stock_production_lot: define lotes/números de série para produtos rastreáveis
     - stock_move_line: detalha as movimentações com informações de lote/série através do campo lot_id
     """,
-
     # Relacionamentos importantes entre módulos
     """
     Relacionamentos importantes entre módulos:
@@ -112,7 +103,6 @@ ODOO_DOCUMENTATION = [
     - account_move -> purchase_order: faturas podem ser vinculadas a pedidos de compra via invoice_origin
     - purchase_order_line -> account_move_line: linhas de compra são vinculadas às linhas da fatura
     """,
-
     # Campos de estado comuns
     """
     Campos de estado comuns:
@@ -120,5 +110,5 @@ ODOO_DOCUMENTATION = [
     - purchase_order.state: 'draft', 'sent', 'to approve', 'purchase', 'done', 'cancel'
     - stock_picking.state: 'draft', 'waiting', 'confirmed', 'assigned', 'done', 'cancel'
     - account_move.state: 'draft', 'posted', 'cancel'
-    """
+    """,
 ]

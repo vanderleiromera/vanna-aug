@@ -20,7 +20,6 @@ ODOO_SQL_EXAMPLES = [
     WHERE 
         active = true
     """,
-    
     """
     -- Produtos por categoria
     SELECT 
@@ -37,7 +36,6 @@ ODOO_SQL_EXAMPLES = [
     ORDER BY 
         pc.name, pt.name
     """,
-    
     # Exemplos para product_product
     """
     -- Variantes de produto
@@ -53,7 +51,6 @@ ODOO_SQL_EXAMPLES = [
     WHERE 
         pp.active = true
     """,
-    
     """
     -- Produtos com estoque
     SELECT 
@@ -79,7 +76,6 @@ ODOO_SQL_EXAMPLES = [
     ORDER BY 
         pt.name
     """,
-    
     # Exemplos para sale_order
     """
     -- Pedidos de venda recentes
@@ -98,7 +94,6 @@ ODOO_SQL_EXAMPLES = [
     ORDER BY 
         date_order DESC
     """,
-    
     """
     -- Vendas por cliente
     SELECT 
@@ -117,7 +112,6 @@ ODOO_SQL_EXAMPLES = [
     ORDER BY 
         total_amount DESC
     """,
-    
     # Exemplos para sale_order_line
     """
     -- Itens de pedido de venda
@@ -141,7 +135,6 @@ ODOO_SQL_EXAMPLES = [
     ORDER BY 
         so.date_order DESC
     """,
-    
     """
     -- Produtos mais vendidos
     SELECT 
@@ -165,7 +158,6 @@ ODOO_SQL_EXAMPLES = [
         quantity_sold DESC
     LIMIT 20
     """,
-    
     # Exemplos para purchase_order
     """
     -- Pedidos de compra recentes
@@ -184,7 +176,6 @@ ODOO_SQL_EXAMPLES = [
     ORDER BY 
         date_order DESC
     """,
-    
     """
     -- Compras por fornecedor
     SELECT 
@@ -203,7 +194,6 @@ ODOO_SQL_EXAMPLES = [
     ORDER BY 
         total_amount DESC
     """,
-    
     # Exemplos para purchase_order_line
     """
     -- Itens de pedido de compra
@@ -227,7 +217,6 @@ ODOO_SQL_EXAMPLES = [
     ORDER BY 
         po.date_order DESC
     """,
-    
     # Exemplos de consultas complexas
     """
     -- Produtos vendidos vs. estoque atual
@@ -278,7 +267,6 @@ WHERE
 ORDER BY 
     v.total_vendido DESC;
     """,
-    
     """
     -- Vendas por mês
 SELECT 
@@ -299,7 +287,6 @@ GROUP BY
 ORDER BY 
     year, month;
     """,
-    
     """
     -- Produtos vendidos em um período específico
     SELECT 
@@ -324,7 +311,6 @@ ORDER BY
     ORDER BY 
         total_sales DESC
     """,
-    
     """
     -- Produtos sem movimento de estoque recente
     SELECT 
@@ -350,5 +336,5 @@ ORDER BY
         pt.name, pp.default_code
     ORDER BY 
         current_stock DESC
-    """
+    """,
 ]

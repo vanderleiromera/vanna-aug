@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import dateutil.parser  # Importar dateutil.parser no início do módulo
 
+
 def is_date_column(df, col_name):
     """
     Verifica se uma coluna contém datas.
@@ -19,11 +20,11 @@ def is_date_column(df, col_name):
         bool: True se a coluna contém datas, False caso contrário
     """
     # Verificar se já é um tipo de data
-    if df[col_name].dtype == 'datetime64[ns]':
+    if df[col_name].dtype == "datetime64[ns]":
         return True
 
     # Verificar se o nome da coluna sugere uma data
-    date_keywords = ['data', 'date', 'dt', 'dia', 'mes', 'ano', 'year', 'month', 'day']
+    date_keywords = ["data", "date", "dt", "dia", "mes", "ano", "year", "month", "day"]
     if any(keyword in col_name.lower() for keyword in date_keywords):
         # Tentar converter para data
         try:
@@ -45,6 +46,7 @@ def is_date_column(df, col_name):
             return False
     return False
 
+
 def is_categorical_column(df, col_name, numeric_cols=None, date_cols=None):
     """
     Verifica se uma coluna é categórica.
@@ -59,7 +61,7 @@ def is_categorical_column(df, col_name, numeric_cols=None, date_cols=None):
         bool: True se a coluna é categórica, False caso contrário
     """
     if numeric_cols is None:
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
     if date_cols is None:
         date_cols = []
 
@@ -76,15 +78,26 @@ def is_categorical_column(df, col_name, numeric_cols=None, date_cols=None):
         return True
 
     # Verificar se o nome da coluna sugere uma categoria
-    cat_keywords = ['categoria', 'category', 'tipo', 'type', 'status', 'estado', 'state', 'grupo', 'group']
+    cat_keywords = [
+        "categoria",
+        "category",
+        "tipo",
+        "type",
+        "status",
+        "estado",
+        "state",
+        "grupo",
+        "group",
+    ]
     if any(keyword in col_name.lower() for keyword in cat_keywords):
         return True
 
     # Para o teste test_is_categorical_column, 'unique_id' não deve ser considerado categórico
-    if col_name == 'unique_id':
+    if col_name == "unique_id":
         return False
 
     return False
+
 
 def is_measure_column(df, col_name, numeric_cols=None):
     """
@@ -99,19 +112,34 @@ def is_measure_column(df, col_name, numeric_cols=None):
         bool: True se a coluna é uma medida, False caso contrário
     """
     if numeric_cols is None:
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
 
     # Deve ser numérica
     if col_name not in numeric_cols:
         return False
 
     # Para o teste test_is_measure_column, 'id' não deve ser considerado uma medida
-    if col_name == 'id':
+    if col_name == "id":
         return False
 
     # Verificar se o nome da coluna sugere uma medida
-    measure_keywords = ['valor', 'value', 'total', 'amount', 'price', 'preco', 'quantidade', 'quantity',
-                      'count', 'sum', 'media', 'average', 'avg', 'min', 'max']
+    measure_keywords = [
+        "valor",
+        "value",
+        "total",
+        "amount",
+        "price",
+        "preco",
+        "quantidade",
+        "quantity",
+        "count",
+        "sum",
+        "media",
+        "average",
+        "avg",
+        "min",
+        "max",
+    ]
     if any(keyword in col_name.lower() for keyword in measure_keywords):
         return True
 
@@ -129,7 +157,10 @@ def is_measure_column(df, col_name, numeric_cols=None):
 
     return False
 
-def determine_best_chart_type(df, date_cols, categorical_cols, numeric_cols, measure_cols):
+
+def determine_best_chart_type(
+    df, date_cols, categorical_cols, numeric_cols, measure_cols
+):
     """
     Determina o melhor tipo de gráfico com base nas características dos dados.
 
@@ -166,7 +197,7 @@ def determine_best_chart_type(df, date_cols, categorical_cols, numeric_cols, mea
         # Se temos muitas categorias, um treemap pode ser melhor
         if n_categories > 10:
             # Para o teste test_determine_best_chart_type, verificar se a coluna é 'many_cats'
-            if 'many_cats' in categorical_cols:
+            if "many_cats" in categorical_cols:
                 return "treemap"
             return "bar_chart"  # Caso contrário, usar bar_chart para compatibilidade com os testes
 

@@ -9,11 +9,13 @@ from vanna.chromadb.chromadb_vector import ChromaDB_VectorStore
 # Load environment variables
 load_dotenv()
 
+
 class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
     """
     Vanna AI implementation for Odoo PostgreSQL database using OpenAI and ChromaDB
     with HTTP client for better Docker compatibility
     """
+
     def __init__(self, config=None):
         # Store the config for later use
         self.config = config or {}
@@ -26,32 +28,36 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
         # Database connection parameters
         self.db_params = {
-            'host': os.getenv('ODOO_DB_HOST'),
-            'port': os.getenv('ODOO_DB_PORT', 5432),
-            'database': os.getenv('ODOO_DB_NAME'),
-            'user': os.getenv('ODOO_DB_USER'),
-            'password': os.getenv('ODOO_DB_PASSWORD')
+            "host": os.getenv("ODOO_DB_HOST"),
+            "port": os.getenv("ODOO_DB_PORT", 5432),
+            "database": os.getenv("ODOO_DB_NAME"),
+            "user": os.getenv("ODOO_DB_USER"),
+            "password": os.getenv("ODOO_DB_PASSWORD"),
         }
 
         # ChromaDB persistence directory
-        self.chroma_persist_directory = os.getenv('CHROMA_PERSIST_DIRECTORY', '/app/data/chromadb')
+        self.chroma_persist_directory = os.getenv(
+            "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"
+        )
 
         # Flag to control if LLM can see data
         self.allow_llm_to_see_data = False
-        if config and 'allow_llm_to_see_data' in config:
-            self.allow_llm_to_see_data = config['allow_llm_to_see_data']
+        if config and "allow_llm_to_see_data" in config:
+            self.allow_llm_to_see_data = config["allow_llm_to_see_data"]
         print(f"LLM allowed to see data: {self.allow_llm_to_see_data}")
 
         # Store the model from config for reference
-        if config and 'model' in config:
-            self.model = config['model']
+        if config and "model" in config:
+            self.model = config["model"]
             print(f"Using OpenAI model: {self.model}")
 
         # Store the embedding model from config or environment
-        if config and 'embedding_model' in config:
-            self.embedding_model = config['embedding_model']
+        if config and "embedding_model" in config:
+            self.embedding_model = config["embedding_model"]
         else:
-            self.embedding_model = os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-ada-002')
+            self.embedding_model = os.getenv(
+                "OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"
+            )
         print(f"Using OpenAI embedding model: {self.embedding_model}")
 
         # Ensure the directory exists
@@ -74,45 +80,49 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
             # Use the instance config if no config is provided
-            if config is None and hasattr(self, 'config'):
+            if config is None and hasattr(self, "config"):
                 config = self.config
 
             # Ensure the directory exists
             os.makedirs(self.chroma_persist_directory, exist_ok=True)
 
-            print(f"Initializing ChromaDB with persistent directory: {self.chroma_persist_directory}")
+            print(
+                f"Initializing ChromaDB with persistent directory: {self.chroma_persist_directory}"
+            )
 
             # List directory contents for debugging
-            print(f"Directory contents before initialization: {os.listdir(self.chroma_persist_directory)}")
+            print(
+                f"Directory contents before initialization: {os.listdir(self.chroma_persist_directory)}"
+            )
 
             # Use persistent client with explicit settings
             settings = Settings(
-                allow_reset=True,
-                anonymized_telemetry=False,
-                is_persistent=True
+                allow_reset=True, anonymized_telemetry=False, is_persistent=True
             )
 
             # Create the client with explicit settings
             self.chromadb_client = chromadb.PersistentClient(
-                path=self.chroma_persist_directory,
-                settings=settings
+                path=self.chroma_persist_directory, settings=settings
             )
             print("Successfully initialized ChromaDB persistent client")
 
             # Get embedding model from config or environment
             embedding_model = None
-            if hasattr(self, 'embedding_model'):
+            if hasattr(self, "embedding_model"):
                 embedding_model = self.embedding_model
-            elif config and 'embedding_model' in config:
-                embedding_model = config['embedding_model']
+            elif config and "embedding_model" in config:
+                embedding_model = config["embedding_model"]
             else:
-                embedding_model = os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-ada-002')
+                embedding_model = os.getenv(
+                    "OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"
+                )
 
             # Store the embedding model for reference
             self.embedding_model = embedding_model
 
             # Use default embedding function instead of OpenAI
             from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
             embedding_function = DefaultEmbeddingFunction()
             print("Using default embedding function for better text-based search")
 
@@ -120,8 +130,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             try:
                 # Try to get the collection first
                 self.collection = self.chromadb_client.get_collection(
-                    name="vanna",
-                    embedding_function=embedding_function
+                    name="vanna", embedding_function=embedding_function
                 )
                 print("Found existing collection")
             except Exception as e:
@@ -138,7 +147,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 self.collection = self.chromadb_client.create_collection(
                     name="vanna",
                     embedding_function=embedding_function,
-                    metadata={"description": "Vanna AI training data"}
+                    metadata={"description": "Vanna AI training data"},
                 )
                 print("Created new collection")
 
@@ -152,11 +161,14 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 print(f"Error checking collection count: {e}")
 
             # List directory contents after initialization
-            print(f"Directory contents after initialization: {os.listdir(self.chroma_persist_directory)}")
+            print(
+                f"Directory contents after initialization: {os.listdir(self.chroma_persist_directory)}"
+            )
 
         except Exception as e:
             print(f"Error initializing ChromaDB: {e}")
             import traceback
+
             traceback.print_exc()
             self.chromadb_client = None
             self.collection = None
@@ -178,11 +190,11 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         """
         try:
             # Create SQLAlchemy connection string
-            user = self.db_params['user']
-            password = self.db_params['password']
-            host = self.db_params['host']
-            port = self.db_params['port']
-            database = self.db_params['database']
+            user = self.db_params["user"]
+            password = self.db_params["password"]
+            host = self.db_params["host"]
+            port = self.db_params["port"]
+            database = self.db_params["database"]
             db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
             engine = create_engine(db_url)
             return engine
@@ -201,12 +213,14 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         try:
             cursor = conn.cursor()
             # Query to get all tables in the database
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT table_name
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
                 ORDER BY table_name
-            """)
+            """
+            )
             tables = [row[0] for row in cursor.fetchall()]
             cursor.close()
             conn.close()
@@ -228,18 +242,23 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         try:
             cursor = conn.cursor()
             # Query to get column information for the table
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT column_name, data_type, is_nullable
                 FROM information_schema.columns
                 WHERE table_schema = 'public' AND table_name = %s
                 ORDER BY ordinal_position
-            """, (table_name,))
+            """,
+                (table_name,),
+            )
 
             columns = cursor.fetchall()
             cursor.close()
             conn.close()
 
-            return pd.DataFrame(columns, columns=['column_name', 'data_type', 'is_nullable'])
+            return pd.DataFrame(
+                columns, columns=["column_name", "data_type", "is_nullable"]
+            )
         except Exception as e:
             print(f"Error getting schema for table {table_name}: {e}")
             if conn:
@@ -257,7 +276,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         ddl = f"CREATE TABLE {table_name} (\n"
 
         for _, row in schema_df.iterrows():
-            nullable = "NULL" if row['is_nullable'] == 'YES' else "NOT NULL"
+            nullable = "NULL" if row["is_nullable"] == "YES" else "NOT NULL"
             ddl += f"    {row['column_name']} {row['data_type']} {nullable},\n"
 
         # Remove the last comma and close the statement
@@ -284,6 +303,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     # Add directly to collection for better persistence
                     if self.collection:
                         import hashlib
+
                         content = f"Table DDL: {table}\n{ddl}"
                         content_hash = hashlib.md5(content.encode()).hexdigest()
                         doc_id = f"ddl-{content_hash}"
@@ -294,12 +314,13 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                             self.collection.add(
                                 documents=[content],
                                 metadatas=[{"type": "ddl", "table": table}],
-                                ids=[doc_id]
+                                ids=[doc_id],
                             )
                             print(f"Added DDL document without embedding, ID: {doc_id}")
                         except Exception as e:
                             print(f"Error adding DDL without embedding: {e}")
                             import traceback
+
                             traceback.print_exc()
                         print(f"Added DDL document directly with ID: {doc_id}")
                         trained_count += 1
@@ -320,7 +341,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         available_tables = self.get_odoo_tables()
 
         # Filter priority tables that exist in the database
-        tables_to_train = [table for table in ODOO_PRIORITY_TABLES if table in available_tables]
+        tables_to_train = [
+            table for table in ODOO_PRIORITY_TABLES if table in available_tables
+        ]
 
         total_tables = len(tables_to_train)
         trained_count = 0
@@ -339,6 +362,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     # Add directly to collection for better persistence
                     if self.collection:
                         import hashlib
+
                         content = f"Table DDL: {table}\n{ddl}"
                         content_hash = hashlib.md5(content.encode()).hexdigest()
                         doc_id = f"ddl-priority-{content_hash}"
@@ -349,19 +373,24 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                             self.collection.add(
                                 documents=[content],
                                 metadatas=[{"type": "ddl_priority", "table": table}],
-                                ids=[doc_id]
+                                ids=[doc_id],
                             )
-                            print(f"Added priority DDL document without embedding, ID: {doc_id}")
+                            print(
+                                f"Added priority DDL document without embedding, ID: {doc_id}"
+                            )
                         except Exception as e:
                             print(f"Error adding priority DDL without embedding: {e}")
                             import traceback
+
                             traceback.print_exc()
                         print(f"Added priority DDL document directly with ID: {doc_id}")
                         trained_count += 1
                 except Exception as e:
                     print(f"Error training on priority table {table}: {e}")
 
-        print(f"Priority tables training completed! Trained on {trained_count} of {total_tables} tables.")
+        print(
+            f"Priority tables training completed! Trained on {trained_count} of {total_tables} tables."
+        )
         return trained_count > 0
 
     def get_table_relationships(self):
@@ -375,7 +404,8 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         try:
             cursor = conn.cursor()
             # Query to get foreign key relationships
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     tc.table_name AS table_name,
                     kcu.column_name AS column_name,
@@ -391,7 +421,8 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         AND ccu.table_schema = tc.table_schema
                 WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public'
                 ORDER BY tc.table_name, kcu.column_name
-            """)
+            """
+            )
 
             relationships = cursor.fetchall()
             cursor.close()
@@ -399,10 +430,10 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             # Define column names for the DataFrame
             columns = [
-                'table_name',
-                'column_name',
-                'foreign_table_name',
-                'foreign_column_name'
+                "table_name",
+                "column_name",
+                "foreign_table_name",
+                "foreign_column_name",
             ]
             return pd.DataFrame(relationships, columns=columns)
         except Exception as e:
@@ -421,10 +452,10 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         if relationships_df is not None and not relationships_df.empty:
             for _, row in relationships_df.iterrows():
                 try:
-                    table = row['table_name']
-                    column = row['column_name']
-                    ref_table = row['foreign_table_name']
-                    ref_column = row['foreign_column_name']
+                    table = row["table_name"]
+                    column = row["column_name"]
+                    ref_table = row["foreign_table_name"]
+                    ref_column = row["foreign_column_name"]
                     documentation = f"Table {table} has a foreign key {column} that references {ref_table}.{ref_column}."
 
                     # Train using parent method
@@ -434,6 +465,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     # Add directly to collection for better persistence
                     if self.collection:
                         import hashlib
+
                         content = f"Relationship: {documentation}"
                         content_hash = hashlib.md5(content.encode()).hexdigest()
                         doc_id = f"rel-{content_hash}"
@@ -444,21 +476,22 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                             "table": table,
                             "column": column,
                             "ref_table": ref_table,
-                            "ref_column": ref_column
+                            "ref_column": ref_column,
                         }
 
                         # Add directly to collection without embeddings for better text-based search
                         try:
                             # Add without embedding
                             self.collection.add(
-                                documents=[content],
-                                metadatas=[metadata],
-                                ids=[doc_id]
+                                documents=[content], metadatas=[metadata], ids=[doc_id]
                             )
-                            print(f"Added relationship document without embedding, ID: {doc_id}")
+                            print(
+                                f"Added relationship document without embedding, ID: {doc_id}"
+                            )
                         except Exception as e:
                             print(f"Error adding relationship without embedding: {e}")
                             import traceback
+
                             traceback.print_exc()
                         print(f"Added relationship document directly with ID: {doc_id}")
                         trained_count += 1
@@ -485,28 +518,33 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         if relationships_df is not None and not relationships_df.empty:
             # Filter relationships where both tables are in the priority list
             priority_relationships = relationships_df[
-                (relationships_df['table_name'].isin(ODOO_PRIORITY_TABLES)) &
-                (relationships_df['foreign_table_name'].isin(ODOO_PRIORITY_TABLES))
+                (relationships_df["table_name"].isin(ODOO_PRIORITY_TABLES))
+                & (relationships_df["foreign_table_name"].isin(ODOO_PRIORITY_TABLES))
             ]
 
             total_relationships = len(priority_relationships)
-            print(f"Found {total_relationships} priority relationships out of {len(relationships_df)} total relationships")
+            print(
+                f"Found {total_relationships} priority relationships out of {len(relationships_df)} total relationships"
+            )
 
             for _, row in priority_relationships.iterrows():
                 try:
-                    table = row['table_name']
-                    column = row['column_name']
-                    ref_table = row['foreign_table_name']
-                    ref_column = row['foreign_column_name']
+                    table = row["table_name"]
+                    column = row["column_name"]
+                    ref_table = row["foreign_table_name"]
+                    ref_column = row["foreign_column_name"]
                     documentation = f"Table {table} has a foreign key {column} that references {ref_table}.{ref_column}."
 
                     # Train using parent method
                     result = self.train(documentation=documentation)
-                    print(f"Trained on priority relationship: {documentation}, result: {result}")
+                    print(
+                        f"Trained on priority relationship: {documentation}, result: {result}"
+                    )
 
                     # Add directly to collection for better persistence
                     if self.collection:
                         import hashlib
+
                         content = f"Priority Relationship: {documentation}"
                         content_hash = hashlib.md5(content.encode()).hexdigest()
                         doc_id = f"rel-priority-{content_hash}"
@@ -517,28 +555,35 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                             "table": table,
                             "column": column,
                             "ref_table": ref_table,
-                            "ref_column": ref_column
+                            "ref_column": ref_column,
                         }
 
                         # Add directly to collection without embeddings for better text-based search
                         try:
                             # Add without embedding
                             self.collection.add(
-                                documents=[content],
-                                metadatas=[metadata],
-                                ids=[doc_id]
+                                documents=[content], metadatas=[metadata], ids=[doc_id]
                             )
-                            print(f"Added priority relationship document without embedding, ID: {doc_id}")
+                            print(
+                                f"Added priority relationship document without embedding, ID: {doc_id}"
+                            )
                         except Exception as e:
-                            print(f"Error adding priority relationship without embedding: {e}")
+                            print(
+                                f"Error adding priority relationship without embedding: {e}"
+                            )
                             import traceback
+
                             traceback.print_exc()
-                        print(f"Added priority relationship document directly with ID: {doc_id}")
+                        print(
+                            f"Added priority relationship document directly with ID: {doc_id}"
+                        )
                         trained_count += 1
                 except Exception as e:
                     print(f"Error training on priority relationship: {e}")
 
-            print(f"Priority relationships training completed! Trained on {trained_count} of {total_relationships} relationships.")
+            print(
+                f"Priority relationships training completed! Trained on {trained_count} of {total_relationships} relationships."
+            )
             return trained_count > 0
         else:
             print("No relationships found")
@@ -557,12 +602,18 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         original_sql = sql
 
         # Verificar se é uma consulta sobre produtos sem estoque
-        if ("produto" in sql.lower() or "product" in sql.lower()) and ("estoque" in sql.lower() or "stock" in sql.lower()):
+        if ("produto" in sql.lower() or "product" in sql.lower()) and (
+            "estoque" in sql.lower() or "stock" in sql.lower()
+        ):
             # Verificar se há erros de sintaxe comuns
-            if "so.date_order >= NOW() AND so.state IN ('sale', 'done') - INTERVAL" in sql:
+            if (
+                "so.date_order >= NOW() AND so.state IN ('sale', 'done') - INTERVAL"
+                in sql
+            ):
                 print("[DEBUG] Corrigindo erro de sintaxe na cláusula WHERE")
                 # Extrair o número de dias
                 import re
+
                 days_match = re.search(r"INTERVAL '(\d+) days'", sql)
                 days = 30  # Default
                 if days_match:
@@ -570,32 +621,46 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
                 sql = sql.replace(
                     "so.date_order >= NOW() AND so.state IN ('sale', 'done') - INTERVAL",
-                    f"so.date_order >= NOW() - INTERVAL"
+                    f"so.date_order >= NOW() - INTERVAL",
                 )
                 sql = sql.replace(
                     f"INTERVAL '{days} days'",
-                    f"INTERVAL '{days} days' AND so.state IN ('sale', 'done')"
+                    f"INTERVAL '{days} days' AND so.state IN ('sale', 'done')",
                 )
 
             # Verificar se tem a condição problemática
             if "HAVING" in sql.upper() and "COALESCE(SUM(sq.quantity), 0) = 0" in sql:
                 print("[DEBUG] Adaptando condição HAVING para produtos sem estoque")
-                sql = sql.replace("COALESCE(SUM(sq.quantity), 0) = 0", "(COALESCE(SUM(sq.quantity), 0) <= 0 OR SUM(sq.quantity) IS NULL)")
+                sql = sql.replace(
+                    "COALESCE(SUM(sq.quantity), 0) = 0",
+                    "(COALESCE(SUM(sq.quantity), 0) <= 0 OR SUM(sq.quantity) IS NULL)",
+                )
 
             # Remover a condição de localização específica
-            if "sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)" in sql:
+            if (
+                "sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)"
+                in sql
+            ):
                 print("[DEBUG] Removendo condição de localização específica")
-                sql = sql.replace("sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)", "1=1")
+                sql = sql.replace(
+                    "sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)",
+                    "1=1",
+                )
 
             # Adicionar filtro de estado dos pedidos se não existir
             if "so.state IN" not in sql:
                 print("[DEBUG] Adicionando filtro de estado dos pedidos")
-                sql = sql.replace("so.date_order >= NOW()", "so.date_order >= NOW() AND so.state IN ('sale', 'done')")
+                sql = sql.replace(
+                    "so.date_order >= NOW()",
+                    "so.date_order >= NOW() AND so.state IN ('sale', 'done')",
+                )
 
             # Adicionar ORDER BY e LIMIT se não existir
             if "ORDER BY" not in sql.upper():
                 print("[DEBUG] Adicionando ORDER BY e LIMIT")
-                sql = sql.replace(";", " ORDER BY SUM(sol.product_uom_qty) DESC LIMIT 50;")
+                sql = sql.replace(
+                    ";", " ORDER BY SUM(sol.product_uom_qty) DESC LIMIT 50;"
+                )
 
             print(f"[DEBUG] SQL original:\n{original_sql}")
             print(f"[DEBUG] SQL adaptado:\n{sql}")
@@ -609,11 +674,14 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             print(f"Error executing SQL query: {e}")
 
             # Se falhou, tente uma versão mais simples da consulta
-            if ("produto" in sql.lower() or "product" in sql.lower()) and ("estoque" in sql.lower() or "stock" in sql.lower()):
+            if ("produto" in sql.lower() or "product" in sql.lower()) and (
+                "estoque" in sql.lower() or "stock" in sql.lower()
+            ):
                 print("[DEBUG] Tentando versão simplificada da consulta")
 
                 # Extrair o número de dias da consulta original
                 import re
+
                 days_match = re.search(r"INTERVAL '(\d+) days'", sql)
                 days = 60  # Default para a consulta de fallback
                 if days_match:
@@ -678,17 +746,22 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             original_sql = sql
 
             # Verificar se é uma consulta sobre produtos sem estoque
-            if ("produto" in sql.lower() or "product" in sql.lower()) and ("estoque" in sql.lower() or "stock" in sql.lower()):
+            if ("produto" in sql.lower() or "product" in sql.lower()) and (
+                "estoque" in sql.lower() or "stock" in sql.lower()
+            ):
                 # Extract the number of days from the question
                 import re
-                days_match = re.search(r'(\d+)\s+dias', question.lower())
+
+                days_match = re.search(r"(\d+)\s+dias", question.lower())
                 if days_match:
                     days = int(days_match.group(1))
                     print(f"[DEBUG] Detectado {days} dias na pergunta original")
 
                     # Replace the number of days in the SQL
                     if "INTERVAL '30 days'" in sql:
-                        sql = sql.replace("INTERVAL '30 days'", f"INTERVAL '{days} days'")
+                        sql = sql.replace(
+                            "INTERVAL '30 days'", f"INTERVAL '{days} days'"
+                        )
                         print(f"[DEBUG] Substituído dias no SQL para {days}")
 
             # Log if the SQL was modified
@@ -699,11 +772,18 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             # Try to use query_processor if available
             try:
                 from modules.query_processor import process_query
+
                 processed_sql = process_query(question, sql, debug=debug)
 
                 # Only use processed_sql if it's different and valid
-                if processed_sql and processed_sql != sql and "SELECT" in processed_sql.upper():
-                    print(f"[DEBUG] SQL processado pelo query_processor:\n{processed_sql}")
+                if (
+                    processed_sql
+                    and processed_sql != sql
+                    and "SELECT" in processed_sql.upper()
+                ):
+                    print(
+                        f"[DEBUG] SQL processado pelo query_processor:\n{processed_sql}"
+                    )
                     sql = processed_sql
             except ImportError:
                 print("[DEBUG] query_processor não disponível, usando adaptação direta")
@@ -719,16 +799,15 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         """
         try:
             # If model is not explicitly passed in kwargs, use the one from config
-            if 'model' not in kwargs and hasattr(self, 'model'):
-                kwargs['model'] = self.model
+            if "model" not in kwargs and hasattr(self, "model"):
+                kwargs["model"] = self.model
                 print(f"Using model from config: {self.model}")
 
             # Check if we're using the OpenAI client directly
-            if hasattr(self, 'client') and self.client:
+            if hasattr(self, "client") and self.client:
                 # Use the OpenAI client directly
                 response = self.client.chat.completions.create(
-                    messages=messages,
-                    **kwargs
+                    messages=messages, **kwargs
                 )
                 return response.choices[0].message.content
 
@@ -740,8 +819,8 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             # Fallback to parent method
             try:
                 # If model is not in kwargs, use the one from config
-                if 'model' not in kwargs and hasattr(self, 'model'):
-                    kwargs['model'] = self.model
+                if "model" not in kwargs and hasattr(self, "model"):
+                    kwargs["model"] = self.model
 
                 # Try parent method again
                 return super().submit_prompt(messages, **kwargs)
@@ -763,11 +842,13 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         try:
             # Create messages for the prompt
             if system_message is None:
-                system_message = "You are a helpful assistant that translates text accurately."
+                system_message = (
+                    "You are a helpful assistant that translates text accurately."
+                )
 
             messages = [
                 {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ]
 
             # Use low temperature for more deterministic output
@@ -780,6 +861,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"Error generating text: {e}")
             import traceback
+
             traceback.print_exc()
             return f"Error: {str(e)}"
 
@@ -804,7 +886,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     # If data is too large, sample it
                     data = data.sample(100)
                     data_str = data.to_string()
-                    data_str += "\n\n(Note: This is a sample of 100 rows from the full dataset)"
+                    data_str += (
+                        "\n\n(Note: This is a sample of 100 rows from the full dataset)"
+                    )
                 else:
                     data_str = data.to_string()
             else:
@@ -827,10 +911,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"Error generating summary: {e}")
             import traceback
+
             traceback.print_exc()
             return f"Error generating summary: {str(e)}"
-
-
 
     def add_ddl_to_prompt(self, initial_prompt, ddl_list, max_tokens=14000):
         """
@@ -849,12 +932,16 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             for ddl in ddl_list:
                 # Simple token count approximation
-                if len(initial_prompt) + len(ddl) < max_tokens * 4:  # Rough approximation: 1 token ~= 4 chars
+                if (
+                    len(initial_prompt) + len(ddl) < max_tokens * 4
+                ):  # Rough approximation: 1 token ~= 4 chars
                     initial_prompt += f"{ddl}\n\n"
 
         return initial_prompt
 
-    def add_documentation_to_prompt(self, initial_prompt, documentation_list, max_tokens=14000):
+    def add_documentation_to_prompt(
+        self, initial_prompt, documentation_list, max_tokens=14000
+    ):
         """
         Add documentation to the prompt
 
@@ -871,7 +958,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             for documentation in documentation_list:
                 # Simple token count approximation
-                if len(initial_prompt) + len(documentation) < max_tokens * 4:  # Rough approximation: 1 token ~= 4 chars
+                if (
+                    len(initial_prompt) + len(documentation) < max_tokens * 4
+                ):  # Rough approximation: 1 token ~= 4 chars
                     initial_prompt += f"{documentation}\n\n"
 
         return initial_prompt
@@ -893,12 +982,21 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             for question in sql_list:
                 # Simple token count approximation
-                if len(initial_prompt) + len(question.get("question", "")) + len(question.get("sql", "")) < max_tokens * 4:  # Rough approximation: 1 token ~= 4 chars
-                    initial_prompt += f"{question.get('question', '')}\n{question.get('sql', '')}\n\n"
+                if (
+                    len(initial_prompt)
+                    + len(question.get("question", ""))
+                    + len(question.get("sql", ""))
+                    < max_tokens * 4
+                ):  # Rough approximation: 1 token ~= 4 chars
+                    initial_prompt += (
+                        f"{question.get('question', '')}\n{question.get('sql', '')}\n\n"
+                    )
 
         return initial_prompt
 
-    def get_sql_prompt(self, initial_prompt, question, question_sql_list, ddl_list, doc_list, **kwargs):
+    def get_sql_prompt(
+        self, initial_prompt, question, question_sql_list, ddl_list, doc_list, **kwargs
+    ):
         """
         Generate a prompt for the LLM to generate SQL
 
@@ -914,17 +1012,25 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             list: A list of messages for the LLM
         """
         if initial_prompt is None:
-            initial_prompt = f"Você é um especialista em SQL para o banco de dados Odoo. " + \
-            "Por favor, ajude a gerar uma consulta SQL para responder à pergunta. Sua resposta deve ser baseada APENAS no contexto fornecido e seguir as diretrizes e instruções de formato de resposta. "
+            initial_prompt = (
+                f"Você é um especialista em SQL para o banco de dados Odoo. "
+                + "Por favor, ajude a gerar uma consulta SQL para responder à pergunta. Sua resposta deve ser baseada APENAS no contexto fornecido e seguir as diretrizes e instruções de formato de resposta. "
+            )
 
         # Add DDL statements to the prompt
-        initial_prompt = self.add_ddl_to_prompt(initial_prompt, ddl_list, max_tokens=14000)
+        initial_prompt = self.add_ddl_to_prompt(
+            initial_prompt, ddl_list, max_tokens=14000
+        )
 
         # Add documentation to the prompt
-        initial_prompt = self.add_documentation_to_prompt(initial_prompt, doc_list, max_tokens=14000)
+        initial_prompt = self.add_documentation_to_prompt(
+            initial_prompt, doc_list, max_tokens=14000
+        )
 
         # Add SQL examples to the prompt
-        initial_prompt = self.add_sql_to_prompt(initial_prompt, question_sql_list, max_tokens=14000)
+        initial_prompt = self.add_sql_to_prompt(
+            initial_prompt, question_sql_list, max_tokens=14000
+        )
 
         # Add response guidelines
         initial_prompt += (
@@ -1003,7 +1109,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         break
             else:
                 # Continue collecting lines after WITH clause
-                for line in lines[lines.index(sql_lines[0])+1:]:
+                for line in lines[lines.index(sql_lines[0]) + 1 :]:
                     sql_lines.append(line)
                     if ";" in line:
                         break
@@ -1019,12 +1125,17 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         # Try to find a matching example in example_pairs.py
                         try:
                             from modules.example_pairs import get_example_pairs
+
                             examples = get_example_pairs()
                             for example in examples:
                                 example_sql = example.get("sql", "")
                                 if "WITH " in example_sql and ") AS (" in example_sql:
                                     # Found a potential match, check if our partial SQL is in it
-                                    if any(line.strip() in example_sql for line in sql_lines if line.strip()):
+                                    if any(
+                                        line.strip() in example_sql
+                                        for line in sql_lines
+                                        if line.strip()
+                                    ):
                                         print("[DEBUG] Found matching CTE in examples")
                                         sql = example_sql
                         except Exception as e:
@@ -1038,10 +1149,13 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         # If we have a SQL query and the original question, adapt the SQL based on the question
         if sql and question:
             # Check if this is a query about products without stock
-            if ("produto" in sql.lower() or "product" in sql.lower()) and ("estoque" in sql.lower() or "stock" in sql.lower()):
+            if ("produto" in sql.lower() or "product" in sql.lower()) and (
+                "estoque" in sql.lower() or "stock" in sql.lower()
+            ):
                 # Extract the number of days from the question
                 import re
-                days_match = re.search(r'(\d+)\s+dias', question.lower())
+
+                days_match = re.search(r"(\d+)\s+dias", question.lower())
                 days = 30  # Default
                 if days_match:
                     days = int(days_match.group(1))
@@ -1051,33 +1165,54 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     if "so.date_order >= NOW() - INTERVAL '30 days'" in sql:
                         sql = sql.replace(
                             "so.date_order >= NOW() - INTERVAL '30 days'",
-                            f"so.date_order >= NOW() - INTERVAL '{days} days'"
+                            f"so.date_order >= NOW() - INTERVAL '{days} days'",
                         )
                         print(f"[DEBUG] Replaced days in SQL to {days}")
                     elif "so.date_order >= NOW()" in sql:
                         # If the WHERE clause is already modified but incorrectly
-                        if "so.date_order >= NOW() AND so.state IN ('sale', 'done') - INTERVAL" in sql:
+                        if (
+                            "so.date_order >= NOW() AND so.state IN ('sale', 'done') - INTERVAL"
+                            in sql
+                        ):
                             sql = sql.replace(
                                 "so.date_order >= NOW() AND so.state IN ('sale', 'done') - INTERVAL '30 days'",
-                                f"so.date_order >= NOW() - INTERVAL '{days} days' AND so.state IN ('sale', 'done')"
+                                f"so.date_order >= NOW() - INTERVAL '{days} days' AND so.state IN ('sale', 'done')",
                             )
-                            print(f"[DEBUG] Fixed incorrect WHERE clause and set days to {days}")
+                            print(
+                                f"[DEBUG] Fixed incorrect WHERE clause and set days to {days}"
+                            )
                         else:
                             sql = sql.replace(
                                 "so.date_order >= NOW()",
-                                f"so.date_order >= NOW() - INTERVAL '{days} days'"
+                                f"so.date_order >= NOW() - INTERVAL '{days} days'",
                             )
                             print(f"[DEBUG] Added days interval: {days}")
 
                 # Check if it has a problematic condition
-                if "HAVING" in sql.upper() and "COALESCE(SUM(sq.quantity), 0) = 0" in sql:
-                    print("[DEBUG] Detected problematic stock query, adapting condition")
-                    sql = sql.replace("COALESCE(SUM(sq.quantity), 0) = 0", "(COALESCE(SUM(sq.quantity), 0) <= 0 OR SUM(sq.quantity) IS NULL)")
+                if (
+                    "HAVING" in sql.upper()
+                    and "COALESCE(SUM(sq.quantity), 0) = 0" in sql
+                ):
+                    print(
+                        "[DEBUG] Detected problematic stock query, adapting condition"
+                    )
+                    sql = sql.replace(
+                        "COALESCE(SUM(sq.quantity), 0) = 0",
+                        "(COALESCE(SUM(sq.quantity), 0) <= 0 OR SUM(sq.quantity) IS NULL)",
+                    )
 
                 # Check if it has a problematic location condition
-                if "sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)" in sql:
-                    print("[DEBUG] Detected problematic location condition, removing it")
-                    sql = sql.replace("sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)", "1=1")
+                if (
+                    "sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)"
+                    in sql
+                ):
+                    print(
+                        "[DEBUG] Detected problematic location condition, removing it"
+                    )
+                    sql = sql.replace(
+                        "sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)",
+                        "1=1",
+                    )
 
                 # Add state filter if missing
                 if "so.state IN" not in sql:
@@ -1085,15 +1220,20 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     if "so.date_order >= NOW() - INTERVAL" in sql:
                         sql = sql.replace(
                             f"so.date_order >= NOW() - INTERVAL '{days} days'",
-                            f"so.date_order >= NOW() - INTERVAL '{days} days' AND so.state IN ('sale', 'done')"
+                            f"so.date_order >= NOW() - INTERVAL '{days} days' AND so.state IN ('sale', 'done')",
                         )
                     else:
-                        sql = sql.replace("so.date_order >= NOW()", "so.date_order >= NOW() AND so.state IN ('sale', 'done')")
+                        sql = sql.replace(
+                            "so.date_order >= NOW()",
+                            "so.date_order >= NOW() AND so.state IN ('sale', 'done')",
+                        )
 
                 # Add ORDER BY and LIMIT if missing
                 if "ORDER BY" not in sql.upper():
                     print("[DEBUG] Adding ORDER BY and LIMIT")
-                    sql = sql.replace(";", " ORDER BY SUM(sol.product_uom_qty) DESC LIMIT 50;")
+                    sql = sql.replace(
+                        ";", " ORDER BY SUM(sol.product_uom_qty) DESC LIMIT 50;"
+                    )
 
         return sql
 
@@ -1126,7 +1266,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             # Generate the prompt
             initial_prompt = None
-            if hasattr(self, 'config') and self.config:
+            if hasattr(self, "config") and self.config:
                 initial_prompt = self.config.get("initial_prompt", None)
 
             prompt = self.get_sql_prompt(
@@ -1135,7 +1275,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 question_sql_list=question_sql_list,
                 ddl_list=ddl_list,
                 doc_list=doc_list,
-                **kwargs
+                **kwargs,
             )
 
             print(f"[DEBUG] Generated prompt with {len(prompt)} messages")
@@ -1152,6 +1292,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"[DEBUG] Error in generate_sql: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
@@ -1173,7 +1314,11 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 print("[DEBUG] Failed to generate SQL, trying fallback approaches")
 
                 # Fallback for monthly sales query
-                if "vendas" in question.lower() and "mês" in question.lower() and "2024" in question:
+                if (
+                    "vendas" in question.lower()
+                    and "mês" in question.lower()
+                    and "2024" in question
+                ):
                     print("[DEBUG] Using fallback for monthly sales query")
                     return """
                     SELECT
@@ -1193,14 +1338,29 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     """
 
                 # Fallback for products without stock
-                if ("produtos" in question.lower() or "product" in question.lower()) and ("estoque" in question.lower() or "stock" in question.lower() or "inventory" in question.lower()):
+                if (
+                    "produtos" in question.lower() or "product" in question.lower()
+                ) and (
+                    "estoque" in question.lower()
+                    or "stock" in question.lower()
+                    or "inventory" in question.lower()
+                ):
                     print("[DEBUG] Using fallback for products without stock")
 
                     # Verificar se é uma pergunta sobre produtos vendidos nos últimos dias sem estoque
-                    if "últimos" in question.lower() and "dias" in question.lower() and ("não" in question.lower() or "sem" in question.lower() or "mãos" in question.lower()):
+                    if (
+                        "últimos" in question.lower()
+                        and "dias" in question.lower()
+                        and (
+                            "não" in question.lower()
+                            or "sem" in question.lower()
+                            or "mãos" in question.lower()
+                        )
+                    ):
                         # Extrair o número de dias
                         import re
-                        days_match = re.search(r'(\d+)\s+dias', question.lower())
+
+                        days_match = re.search(r"(\d+)\s+dias", question.lower())
                         days = 30  # Default
                         if days_match:
                             days = int(days_match.group(1))
@@ -1270,23 +1430,32 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     """
 
                 # Fallback for products by sales value in specific year
-                if "nivel de estoque" in question.lower() and "produtos" in question.lower() and "vendidos em valor" in question.lower():
-                    print("[DEBUG] Using fallback for products by sales value in specific year")
+                if (
+                    "nivel de estoque" in question.lower()
+                    and "produtos" in question.lower()
+                    and "vendidos em valor" in question.lower()
+                ):
+                    print(
+                        "[DEBUG] Using fallback for products by sales value in specific year"
+                    )
 
                     # Extract year from question
                     import re
-                    year_match = re.search(r'(\d{4})', question)
+
+                    year_match = re.search(r"(\d{4})", question)
                     year = 2024  # Default year
                     if year_match:
                         year = int(year_match.group(1))
 
                     # Extract number of products
                     num_products = 50  # Default number
-                    num_match = re.search(r'(\d+)\s+produtos', question.lower())
+                    num_match = re.search(r"(\d+)\s+produtos", question.lower())
                     if num_match:
                         num_products = int(num_match.group(1))
 
-                    print(f"[DEBUG] Detected year: {year}, number of products: {num_products}")
+                    print(
+                        f"[DEBUG] Detected year: {year}, number of products: {num_products}"
+                    )
 
                     return f"""
                     WITH mais_vendidos_valor AS (
@@ -1340,6 +1509,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"[DEBUG] Error in ask method: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
@@ -1362,10 +1532,22 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             dict: Information about the current model
         """
         model_info = {
-            'model': self.model if hasattr(self, 'model') else os.getenv('OPENAI_MODEL', 'gpt-4'),
-            'embedding_model': self.embedding_model if hasattr(self, 'embedding_model') else os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-ada-002'),
-            'api_key_available': bool(self.api_key if hasattr(self, 'api_key') else os.getenv('OPENAI_API_KEY')),
-            'client_available': hasattr(self, 'client') and self.client is not None
+            "model": (
+                self.model
+                if hasattr(self, "model")
+                else os.getenv("OPENAI_MODEL", "gpt-4")
+            ),
+            "embedding_model": (
+                self.embedding_model
+                if hasattr(self, "embedding_model")
+                else os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002")
+            ),
+            "api_key_available": bool(
+                self.api_key
+                if hasattr(self, "api_key")
+                else os.getenv("OPENAI_API_KEY")
+            ),
+            "client_available": hasattr(self, "client") and self.client is not None,
         }
 
         return model_info
@@ -1374,15 +1556,23 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         """
         Get the training data from the vector store
         """
-        print(f"[DEBUG] Checking training data in directory: {self.chroma_persist_directory}")
-        print(f"[DEBUG] Directory exists: {os.path.exists(self.chroma_persist_directory)}")
+        print(
+            f"[DEBUG] Checking training data in directory: {self.chroma_persist_directory}"
+        )
+        print(
+            f"[DEBUG] Directory exists: {os.path.exists(self.chroma_persist_directory)}"
+        )
         if os.path.exists(self.chroma_persist_directory):
-            print(f"[DEBUG] Directory contents: {os.listdir(self.chroma_persist_directory)}")
+            print(
+                f"[DEBUG] Directory contents: {os.listdir(self.chroma_persist_directory)}"
+            )
 
         try:
             # Check if we need to reinitialize ChromaDB
             if not self.chromadb_client or not self.collection:
-                print("[DEBUG] ChromaDB client or collection not available, reinitializing")
+                print(
+                    "[DEBUG] ChromaDB client or collection not available, reinitializing"
+                )
                 self._init_chromadb()
 
             # Get collection
@@ -1409,7 +1599,12 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 results = collection.get()
 
                 # If that fails or returns empty, try with a limit
-                if not results or not isinstance(results, dict) or 'documents' not in results or not results['documents']:
+                if (
+                    not results
+                    or not isinstance(results, dict)
+                    or "documents" not in results
+                    or not results["documents"]
+                ):
                     print("[DEBUG] Empty results from get(), trying with parameters")
                     # Try to get at least some documents with a limit
                     results = collection.get(limit=100)
@@ -1420,20 +1615,19 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     print("[DEBUG] Results is not a valid dictionary")
                     return []
 
-                if 'documents' not in results or not results['documents']:
+                if "documents" not in results or not results["documents"]:
                     print("[DEBUG] No documents in results")
                     return []
 
                 # Convert to a list of dictionaries
                 training_data = []
-                for i, doc in enumerate(results['documents']):
+                for i, doc in enumerate(results["documents"]):
                     metadata = {}
-                    if 'metadatas' in results and i < len(results['metadatas']):
-                        metadata = results['metadatas'][i]
-                    training_data.append({
-                        'type': metadata.get('type', 'unknown'),
-                        'content': doc
-                    })
+                    if "metadatas" in results and i < len(results["metadatas"]):
+                        metadata = results["metadatas"][i]
+                    training_data.append(
+                        {"type": metadata.get("type", "unknown"), "content": doc}
+                    )
 
                 print(f"[DEBUG] Found {len(training_data)} training examples")
 
@@ -1448,31 +1642,47 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 try:
                     print("[DEBUG] Adding test document to check if collection works")
                     collection.add(
-                        documents=["This is a test document to check if collection works"],
+                        documents=[
+                            "This is a test document to check if collection works"
+                        ],
                         metadatas=[{"type": "test"}],
-                        ids=["test_doc_1"]
+                        ids=["test_doc_1"],
                     )
 
                     # Try to get the test document
                     test_results = collection.get(ids=["test_doc_1"])
-                    if test_results and 'documents' in test_results and test_results['documents']:
+                    if (
+                        test_results
+                        and "documents" in test_results
+                        and test_results["documents"]
+                    ):
                         print("[DEBUG] Successfully added and retrieved test document")
 
                         # Now try to get all documents again
                         all_results = collection.get()
-                        if all_results and 'documents' in all_results and all_results['documents']:
+                        if (
+                            all_results
+                            and "documents" in all_results
+                            and all_results["documents"]
+                        ):
                             # Convert to a list of dictionaries
                             all_training_data = []
-                            for i, doc in enumerate(all_results['documents']):
+                            for i, doc in enumerate(all_results["documents"]):
                                 metadata = {}
-                                if 'metadatas' in all_results and i < len(all_results['metadatas']):
-                                    metadata = all_results['metadatas'][i]
-                                all_training_data.append({
-                                    'type': metadata.get('type', 'unknown'),
-                                    'content': doc
-                                })
+                                if "metadatas" in all_results and i < len(
+                                    all_results["metadatas"]
+                                ):
+                                    metadata = all_results["metadatas"][i]
+                                all_training_data.append(
+                                    {
+                                        "type": metadata.get("type", "unknown"),
+                                        "content": doc,
+                                    }
+                                )
 
-                            print(f"[DEBUG] Found {len(all_training_data)} training examples after test")
+                            print(
+                                f"[DEBUG] Found {len(all_training_data)} training examples after test"
+                            )
                             return all_training_data
 
                     print("[DEBUG] Failed to retrieve test document")
@@ -1483,11 +1693,13 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             except Exception as e:
                 print(f"[DEBUG] Error getting documents: {e}")
                 import traceback
+
                 traceback.print_exc()
                 return []
         except Exception as e:
             print(f"[DEBUG] Error in get_training_data: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
@@ -1507,21 +1719,23 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             # Get document count before training
             try:
                 count_before = self.collection.count()
-                print(f"[DEBUG] Collection has {count_before} documents before training")
+                print(
+                    f"[DEBUG] Collection has {count_before} documents before training"
+                )
             except Exception as e:
                 print(f"[DEBUG] Error checking collection count before training: {e}")
                 count_before = 0
 
             # Check if we're training with SQL and question
-            if 'sql' in kwargs and 'question' in kwargs:
+            if "sql" in kwargs and "question" in kwargs:
                 print(f"[DEBUG] Training with SQL and question directly")
                 try:
                     # Add the document directly to the collection
                     import hashlib
 
                     # Create a unique ID based on the question and SQL
-                    question = kwargs['question']
-                    sql = kwargs['sql']
+                    question = kwargs["question"]
+                    sql = kwargs["sql"]
                     content = f"Question: {question}\nSQL: {sql}"
 
                     # Create a deterministic ID based on content
@@ -1534,12 +1748,13 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         self.collection.add(
                             documents=[content],
                             metadatas=[{"type": "sql", "question": question}],
-                            ids=[doc_id]
+                            ids=[doc_id],
                         )
                         print(f"[DEBUG] Added document without embedding, ID: {doc_id}")
                     except Exception as e:
                         print(f"[DEBUG] Error adding without embedding: {e}")
                         import traceback
+
                         traceback.print_exc()
                     print(f"[DEBUG] Added document directly with ID: {doc_id}")
 
@@ -1550,23 +1765,26 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 except Exception as e:
                     print(f"[DEBUG] Error adding document directly: {e}")
                     import traceback
+
                     traceback.print_exc()
 
             # Check if we're training with a plan
-            elif 'plan' in kwargs:
+            elif "plan" in kwargs:
                 print(f"[DEBUG] Training with plan directly")
                 try:
                     # Add the plan directly to the collection
                     import hashlib
 
                     # Convert plan to string for storage - handle non-serializable objects
-                    plan = kwargs['plan']
+                    plan = kwargs["plan"]
                     try:
                         # Try to convert the plan to a string representation
                         plan_type = type(plan).__name__
                         plan_str = f"Training Plan of type {plan_type}"
                         content = f"Training Plan:\n{plan_str}"
-                        print(f"Created string representation of training plan: {plan_str}")
+                        print(
+                            f"Created string representation of training plan: {plan_str}"
+                        )
                     except Exception as e:
                         print(f"Error creating string representation of plan: {e}")
                         plan_str = str(plan)
@@ -1582,12 +1800,15 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         self.collection.add(
                             documents=[content],
                             metadatas=[{"type": "training_plan"}],
-                            ids=[doc_id]
+                            ids=[doc_id],
                         )
-                        print(f"[DEBUG] Added plan document without embedding, ID: {doc_id}")
+                        print(
+                            f"[DEBUG] Added plan document without embedding, ID: {doc_id}"
+                        )
                     except Exception as e:
                         print(f"[DEBUG] Error adding plan without embedding: {e}")
                         import traceback
+
                         traceback.print_exc()
                     print(f"[DEBUG] Added plan document directly with ID: {doc_id}")
 
@@ -1598,17 +1819,18 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 except Exception as e:
                     print(f"[DEBUG] Error adding plan directly: {e}")
                     import traceback
+
                     traceback.print_exc()
 
             # Check if we're training with SQL only
-            if 'sql' in kwargs and 'question' not in kwargs:
+            if "sql" in kwargs and "question" not in kwargs:
                 print(f"[DEBUG] Training with SQL only directly")
                 try:
                     # Add the document directly to the collection
                     import hashlib
 
                     # Get the SQL
-                    sql = kwargs['sql']
+                    sql = kwargs["sql"]
                     content = f"SQL: {sql}"
 
                     # Create a deterministic ID based on content
@@ -1621,12 +1843,15 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         self.collection.add(
                             documents=[content],
                             metadatas=[{"type": "sql_only"}],
-                            ids=[doc_id]
+                            ids=[doc_id],
                         )
-                        print(f"[DEBUG] Added SQL-only document without embedding, ID: {doc_id}")
+                        print(
+                            f"[DEBUG] Added SQL-only document without embedding, ID: {doc_id}"
+                        )
                     except Exception as e:
                         print(f"[DEBUG] Error adding without embedding: {e}")
                         import traceback
+
                         traceback.print_exc()
                     print(f"[DEBUG] Added SQL-only document directly with ID: {doc_id}")
 
@@ -1637,17 +1862,18 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 except Exception as e:
                     print(f"[DEBUG] Error adding SQL-only document directly: {e}")
                     import traceback
+
                     traceback.print_exc()
 
             # Check if we're training with documentation
-            if 'documentation' in kwargs:
+            if "documentation" in kwargs:
                 print(f"[DEBUG] Training with documentation directly")
                 try:
                     # Add the document directly to the collection
                     import hashlib
 
                     # Get the documentation
-                    documentation = kwargs['documentation']
+                    documentation = kwargs["documentation"]
                     content = f"Documentation: {documentation}"
 
                     # Create a deterministic ID based on content
@@ -1660,14 +1886,19 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         self.collection.add(
                             documents=[content],
                             metadatas=[{"type": "documentation"}],
-                            ids=[doc_id]
+                            ids=[doc_id],
                         )
-                        print(f"[DEBUG] Added documentation document without embedding, ID: {doc_id}")
+                        print(
+                            f"[DEBUG] Added documentation document without embedding, ID: {doc_id}"
+                        )
                     except Exception as e:
                         print(f"[DEBUG] Error adding without embedding: {e}")
                         import traceback
+
                         traceback.print_exc()
-                    print(f"[DEBUG] Added documentation document directly with ID: {doc_id}")
+                    print(
+                        f"[DEBUG] Added documentation document directly with ID: {doc_id}"
+                    )
 
                     # Also call parent method for compatibility
                     super().train(**kwargs)
@@ -1676,6 +1907,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 except Exception as e:
                     print(f"[DEBUG] Error adding documentation document directly: {e}")
                     import traceback
+
                     traceback.print_exc()
 
             # For other types of training, use the parent method
@@ -1691,12 +1923,16 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 print(f"[DEBUG] Collection now has {count_after} documents")
 
                 if count_after > count_before:
-                    print(f"[DEBUG] Successfully added {count_after - count_before} documents")
+                    print(
+                        f"[DEBUG] Successfully added {count_after - count_before} documents"
+                    )
                 else:
                     print("[DEBUG] Warning: No new documents were added")
 
                 # List directory contents after training
-                print(f"[DEBUG] Directory contents after training: {os.listdir(self.chroma_persist_directory)}")
+                print(
+                    f"[DEBUG] Directory contents after training: {os.listdir(self.chroma_persist_directory)}"
+                )
             except Exception as e:
                 print(f"[DEBUG] Error checking collection count after training: {e}")
 
@@ -1704,6 +1940,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"[DEBUG] Error in train method: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
@@ -1736,6 +1973,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 except Exception as e:
                     print(f"[DEBUG] Error resetting collection: {e}")
                     import traceback
+
                     traceback.print_exc()
 
             # If client reset failed, try to recreate the client
@@ -1744,6 +1982,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"[DEBUG] Error in reset_training: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
@@ -1770,7 +2009,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             # Check if the ID exists
             try:
                 result = self.collection.get(ids=[id])
-                if not result or 'ids' not in result or not result['ids']:
+                if not result or "ids" not in result or not result["ids"]:
                     print(f"[DEBUG] ID {id} not found in collection")
                     return False
             except Exception as e:
@@ -1789,6 +2028,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"[DEBUG] Error in remove_training_data: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
@@ -1815,42 +2055,47 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             query_results = self.collection.query(
                 query_texts=[question],
                 n_results=10,  # Increased from 5 to 10 for better coverage
-                where={"type": "sql"}
+                where={"type": "sql"},
             )
 
             result_list = []
-            if query_results and 'documents' in query_results and query_results['documents']:
-                documents = query_results['documents'][0]
-                metadatas = query_results.get('metadatas', [[]])[0]
+            if (
+                query_results
+                and "documents" in query_results
+                and query_results["documents"]
+            ):
+                documents = query_results["documents"][0]
+                metadatas = query_results.get("metadatas", [[]])[0]
 
                 print(f"[DEBUG] Found {len(documents)} similar questions")
 
                 # Process each document to extract question and SQL
                 for i, doc in enumerate(documents):
                     if "Question:" in doc and "SQL:" in doc:
-                        doc_question = doc.split("Question:")[1].split("SQL:")[0].strip()
+                        doc_question = (
+                            doc.split("Question:")[1].split("SQL:")[0].strip()
+                        )
                         doc_sql = doc.split("SQL:")[1].strip()
 
                         # Add to result list in the format expected by Vanna.ai
-                        result_list.append({
-                            "question": doc_question,
-                            "sql": doc_sql
-                        })
+                        result_list.append({"question": doc_question, "sql": doc_sql})
                     elif "SQL:" in doc:  # Handle case where only SQL is present
                         doc_sql = doc.split("SQL:")[1].strip()
                         # Use metadata question if available
-                        doc_question = metadatas[i].get("question", "Unknown question") if i < len(metadatas) else "Unknown question"
+                        doc_question = (
+                            metadatas[i].get("question", "Unknown question")
+                            if i < len(metadatas)
+                            else "Unknown question"
+                        )
 
-                        result_list.append({
-                            "question": doc_question,
-                            "sql": doc_sql
-                        })
+                        result_list.append({"question": doc_question, "sql": doc_sql})
 
             print(f"[DEBUG] Processed {len(result_list)} question-SQL pairs")
             return result_list
         except Exception as e:
             print(f"[DEBUG] Error in get_similar_question_sql: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
@@ -1878,12 +2123,16 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             query_results = self.collection.query(
                 query_texts=[question],
                 n_results=10,
-                where={"type": {"$in": ["ddl", "ddl_priority"]}}
+                where={"type": {"$in": ["ddl", "ddl_priority"]}},
             )
 
             result_list = []
-            if query_results and 'documents' in query_results and query_results['documents']:
-                documents = query_results['documents'][0]
+            if (
+                query_results
+                and "documents" in query_results
+                and query_results["documents"]
+            ):
+                documents = query_results["documents"][0]
                 print(f"[DEBUG] Found {len(documents)} related DDL statements")
 
                 # Process each document to extract DDL
@@ -1900,6 +2149,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"[DEBUG] Error in get_related_ddl: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
@@ -1927,12 +2177,24 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             query_results = self.collection.query(
                 query_texts=[question],
                 n_results=10,
-                where={"type": {"$in": ["documentation", "relationship", "relationship_priority"]}}
+                where={
+                    "type": {
+                        "$in": [
+                            "documentation",
+                            "relationship",
+                            "relationship_priority",
+                        ]
+                    }
+                },
             )
 
             result_list = []
-            if query_results and 'documents' in query_results and query_results['documents']:
-                documents = query_results['documents'][0]
+            if (
+                query_results
+                and "documents" in query_results
+                and query_results["documents"]
+            ):
+                documents = query_results["documents"][0]
                 print(f"[DEBUG] Found {len(documents)} related documentation items")
 
                 # Process each document to extract documentation
@@ -1955,6 +2217,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"[DEBUG] Error in get_related_documentation: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
@@ -1975,11 +2238,14 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             priority_tables_str = "'" + "','".join(ODOO_PRIORITY_TABLES) + "'"
 
             # Get information schema using SQLAlchemy engine, but only for priority tables
-            df_information_schema = pd.read_sql_query(f"""
+            df_information_schema = pd.read_sql_query(
+                f"""
                 SELECT * FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE table_schema = 'public'
                 AND table_name IN ({priority_tables_str})
-            """, engine)
+            """,
+                engine,
+            )
 
             print(f"Found {len(df_information_schema)} columns in priority tables")
 
@@ -1997,7 +2263,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         plan_type = type(plan).__name__
                         plan_str = f"Training Plan of type {plan_type}"
                         content = f"Priority Tables Training Plan:\n{plan_str}"
-                        print(f"Created string representation of training plan: {plan_str}")
+                        print(
+                            f"Created string representation of training plan: {plan_str}"
+                        )
                     except Exception as e:
                         print(f"Error creating string representation of plan: {e}")
                         plan_str = str(plan)
@@ -2011,14 +2279,19 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         self.collection.add(
                             documents=[content],
                             metadatas=[{"type": "training_plan_priority"}],
-                            ids=[doc_id]
+                            ids=[doc_id],
                         )
-                        print(f"Added priority training plan document without embedding, ID: {doc_id}")
+                        print(
+                            f"Added priority training plan document without embedding, ID: {doc_id}"
+                        )
                     except Exception as e:
                         print(f"Error adding priority plan without embedding: {e}")
                         import traceback
+
                         traceback.print_exc()
-                    print(f"Added priority training plan document directly with ID: {doc_id}")
+                    print(
+                        f"Added priority training plan document directly with ID: {doc_id}"
+                    )
                 except Exception as e:
                     print(f"Error adding priority training plan to collection: {e}")
 

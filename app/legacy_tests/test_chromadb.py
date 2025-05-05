@@ -17,18 +17,21 @@ from modules.example_pairs import get_example_pairs
 # Load environment variables
 load_dotenv()
 
+
 def test_chromadb():
     """
     Testa a adição de exemplos ao ChromaDB.
     """
     # Initialize Vanna
     # Get model from environment variable, default to gpt-4 if not specified
-    openai_model = os.getenv('OPENAI_MODEL', 'gpt-4')
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-4")
 
     config = {
-        'api_key': os.getenv('OPENAI_API_KEY'),
-        'model': openai_model,
-        'chroma_persist_directory': os.getenv('CHROMA_PERSIST_DIRECTORY', './data/chromadb')
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": openai_model,
+        "chroma_persist_directory": os.getenv(
+            "CHROMA_PERSIST_DIRECTORY", "./data/chromadb"
+        ),
     }
 
     print(f"Using OpenAI model: {openai_model}")
@@ -54,7 +57,7 @@ def test_chromadb():
     print("\nTraining with example question-SQL pairs...")
     for example in example_pairs:
         print(f"Training with question: {example['question']}")
-        vn.train(question=example['question'], sql=example['sql'])
+        vn.train(question=example["question"], sql=example["sql"])
     print("Example training completed!")
 
     # Check ChromaDB collection status after training
@@ -71,12 +74,15 @@ def test_chromadb():
     print("\nTesting querying similar questions...")
     for example in example_pairs:
         print(f"Querying similar questions for: {example['question']}")
-        similar_questions = vn.get_similar_question_sql(example['question'])
-        print(f"Found {len(similar_questions) if similar_questions else 0} similar questions")
+        similar_questions = vn.get_similar_question_sql(example["question"])
+        print(
+            f"Found {len(similar_questions) if similar_questions else 0} similar questions"
+        )
         if similar_questions:
             for i, similar in enumerate(similar_questions):
                 print(f"Similar question {i+1}: {similar}")
     print("Query testing completed!")
+
 
 if __name__ == "__main__":
     test_chromadb()

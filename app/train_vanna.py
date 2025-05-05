@@ -18,6 +18,7 @@ from modules.example_pairs import get_example_pairs
 # Load environment variables
 load_dotenv()
 
+
 def train_vanna():
     """
     Train Vanna AI on the Odoo database using priority tables.
@@ -33,21 +34,39 @@ def train_vanna():
     - Train with example question-SQL pairs
     """
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Train Vanna AI on Odoo database using priority tables')
-    parser.add_argument('--schema', action='store_true', help='Train on priority tables schema')
-    parser.add_argument('--relationships', action='store_true', help='Train on priority table relationships')
-    parser.add_argument('--plan', action='store_true', help='Generate and execute training plan for priority tables')
-    parser.add_argument('--all', action='store_true', help='Train on all priority tables and relationships')
+    parser = argparse.ArgumentParser(
+        description="Train Vanna AI on Odoo database using priority tables"
+    )
+    parser.add_argument(
+        "--schema", action="store_true", help="Train on priority tables schema"
+    )
+    parser.add_argument(
+        "--relationships",
+        action="store_true",
+        help="Train on priority table relationships",
+    )
+    parser.add_argument(
+        "--plan",
+        action="store_true",
+        help="Generate and execute training plan for priority tables",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Train on all priority tables and relationships",
+    )
     args = parser.parse_args()
 
     # Initialize Vanna
     # Get model from environment variable, default to gpt-4 if not specified
-    openai_model = os.getenv('OPENAI_MODEL', 'gpt-4')
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-4")
 
     config = {
-        'api_key': os.getenv('OPENAI_API_KEY'),
-        'model': openai_model,
-        'chroma_persist_directory': os.getenv('CHROMA_PERSIST_DIRECTORY', './data/chromadb')
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": openai_model,
+        "chroma_persist_directory": os.getenv(
+            "CHROMA_PERSIST_DIRECTORY", "./data/chromadb"
+        ),
     }
 
     print(f"Using OpenAI model: {openai_model}")
@@ -72,7 +91,9 @@ def train_vanna():
     # Test database connection
     conn = vn.connect_to_db()
     if not conn:
-        print("Failed to connect to Odoo database. Please check your connection settings.")
+        print(
+            "Failed to connect to Odoo database. Please check your connection settings."
+        )
         return
     conn.close()
     print("Successfully connected to Odoo database.")
@@ -83,6 +104,7 @@ def train_vanna():
         try:
             # Import the list of priority tables to show count
             from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+
             print(f"Training on {len(ODOO_PRIORITY_TABLES)} priority tables...")
 
             # Train on priority tables
@@ -111,6 +133,7 @@ def train_vanna():
         try:
             # Import the list of priority tables to show count
             from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+
             print(f"Generating plan for {len(ODOO_PRIORITY_TABLES)} priority tables...")
 
             # Generate training plan
@@ -119,11 +142,17 @@ def train_vanna():
             if plan:
                 # Verificar o tipo do plano sem usar len()
                 plan_type = type(plan).__name__
-                print(f"✅ Training plan generated successfully! Plan type: {plan_type}")
+                print(
+                    f"✅ Training plan generated successfully! Plan type: {plan_type}"
+                )
 
                 # Adicionar informações adicionais sobre o plano
-                print("This training plan contains instructions for the model based on the database schema.")
-                print("It will be used to train the model on the structure of your priority tables.")
+                print(
+                    "This training plan contains instructions for the model based on the database schema."
+                )
+                print(
+                    "It will be used to train the model on the structure of your priority tables."
+                )
 
                 try:
                     result = vn.train(plan=plan)
@@ -142,16 +171,19 @@ def train_vanna():
     print("\nTraining with example question-SQL pairs...")
     for example in example_pairs:
         print(f"Training with question: {example['question']}")
-        vn.train(question=example['question'], sql=example['sql'])
+        vn.train(question=example["question"], sql=example["sql"])
     print("Example training completed!")
 
     if not (args.schema or args.relationships or args.plan or args.all):
         print("No training options selected. Use one of the following options:")
         print("  --schema         : Train on priority tables schema")
         print("  --relationships  : Train on priority table relationships")
-        print("  --plan           : Generate and execute training plan for priority tables")
+        print(
+            "  --plan           : Generate and execute training plan for priority tables"
+        )
         print("  --all            : Train on all priority tables and relationships")
         print("\nExample: python app/train_vanna.py --all")
+
 
 if __name__ == "__main__":
     train_vanna()

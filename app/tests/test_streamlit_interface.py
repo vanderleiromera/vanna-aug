@@ -6,7 +6,8 @@ from unittest.mock import patch, MagicMock
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append('/app')  # Adicionar o diretório raiz da aplicação no contêiner Docker
+sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
+
 
 # Criar mocks para o Streamlit
 class MockStreamlit:
@@ -125,6 +126,7 @@ class MockStreamlit:
     def cache_resource(self, func):
         return func
 
+
 class MockSidebar:
     """Mock para o sidebar do Streamlit"""
 
@@ -185,6 +187,7 @@ class MockSidebar:
     def text_area(self, label, value="", placeholder="", height=None, key=None):
         return value
 
+
 class MockColumn:
     """Mock para colunas do Streamlit"""
 
@@ -217,6 +220,7 @@ class MockColumn:
 
     def radio(self, label, options, key=None):
         return options[0] if options else None
+
 
 class MockTab:
     """Mock para abas do Streamlit"""
@@ -269,6 +273,7 @@ class MockTab:
     def metric(self, label, value, delta=None, delta_color=None):
         return None
 
+
 class MockExpander:
     """Mock para expansores do Streamlit"""
 
@@ -284,14 +289,17 @@ class MockExpander:
     def write(self, text):
         return None
 
+
 class TestStreamlitInterface(unittest.TestCase):
     """Testes para a interface Streamlit"""
 
-    @patch('streamlit.title')
-    @patch('streamlit.markdown')
-    @patch('streamlit.text_input')
-    @patch('app.modules.vanna_odoo_extended.VannaOdooExtended')
-    def test_main_interface(self, mock_vanna, mock_text_input, mock_markdown, mock_title):
+    @patch("streamlit.title")
+    @patch("streamlit.markdown")
+    @patch("streamlit.text_input")
+    @patch("app.modules.vanna_odoo_extended.VannaOdooExtended")
+    def test_main_interface(
+        self, mock_vanna, mock_text_input, mock_markdown, mock_title
+    ):
         """Testar a interface principal do Streamlit"""
         # Configurar os mocks
         mock_title.return_value = None
@@ -300,11 +308,15 @@ class TestStreamlitInterface(unittest.TestCase):
 
         # Configurar o mock do VannaOdooExtended
         mock_vanna_instance = MagicMock()
-        mock_vanna_instance.ask.return_value = "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '30 days'"
-        mock_vanna_instance.run_sql.return_value = pd.DataFrame({
-            'date': pd.date_range(start='2023-01-01', periods=5),
-            'amount': [100, 200, 300, 400, 500]
-        })
+        mock_vanna_instance.ask.return_value = (
+            "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '30 days'"
+        )
+        mock_vanna_instance.run_sql.return_value = pd.DataFrame(
+            {
+                "date": pd.date_range(start="2023-01-01", periods=5),
+                "amount": [100, 200, 300, 400, 500],
+            }
+        )
         mock_vanna.return_value = mock_vanna_instance
 
         # Importar o módulo app.py
@@ -316,7 +328,9 @@ class TestStreamlitInterface(unittest.TestCase):
         vanna = mock_vanna(config={})
 
         # 2. Processar a pergunta do usuário
-        user_question = mock_text_input("Faça uma pergunta sobre seu banco de dados Odoo:")
+        user_question = mock_text_input(
+            "Faça uma pergunta sobre seu banco de dados Odoo:"
+        )
 
         # 3. Gerar SQL a partir da pergunta
         if user_question:
@@ -333,11 +347,18 @@ class TestStreamlitInterface(unittest.TestCase):
 
         # Verificar se as funções mock foram chamadas corretamente
         mock_title.assert_called()
-        mock_text_input.assert_called_with("Faça uma pergunta sobre seu banco de dados Odoo:", placeholder="Ex: Liste as vendas de 2024, mês a mês, por valor total")
-        mock_vanna_instance.ask.assert_called_with("Mostre as vendas dos últimos 30 dias")
-        mock_vanna_instance.run_sql.assert_called_with("SELECT * FROM sales WHERE date >= NOW() - INTERVAL '30 days'")
+        mock_text_input.assert_called_with(
+            "Faça uma pergunta sobre seu banco de dados Odoo:",
+            placeholder="Ex: Liste as vendas de 2024, mês a mês, por valor total",
+        )
+        mock_vanna_instance.ask.assert_called_with(
+            "Mostre as vendas dos últimos 30 dias"
+        )
+        mock_vanna_instance.run_sql.assert_called_with(
+            "SELECT * FROM sales WHERE date >= NOW() - INTERVAL '30 days'"
+        )
 
-    @patch('app.modules.vanna_odoo_extended.VannaOdooExtended')
+    @patch("app.modules.vanna_odoo_extended.VannaOdooExtended")
     def test_training_interface(self, mock_vanna):
         """Testar a interface de treinamento"""
         # Configurar o mock do VannaOdooExtended
@@ -345,7 +366,7 @@ class TestStreamlitInterface(unittest.TestCase):
         mock_vanna_instance.train.return_value = True
         mock_vanna_instance.get_training_data.return_value = [
             {"question": "Pergunta 1", "sql": "SQL 1"},
-            {"question": "Pergunta 2", "sql": "SQL 2"}
+            {"question": "Pergunta 2", "sql": "SQL 2"},
         ]
         mock_vanna.return_value = mock_vanna_instance
 
@@ -367,7 +388,9 @@ class TestStreamlitInterface(unittest.TestCase):
             else:
                 # Treinar com o exemplo manual
                 with st.sidebar.spinner("Treinando..."):
-                    result = mock_vanna_instance.train(question=manual_question, sql=manual_sql)
+                    result = mock_vanna_instance.train(
+                        question=manual_question, sql=manual_sql
+                    )
                     if result:
                         st.sidebar.success("✅ Exemplo treinado!")
 
@@ -378,7 +401,9 @@ class TestStreamlitInterface(unittest.TestCase):
                         # Verificar se o treinamento foi bem-sucedido
                         training_data = mock_vanna_instance.get_training_data()
                         if training_data and len(training_data) > 0:
-                            st.sidebar.success(f"✅ Total: {len(training_data)} exemplos")
+                            st.sidebar.success(
+                                f"✅ Total: {len(training_data)} exemplos"
+                            )
                         else:
                             st.sidebar.warning("⚠️ Nenhum dado encontrado")
                     else:
@@ -388,5 +413,6 @@ class TestStreamlitInterface(unittest.TestCase):
         # Nota: Como estamos usando nosso próprio mock do Streamlit, não podemos verificar as chamadas diretamente
         # Em um teste real, usaríamos o módulo unittest.mock para verificar as chamadas
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -10,12 +10,13 @@ from sqlalchemy import create_engine
 
 # Configurações de conexão
 db_params = {
-    'host': os.getenv('ODOO_DB_HOST', 'localhost'),
-    'port': os.getenv('ODOO_DB_PORT', 5432),
-    'database': os.getenv('ODOO_DB_NAME', 'odoo'),
-    'user': os.getenv('ODOO_DB_USER', 'odoo'),
-    'password': os.getenv('ODOO_DB_PASSWORD', 'odoo')
+    "host": os.getenv("ODOO_DB_HOST", "localhost"),
+    "port": os.getenv("ODOO_DB_PORT", 5432),
+    "database": os.getenv("ODOO_DB_NAME", "odoo"),
+    "user": os.getenv("ODOO_DB_USER", "odoo"),
+    "password": os.getenv("ODOO_DB_PASSWORD", "odoo"),
 }
+
 
 def run_query(year=2025, num_products=20):
     """
@@ -23,16 +24,16 @@ def run_query(year=2025, num_products=20):
     """
     try:
         # Criar string de conexão
-        user = db_params['user']
-        password = db_params['password']
-        host = db_params['host']
-        port = db_params['port']
-        database = db_params['database']
+        user = db_params["user"]
+        password = db_params["password"]
+        host = db_params["host"]
+        port = db_params["port"]
+        database = db_params["database"]
         db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
-        
+
         # Criar engine
         engine = create_engine(db_url)
-        
+
         # Consulta SQL
         sql = f"""
         WITH mais_vendidos_valor AS (
@@ -81,51 +82,61 @@ def run_query(year=2025, num_products=20):
         ORDER BY 
             mv.valor_total_vendido DESC;
         """
-        
+
         print(f"Executando consulta para {num_products} produtos em {year}...")
         print(f"SQL: {sql}")
-        
+
         # Executar consulta
         df = pd.read_sql_query(sql, engine)
-        
+
         # Verificar resultados
         if df.empty:
             print(f"Nenhum resultado encontrado para o ano {year}.")
-            
+
             # Tentar com outro ano para verificar se a consulta funciona
             alt_year = 2024 if year != 2024 else 2023
-            print(f"Tentando com o ano {alt_year} para verificar se a consulta funciona...")
-            
-            alt_sql = sql.replace(f"EXTRACT(YEAR FROM so.date_order) = {year}", 
-                                f"EXTRACT(YEAR FROM so.date_order) = {alt_year}")
-            
+            print(
+                f"Tentando com o ano {alt_year} para verificar se a consulta funciona..."
+            )
+
+            alt_sql = sql.replace(
+                f"EXTRACT(YEAR FROM so.date_order) = {year}",
+                f"EXTRACT(YEAR FROM so.date_order) = {alt_year}",
+            )
+
             alt_df = pd.read_sql_query(alt_sql, engine)
-            
+
             if alt_df.empty:
                 print(f"Nenhum resultado encontrado para o ano {alt_year} também.")
-                print("Isso sugere que pode haver um problema com a estrutura da consulta ou com os dados.")
+                print(
+                    "Isso sugere que pode haver um problema com a estrutura da consulta ou com os dados."
+                )
             else:
                 print(f"Encontrados {len(alt_df)} resultados para o ano {alt_year}.")
-                print("Isso sugere que a consulta está correta, mas não há dados para o ano original.")
+                print(
+                    "Isso sugere que a consulta está correta, mas não há dados para o ano original."
+                )
                 print(f"Primeiros 5 resultados para {alt_year}:")
                 print(alt_df.head(5))
         else:
             print(f"Encontrados {len(df)} resultados.")
             print("Primeiros 5 resultados:")
             print(df.head(5))
-        
+
         return df
     except Exception as e:
         print(f"Erro ao executar consulta: {e}")
         import traceback
+
         traceback.print_exc()
         return None
+
 
 if __name__ == "__main__":
     # Testar com diferentes anos e números de produtos
     years = [2025, 2024, 2023]
     nums = [20, 50, 10]
-    
+
     for year in years:
         for num in nums:
             print(f"\n{'='*50}")

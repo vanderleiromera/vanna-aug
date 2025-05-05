@@ -7,6 +7,7 @@ import re
 import pandas as pd
 from modules.vanna_odoo_numeric import VannaOdooNumeric
 
+
 class VannaOdooExtended(VannaOdooNumeric):
     """
     Extensão da classe VannaOdoo com métodos adicionais para processamento de consultas
@@ -30,8 +31,8 @@ class VannaOdooExtended(VannaOdooNumeric):
         adapted_sql = sql
 
         # Substitui o ano
-        if 'year' in values:
-            year = values['year']
+        if "year" in values:
+            year = values["year"]
             print(f"[DEBUG] Substituindo ano para: {year}")
 
             # Substitui o ano em diferentes formatos
@@ -39,28 +40,28 @@ class VannaOdooExtended(VannaOdooNumeric):
             adapted_sql = re.sub(
                 r"EXTRACT\s*\(\s*YEAR\s+FROM\s+\w+(?:\.\w+)?\s*\)\s*=\s*\d{4}",
                 f"EXTRACT(YEAR FROM date_order) = {year}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: EXTRACT(YEAR FROM so.date_order) = XXXX
             adapted_sql = re.sub(
                 r"EXTRACT\s*\(\s*YEAR\s+FROM\s+so\.date_order\s*\)\s*=\s*\d{4}",
                 f"EXTRACT(YEAR FROM so.date_order) = {year}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: WHERE date_part('year', date_order) = XXXX
             adapted_sql = re.sub(
                 r"date_part\s*\(\s*'year'\s*,\s*\w+(?:\.\w+)?\s*\)\s*=\s*\d{4}",
                 f"date_part('year', date_order) = {year}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: WHERE date_part('year', so.date_order) = XXXX
             adapted_sql = re.sub(
                 r"date_part\s*\(\s*'year'\s*,\s*so\.date_order\s*\)\s*=\s*\d{4}",
                 f"date_part('year', so.date_order) = {year}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: WHERE date_order >= 'XXXX-01-01' AND date_order < 'XXXX+1-01-01'
@@ -70,7 +71,7 @@ class VannaOdooExtended(VannaOdooNumeric):
                 adapted_sql = re.sub(
                     year_pattern,
                     f"date_order >= '{year}-01-01' AND date_order < '{next_year}-01-01'",
-                    adapted_sql
+                    adapted_sql,
                 )
 
             # Formato: WHERE so.date_order >= 'XXXX-01-01' AND so.date_order < 'XXXX+1-01-01'
@@ -80,24 +81,20 @@ class VannaOdooExtended(VannaOdooNumeric):
                 adapted_sql = re.sub(
                     year_pattern,
                     f"so.date_order >= '{year}-01-01' AND so.date_order < '{next_year}-01-01'",
-                    adapted_sql
+                    adapted_sql,
                 )
 
         # Substitui a quantidade (LIMIT)
-        if 'quantity' in values or 'top_n' in values:
-            quantity = values.get('quantity', values.get('top_n', 10))
+        if "quantity" in values or "top_n" in values:
+            quantity = values.get("quantity", values.get("top_n", 10))
             print(f"[DEBUG] Substituindo quantidade para: {quantity}")
 
             # Substitui a quantidade em LIMIT
-            adapted_sql = re.sub(
-                r"LIMIT\s+\d+",
-                f"LIMIT {quantity}",
-                adapted_sql
-            )
+            adapted_sql = re.sub(r"LIMIT\s+\d+", f"LIMIT {quantity}", adapted_sql)
 
         # Substitui o mês
-        if 'month' in values:
-            month = values['month']
+        if "month" in values:
+            month = values["month"]
             print(f"[DEBUG] Substituindo mês para: {month}")
 
             # Substitui o mês em diferentes formatos
@@ -105,33 +102,33 @@ class VannaOdooExtended(VannaOdooNumeric):
             adapted_sql = re.sub(
                 r"EXTRACT\s*\(\s*MONTH\s+FROM\s+\w+(?:\.\w+)?\s*\)\s*=\s*\d{1,2}",
                 f"EXTRACT(MONTH FROM date_order) = {month}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: EXTRACT(MONTH FROM so.date_order) = XX
             adapted_sql = re.sub(
                 r"EXTRACT\s*\(\s*MONTH\s+FROM\s+so\.date_order\s*\)\s*=\s*\d{1,2}",
                 f"EXTRACT(MONTH FROM so.date_order) = {month}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: WHERE date_part('month', date_order) = XX
             adapted_sql = re.sub(
                 r"date_part\s*\(\s*'month'\s*,\s*\w+(?:\.\w+)?\s*\)\s*=\s*\d{1,2}",
                 f"date_part('month', date_order) = {month}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: WHERE date_part('month', so.date_order) = XX
             adapted_sql = re.sub(
                 r"date_part\s*\(\s*'month'\s*,\s*so\.date_order\s*\)\s*=\s*\d{1,2}",
                 f"date_part('month', so.date_order) = {month}",
-                adapted_sql
+                adapted_sql,
             )
 
         # Substitui o valor
-        if 'value' in values:
-            value = values['value']
+        if "value" in values:
+            value = values["value"]
             print(f"[DEBUG] Substituindo valor para: {value}")
 
             # Substitui o valor em diferentes formatos
@@ -139,28 +136,28 @@ class VannaOdooExtended(VannaOdooNumeric):
             adapted_sql = re.sub(
                 r"amount_total\s*>\s*\d+(?:\.\d+)?",
                 f"amount_total > {value}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: so.amount_total > XXXX
             adapted_sql = re.sub(
                 r"so\.amount_total\s*>\s*\d+(?:\.\d+)?",
                 f"so.amount_total > {value}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: price_total > XXXX
             adapted_sql = re.sub(
                 r"price_total\s*>\s*\d+(?:\.\d+)?",
                 f"price_total > {value}",
-                adapted_sql
+                adapted_sql,
             )
 
             # Formato: sol.price_total > XXXX
             adapted_sql = re.sub(
                 r"sol\.price_total\s*>\s*\d+(?:\.\d+)?",
                 f"sol.price_total > {value}",
-                adapted_sql
+                adapted_sql,
             )
 
         return adapted_sql
@@ -205,7 +202,9 @@ class VannaOdooExtended(VannaOdooNumeric):
         print(f"[DEBUG] Não foi possível gerar SQL, usando método ask da classe pai")
         return super().ask(question)
 
-    def ask_with_results(self, question, print_results=True, auto_train=False, debug=True):
+    def ask_with_results(
+        self, question, print_results=True, auto_train=False, debug=True
+    ):
         """
         Ask a question and get a response with results
 
@@ -254,7 +253,9 @@ class VannaOdooExtended(VannaOdooNumeric):
             fig = None
             if df is not None and not df.empty:
                 try:
-                    plotly_code = self.generate_plotly_code(question=question, sql=sql, df_metadata=str(df.dtypes))
+                    plotly_code = self.generate_plotly_code(
+                        question=question, sql=sql, df_metadata=str(df.dtypes)
+                    )
                     if plotly_code:
                         fig = self.get_plotly_figure(plotly_code=plotly_code, df=df)
                         if print_results and fig:

@@ -17,12 +17,13 @@ from modules.vanna_odoo import VannaOdoo
 # Load environment variables
 load_dotenv()
 
+
 def check_documents():
     """
     Check if documents are stored correctly in ChromaDB.
     """
     # Get ChromaDB persistence directory
-    persist_dir = os.getenv('CHROMA_PERSIST_DIRECTORY', '/app/data/chromadb')
+    persist_dir = os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
 
     print(f"ChromaDB persistence directory: {persist_dir}")
     print(f"Directory exists: {os.path.exists(persist_dir)}")
@@ -34,9 +35,9 @@ def check_documents():
     # Initialize VannaOdoo
     print("Initializing VannaOdoo...")
     config = {
-        'api_key': os.getenv('OPENAI_API_KEY'),
-        'model': os.getenv('OPENAI_MODEL', 'gpt-4'),
-        'chroma_persist_directory': persist_dir
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": os.getenv("OPENAI_MODEL", "gpt-4"),
+        "chroma_persist_directory": persist_dir,
     }
     vn = VannaOdoo(config=config)
 
@@ -50,19 +51,19 @@ def check_documents():
             if count > 0:
                 # Get all documents
                 results = collection.get()
-                if results and 'documents' in results and results['documents']:
+                if results and "documents" in results and results["documents"]:
                     print(f"Found {len(results['documents'])} documents")
 
                     # Show document details
                     print("\nDocument details:")
-                    for i, doc in enumerate(results['documents']):
+                    for i, doc in enumerate(results["documents"]):
                         metadata = {}
-                        if 'metadatas' in results and i < len(results['metadatas']):
-                            metadata = results['metadatas'][i]
+                        if "metadatas" in results and i < len(results["metadatas"]):
+                            metadata = results["metadatas"][i]
 
                         doc_id = "unknown"
-                        if 'ids' in results and i < len(results['ids']):
-                            doc_id = results['ids'][i]
+                        if "ids" in results and i < len(results["ids"]):
+                            doc_id = results["ids"][i]
 
                         print(f"\nDocument {i+1}:")
                         print(f"ID: {doc_id}")
@@ -72,29 +73,45 @@ def check_documents():
                     # Try to query the collection
                     print("\nTrying to query the collection for 'vendas por mês'...")
                     query_results = collection.query(
-                        query_texts=["vendas por mês"],
-                        n_results=3
+                        query_texts=["vendas por mês"], n_results=3
                     )
 
                     # Try to query for products without stock
-                    print("\nTrying to query the collection for 'produtos sem estoque'...")
+                    print(
+                        "\nTrying to query the collection for 'produtos sem estoque'..."
+                    )
                     stock_query_results = collection.query(
-                        query_texts=["produtos sem estoque", "produtos vendidos sem estoque"],
-                        n_results=3
+                        query_texts=[
+                            "produtos sem estoque",
+                            "produtos vendidos sem estoque",
+                        ],
+                        n_results=3,
                     )
 
                     # Show stock query results
-                    if stock_query_results and 'documents' in stock_query_results and stock_query_results['documents']:
-                        print(f"Stock query returned {len(stock_query_results['documents'][0])} documents")
-                        for i, doc in enumerate(stock_query_results['documents'][0]):
+                    if (
+                        stock_query_results
+                        and "documents" in stock_query_results
+                        and stock_query_results["documents"]
+                    ):
+                        print(
+                            f"Stock query returned {len(stock_query_results['documents'][0])} documents"
+                        )
+                        for i, doc in enumerate(stock_query_results["documents"][0]):
                             print(f"\nStock query result {i+1}:")
                             print(f"Content: {doc[:200]}...")
                     else:
                         print("Stock query returned no results")
 
-                    if query_results and 'documents' in query_results and query_results['documents']:
-                        print(f"Query returned {len(query_results['documents'][0])} documents")
-                        for i, doc in enumerate(query_results['documents'][0]):
+                    if (
+                        query_results
+                        and "documents" in query_results
+                        and query_results["documents"]
+                    ):
+                        print(
+                            f"Query returned {len(query_results['documents'][0])} documents"
+                        )
+                        for i, doc in enumerate(query_results["documents"][0]):
                             print(f"\nQuery result {i+1}:")
                             print(f"Content: {doc[:200]}...")
                     else:
@@ -106,11 +123,13 @@ def check_documents():
         except Exception as e:
             print(f"Error checking collection: {e}")
             import traceback
+
             traceback.print_exc()
     else:
         print("Failed to get collection")
 
     return True
+
 
 if __name__ == "__main__":
     print("=== Check Documents ===")

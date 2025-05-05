@@ -16,9 +16,11 @@ from modules.example_pairs import get_example_pairs
 # Carregar variáveis de ambiente (sem depender do dotenv)
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     print("Módulo dotenv não encontrado. Usando variáveis de ambiente existentes.")
+
 
 def train_with_examples():
     """
@@ -28,10 +30,13 @@ def train_with_examples():
 
     # Criar configuração
     config = {
-        'api_key': os.getenv('OPENAI_API_KEY'),
-        'model': os.getenv('OPENAI_MODEL', 'gpt-4'),
-        'chroma_persist_directory': os.getenv('CHROMA_PERSIST_DIRECTORY', '/app/data/chromadb'),
-        'allow_llm_to_see_data': os.getenv('ALLOW_LLM_TO_SEE_DATA', 'false').lower() == 'true'
+        "api_key": os.getenv("OPENAI_API_KEY"),
+        "model": os.getenv("OPENAI_MODEL", "gpt-4"),
+        "chroma_persist_directory": os.getenv(
+            "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"
+        ),
+        "allow_llm_to_see_data": os.getenv("ALLOW_LLM_TO_SEE_DATA", "false").lower()
+        == "true",
     }
 
     # Inicializar VannaOdoo
@@ -44,12 +49,13 @@ def train_with_examples():
     for i, example in enumerate(examples):
         print(f"Treinando com exemplo {i+1}/{len(examples)}: {example['question']}")
         try:
-            result = vn.train(question=example['question'], sql=example['sql'])
+            result = vn.train(question=example["question"], sql=example["sql"])
             print(f"Resultado: {result}")
         except Exception as e:
             print(f"Erro ao treinar com exemplo {i+1}: {e}")
 
     print("Treinamento com exemplos concluído!")
+
 
 if __name__ == "__main__":
     train_with_examples()

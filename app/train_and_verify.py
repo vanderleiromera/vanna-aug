@@ -8,6 +8,7 @@ import sys
 import time
 import subprocess
 
+
 def run_command(command):
     """Run a shell command and print output"""
     print(f"\n=== Running: {command} ===")
@@ -16,6 +17,7 @@ def run_command(command):
     if result.stderr:
         print(f"Error: {result.stderr}")
     return result.returncode == 0
+
 
 def main():
     """Main function to train and verify persistence"""
@@ -45,8 +47,11 @@ def main():
         return False
 
     print("\n=== Training and Verification Complete ===")
-    print("If you see the same documents before and after restart, persistence is working correctly!")
+    print(
+        "If you see the same documents before and after restart, persistence is working correctly!"
+    )
     return True
+
 
 if __name__ == "__main__":
     success = main()
