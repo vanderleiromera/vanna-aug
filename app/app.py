@@ -417,64 +417,16 @@ if user_question:
 
         # Try to generate SQL
         try:
-            # Check if we have similar questions in the training data
-            st.info("Buscando perguntas similares no treinamento...")
-            similar_questions = vn.get_similar_question_sql(user_question)
+            # Generate SQL directly without searching for similar questions
+            st.info("Gerando consulta SQL...")
+            result = vn.ask(user_question)
 
-            if similar_questions and len(similar_questions) > 0:
-                st.success(
-                    f"Encontradas {len(similar_questions)} perguntas similares no treinamento!"
-                )
-
-                # Extract SQL from the first similar question
-                if (
-                    "Question:" in similar_questions[0]
-                    and "SQL:" in similar_questions[0]
-                ):
-                    doc_question = (
-                        similar_questions[0]
-                        .split("Question:")[1]
-                        .split("SQL:")[0]
-                        .strip()
-                    )
-                    similar_sql = similar_questions[0].split("SQL:")[1].strip()
-
-                    st.info(f"Usando SQL da pergunta similar: {doc_question}")
-
-                    # Extrair valores numéricos da pergunta do usuário
-                    _, values = vn.normalize_question(user_question)
-
-                    # Verificar se temos valores numéricos para substituir
-                    if values:
-                        st.info("Adaptando SQL para os valores da sua pergunta...")
-
-                        # Usar o método adapt_sql_to_values da classe VannaOdooExtended
-                        similar_sql = vn.adapt_sql_to_values(similar_sql, values)
-
-                    # Usar o SQL adaptado
-                    sql = similar_sql
-                else:
-                    # If we couldn't extract SQL from the similar question, generate it
-                    st.info("Gerando consulta SQL...")
-                    result = vn.ask(user_question)
-
-                    # Check if the result is a tuple (sql, question)
-                    if isinstance(result, tuple) and len(result) == 2:
-                        sql, original_question = result
-                    else:
-                        sql = result
-                        original_question = user_question
+            # Check if the result is a tuple (sql, question)
+            if isinstance(result, tuple) and len(result) == 2:
+                sql, original_question = result
             else:
-                # If we didn't find similar questions, generate SQL
-                st.info("Gerando consulta SQL...")
-                result = vn.ask(user_question)
-
-                # Check if the result is a tuple (sql, question)
-                if isinstance(result, tuple) and len(result) == 2:
-                    sql, original_question = result
-                else:
-                    sql = result
-                    original_question = user_question
+                sql = result
+                original_question = user_question
 
             # Log that we're processing the question
             st.info("Processando pergunta...")
