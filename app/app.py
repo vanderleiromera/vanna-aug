@@ -440,33 +440,28 @@ if user_question:
                     "Tente treinar o modelo com exemplos específicos usando a seção 'Treinamento Manual' na barra lateral."
                 )
 
-                # Try the fallback for common queries
-                if (
-                    "vendas" in user_question.lower()
-                    and "mês" in user_question.lower()
-                    and "2024" in user_question
-                ):
-                    st.warning(
-                        "Tentando usar consulta pré-definida para vendas mensais..."
-                    )
-                    sql = """
-                    SELECT
-                        EXTRACT(MONTH FROM date_order) AS mes,
-                        TO_CHAR(date_order, 'Month') AS nome_mes,
-                        SUM(amount_total) AS total_vendas
-                    FROM
-                        sale_order
-                    WHERE
-                        EXTRACT(YEAR FROM date_order) = 2024
-                        AND state IN ('sale', 'done')
-                    GROUP BY
-                        EXTRACT(MONTH FROM date_order),
-                        TO_CHAR(date_order, 'Month')
-                    ORDER BY
-                        mes
-                    """
+                # Tentar novamente usando get_similar_question_sql
+                st.warning(
+                    "Tentando encontrar perguntas similares no banco de exemplos..."
+                )
 
-                else:
+                # Tentar novamente com o método ask, que agora usa get_similar_question_sql
+                try:
+                    result = vn.ask(user_question)
+
+                    # Verificar se encontrou uma pergunta similar
+                    if isinstance(result, tuple) and len(result) == 2:
+                        sql, original_question = result
+                        if sql:
+                            st.success(
+                                "Encontrou uma pergunta similar no banco de exemplos!"
+                            )
+                        else:
+                            sql = None
+                    else:
+                        sql = None
+                except Exception as e:
+                    st.error(f"Erro ao buscar perguntas similares: {e}")
                     sql = None
         except Exception as e:
             st.error(f"Erro ao gerar SQL: {e}")
@@ -515,6 +510,7 @@ if user_question:
                         except Exception as e:
                             st.error(f"Erro ao verificar tabela: {e}")
                             import traceback
+
                             st.code(traceback.format_exc())
 
             with col2:
@@ -526,6 +522,7 @@ if user_question:
                         except Exception as e:
                             st.error(f"Erro ao verificar exemplos: {e}")
                             import traceback
+
                             st.code(traceback.format_exc())
 
             # Mostrar avisos
