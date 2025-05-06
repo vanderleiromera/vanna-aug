@@ -1439,27 +1439,52 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     if "sugestao de compra" in original_question.lower() or "sugestão de compra" in original_question.lower():
                         print(f"[DEBUG] Detected purchase suggestion query, adapting for {days} days")
 
-                        # Substituir todas as ocorrências de "* 30" relacionadas a dias
-                        # Padrões mais específicos primeiro
-                        adapted_sql = adapted_sql.replace(
-                            "* 30,", f"* {days},"
-                        )
-                        adapted_sql = adapted_sql.replace(
-                            "* 30)", f"* {days})"
-                        )
-                        adapted_sql = adapted_sql.replace(
-                            "* 30 ", f"* {days} "
-                        )
+                        # Usar regex para substituir todas as ocorrências de "* 30" relacionadas a dias
+                        import re
 
-                        # Substituir no nome da coluna se necessário
-                        adapted_sql = adapted_sql.replace(
-                            "consumo_projetado_30dias", f"consumo_projetado_{days}dias"
-                        )
+                        # Substituir padrões específicos primeiro
+                        patterns = [
+                            # Padrão para "* 30," - exemplo: (vendas.quantidade_total / 365) * 30,
+                            (r"\* 30,", f"* {days},"),
+                            # Padrão para "* 30)" - exemplo: (vendas.quantidade_total / 365) * 30)
+                            (r"\* 30\)", f"* {days})"),
+                            # Padrão para "* 30 " - exemplo: (vendas.quantidade_total / 365) * 30 AS
+                            (r"\* 30 ", f"* {days} "),
+                            # Padrão para consumo_projetado_30dias
+                            (r"consumo_projetado_30dias", f"consumo_projetado_{days}dias"),
+                            # Padrão para comentário
+                            (r"-- Consumo projetado \(30 dias\)", f"-- Consumo projetado ({days} dias)"),
+                            # Padrão genérico para capturar outras ocorrências
+                            (r"\(vendas\.quantidade_total / 365\) \* 30", f"(vendas.quantidade_total / 365) * {days}"),
+                            # Padrão mais genérico para capturar qualquer ocorrência de "* 30" em expressões
+                            (r"(\/ 365\)) \* 30", f"$1 * {days}"),
+                            # Padrão extremamente genérico para capturar qualquer ocorrência de "* 30" em qualquer contexto
+                            (r"quantidade_total / 365\) \* 30", f"quantidade_total / 365) * {days}")
+                        ]
 
-                        # Substituir no comentário se existir
-                        adapted_sql = adapted_sql.replace(
-                            "-- Consumo projetado (30 dias)", f"-- Consumo projetado ({days} dias)"
-                        )
+                        # Adicionar um log para depuração
+                        print(f"[DEBUG] Adaptando SQL para sugestão de compra com {days} dias")
+                        print(f"[DEBUG] SQL original: {sql[:100]}...")
+
+                        # Aplicar todas as substituições
+                        for pattern, replacement in patterns:
+                            adapted_sql = re.sub(pattern, replacement, adapted_sql)
+
+                        # Abordagem alternativa: substituir diretamente todas as ocorrências de "* 30"
+                        # que estejam relacionadas ao cálculo de dias
+                        if "vendas.quantidade_total / 365" in adapted_sql:
+                            # Encontrar todas as ocorrências de "* 30" após "/ 365"
+                            adapted_sql = re.sub(
+                                r"(quantidade_total / 365)(\s*)\* 30",
+                                f"\\1\\2* {days}",
+                                adapted_sql
+                            )
+
+                        print(f"[DEBUG] SQL adaptado para {days} dias: {adapted_sql[:100]}...")
+
+                        # Verificar se ainda há ocorrências de "* 30" no SQL adaptado
+                        if "* 30" in adapted_sql and "quantidade_total / 365" in adapted_sql:
+                            print("[DEBUG] ALERTA: Ainda existem ocorrências de '* 30' no SQL adaptado!")
 
             # Verificar se é uma consulta sobre produtos vendidos em um ano específico
             if re.search(r"\b\d{4}\b", original_question):
