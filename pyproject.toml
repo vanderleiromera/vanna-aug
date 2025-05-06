@@ -28,6 +28,8 @@ statsmodels = "0.14.4"
 scikit-learn = "^1.6.1"
 scipy = "^1.15.2"
 pyod = "^2.0.5"
+kaleido = "0.2.1"
+protobuf = "3.20.3"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.12.0"

@@ -17,6 +17,9 @@ sys.path.append(
 # Configurar variáveis de ambiente para testes
 os.environ["TESTING"] = "true"
 
+# Configurar protobuf para usar implementação pura Python
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
 
 # Configurar fixtures globais para os testes
 @pytest.fixture(scope="session")

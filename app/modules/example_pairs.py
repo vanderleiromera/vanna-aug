@@ -464,4 +464,25 @@ ORDER BY
     mv.valor_total_vendido DESC;
 """,
         },
+        {
+            "question": "Quais produtos têm 'perola' no nome, quantidade em estoque e preço de venda?",
+            "sql": """
+SELECT
+    pt.name AS nome_produto,
+    COALESCE(SUM(sq.quantity), 0) AS quantidade_em_estoque,
+    pt.list_price AS preco_venda
+FROM
+    product_template pt
+LEFT JOIN
+    product_product pp ON pt.id = pp.product_tmpl_id
+LEFT JOIN
+    stock_quant sq ON pp.id = sq.product_id
+WHERE
+    pt.name ILIKE '%perola%'
+GROUP BY
+    pt.id, pt.name, pt.list_price
+ORDER BY
+    pt.name;
+"""
+        },
     ]

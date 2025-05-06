@@ -32,6 +32,9 @@ RUN mkdir -p /app/data/chromadb
 # Set Python path to include the app directory
 ENV PYTHONPATH=/app
 
+# Configure protobuf to use pure Python implementation
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+
 # Expose port for Streamlit
 EXPOSE 8501
 EXPOSE 8502

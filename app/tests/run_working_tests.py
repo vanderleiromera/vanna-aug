@@ -11,6 +11,9 @@ import unittest
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
+# Configurar protobuf para usar implementação pura Python
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
 if __name__ == "__main__":
     # Criar um test suite com os testes que sabemos que funcionam
     test_suite = unittest.TestSuite()
