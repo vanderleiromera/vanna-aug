@@ -175,11 +175,42 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             host = self.db_params["host"]
             port = self.db_params["port"]
             database = self.db_params["database"]
+
+            # Verificar se todos os parâmetros estão presentes
+            if not all([user, password, host, port, database]):
+                print("[DEBUG] Parâmetros de conexão incompletos:")
+                print(f"  - user: {'OK' if user else 'FALTANDO'}")
+                print(f"  - password: {'OK' if password else 'FALTANDO'}")
+                print(f"  - host: {'OK' if host else 'FALTANDO'}")
+                print(f"  - port: {'OK' if port else 'FALTANDO'}")
+                print(f"  - database: {'OK' if database else 'FALTANDO'}")
+                return None
+
             db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
-            engine = create_engine(db_url)
+            print(f"[DEBUG] Criando engine SQLAlchemy com URL: postgresql://{user}:***@{host}:{port}/{database}")
+
+            # Criar engine com opções para diagnóstico
+            engine = create_engine(db_url, echo=False, future=True)
+
+            # Testar conexão
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute("SELECT 1").fetchone()
+                    if result and result[0] == 1:
+                        print("[DEBUG] Conexão com o banco de dados testada com sucesso")
+                    else:
+                        print("[DEBUG] Teste de conexão retornou resultado inesperado")
+            except Exception as conn_err:
+                print(f"[DEBUG] Erro ao testar conexão: {conn_err}")
+                import traceback
+                traceback.print_exc()
+                return None
+
             return engine
         except Exception as e:
             print(f"Error creating SQLAlchemy engine: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def get_odoo_tables(self):
@@ -649,9 +680,18 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             # Execute the query and return results as DataFrame using SQLAlchemy
             print(f"[DEBUG] Executando consulta SQL:\n{sql}")
             df = pd.read_sql_query(sql, engine)
+
+            # Verificar se o DataFrame está vazio
+            if df.empty:
+                print("[DEBUG] A consulta foi executada com sucesso, mas não retornou resultados.")
+            else:
+                print(f"[DEBUG] A consulta retornou {len(df)} resultados.")
+
             return df
         except Exception as e:
             print(f"Error executing SQL query: {e}")
+            import traceback
+            traceback.print_exc()  # Imprimir o stack trace completo para diagnóstico
 
             # Se falhou, tente uma versão mais simples da consulta
             if ("produto" in sql.lower() or "product" in sql.lower()) and (
@@ -1315,6 +1355,24 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         TO_CHAR(date_order, 'Month')
                     ORDER BY
                         mes
+                    """
+
+                # Fallback para produtos com "caixa" no nome
+                if "caixa" in question.lower() and (
+                    "produtos" in question.lower() or "product" in question.lower() or "nome" in question.lower()
+                ):
+                    print("[DEBUG] Using fallback for products with 'caixa' in name")
+                    return """
+                    SELECT
+                        pt.name AS nome_produto,
+                        pt.list_price AS preco,
+                        pt.default_code AS codigo
+                    FROM
+                        product_template pt
+                    WHERE
+                        pt.name ILIKE '%Caixa%'
+                    ORDER BY
+                        pt.name;
                     """
 
                 # Fallback for products without stock
@@ -2195,6 +2253,76 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             traceback.print_exc()
             return []
+
+    def check_product_template_table(self):
+        """
+        Verifica a tabela product_template para diagnóstico
+        """
+        engine = self.get_sqlalchemy_engine()
+        if not engine:
+            return "Erro ao criar engine SQLAlchemy"
+
+        try:
+            # Verificar se a tabela existe
+            check_sql = """
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_schema = 'public'
+                AND table_name = 'product_template'
+            );
+            """
+            exists_df = pd.read_sql_query(check_sql, engine)
+            if not exists_df.iloc[0, 0]:
+                return "Tabela product_template não existe no banco de dados"
+
+            # Verificar estrutura da tabela
+            columns_sql = """
+            SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+            AND table_name = 'product_template'
+            ORDER BY ordinal_position;
+            """
+            columns_df = pd.read_sql_query(columns_sql, engine)
+
+            # Verificar contagem de registros
+            count_sql = "SELECT COUNT(*) FROM product_template;"
+            count_df = pd.read_sql_query(count_sql, engine)
+            count = count_df.iloc[0, 0]
+
+            # Verificar registros com 'caixa' no nome
+            caixa_sql = "SELECT COUNT(*) FROM product_template WHERE name ILIKE '%Caixa%';"
+            caixa_df = pd.read_sql_query(caixa_sql, engine)
+            caixa_count = caixa_df.iloc[0, 0]
+
+            # Obter amostra de produtos com 'caixa' no nome
+            if caixa_count > 0:
+                sample_sql = """
+                SELECT id, name, default_code, list_price
+                FROM product_template
+                WHERE name ILIKE '%Caixa%'
+                LIMIT 5;
+                """
+                sample_df = pd.read_sql_query(sample_sql, engine)
+                sample_str = sample_df.to_string()
+            else:
+                sample_str = "Nenhum produto com 'caixa' no nome encontrado"
+
+            return f"""
+            Diagnóstico da tabela product_template:
+            - Tabela existe: Sim
+            - Número de colunas: {len(columns_df)}
+            - Total de registros: {count}
+            - Registros com 'caixa' no nome: {caixa_count}
+
+            Amostra de produtos com 'caixa' no nome:
+            {sample_str}
+            """
+
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            return f"Erro ao verificar tabela product_template: {e}\n\n{error_trace}"
 
     def get_training_plan(self):
         """

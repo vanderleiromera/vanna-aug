@@ -483,7 +483,9 @@ if user_question:
         # Avaliar a qualidade do SQL
         from modules.sql_evaluator import evaluate_sql_quality
 
-        with st.expander("Avaliação da Qualidade do SQL", expanded=False):
+        col_eval, col_diag = st.columns(2)
+
+        with col_eval.expander("Avaliação da Qualidade do SQL", expanded=False):
             evaluation = evaluate_sql_quality(sql)
 
             # Mostrar pontuação
@@ -499,6 +501,18 @@ if user_question:
                     st.write(f"- {issue}")
             else:
                 st.success("Nenhum problema crítico encontrado!")
+
+        # Adicionar botão de diagnóstico
+        with col_diag.expander("Diagnóstico da Tabela", expanded=False):
+            if st.button("Verificar Tabela product_template"):
+                with st.spinner("Verificando tabela product_template..."):
+                    try:
+                        diagnostico = vn.check_product_template_table()
+                        st.code(diagnostico)
+                    except Exception as e:
+                        st.error(f"Erro ao verificar tabela: {e}")
+                        import traceback
+                        st.code(traceback.format_exc())
 
             # Mostrar avisos
             if evaluation["warnings"]:
