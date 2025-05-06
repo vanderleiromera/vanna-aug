@@ -1340,201 +1340,27 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 # Return the SQL for execution with the original question
                 return sql, question
 
-            # If we couldn't generate SQL, try fallback approaches
+            # If we couldn't generate SQL, try using get_similar_question_sql
             if not sql:
-                print("[DEBUG] Failed to generate SQL, trying fallback approaches")
+                print("[DEBUG] Failed to generate SQL, trying to find similar questions")
 
-                # Fallback for monthly sales query
-                if (
-                    "vendas" in question.lower()
-                    and "mês" in question.lower()
-                    and "2024" in question
-                ):
-                    print("[DEBUG] Using fallback for monthly sales query")
-                    return """
-                    SELECT
-                        EXTRACT(MONTH FROM date_order) AS mes,
-                        TO_CHAR(date_order, 'Month') AS nome_mes,
-                        SUM(amount_total) AS total_vendas
-                    FROM
-                        sale_order
-                    WHERE
-                        EXTRACT(YEAR FROM date_order) = 2024
-                        AND state IN ('sale', 'done')
-                    GROUP BY
-                        EXTRACT(MONTH FROM date_order),
-                        TO_CHAR(date_order, 'Month')
-                    ORDER BY
-                        mes
-                    """
+                # Buscar perguntas similares
+                similar_questions = self.get_similar_question_sql(question)
 
-                # Fallback for products without stock
-                if (
-                    "produtos" in question.lower() or "product" in question.lower()
-                ) and (
-                    "estoque" in question.lower()
-                    or "stock" in question.lower()
-                    or "inventory" in question.lower()
-                ):
-                    print("[DEBUG] Using fallback for products without stock")
+                if similar_questions and len(similar_questions) > 0:
+                    # Encontrou perguntas similares
+                    print(f"[DEBUG] Found {len(similar_questions)} similar questions")
 
-                    # Verificar se é uma pergunta sobre produtos vendidos nos últimos dias sem estoque
-                    if (
-                        "últimos" in question.lower()
-                        and "dias" in question.lower()
-                        and (
-                            "não" in question.lower()
-                            or "sem" in question.lower()
-                            or "mãos" in question.lower()
-                        )
-                    ):
-                        # Extrair o número de dias
-                        import re
+                    # Usar a primeira pergunta similar
+                    similar_question = similar_questions[0]
+                    print(f"[DEBUG] Using similar question: '{similar_question['question']}'")
 
-                        days_match = re.search(r"(\d+)\s+dias", question.lower())
-                        days = 30  # Default
-                        if days_match:
-                            days = int(days_match.group(1))
+                    # Adaptar a consulta SQL se necessário
+                    adapted_sql = self.adapt_sql_from_similar_question(question, similar_question)
 
-                        print(f"[DEBUG] Detected days: {days}")
-
-                        # Consulta específica para produtos vendidos nos últimos dias sem estoque
-                        # Simplificada para aumentar a chance de encontrar resultados
-                        # Removendo a condição de localização específica e tornando a condição HAVING mais flexível
-                        return f"""
-                        -- Produtos vendidos recentemente sem estoque disponível
-                        SELECT
-                            pt.name AS produto,
-                            SUM(sol.product_uom_qty) AS total_vendido,
-                            COALESCE(SUM(sq.quantity), 0) AS estoque_atual
-                        FROM
-                            sale_order_line sol
-                        JOIN
-                            product_product pp ON sol.product_id = pp.id
-                        JOIN
-                            product_template pt ON pp.product_tmpl_id = pt.id
-                        LEFT JOIN
-                            stock_quant sq ON pp.id = sq.product_id
-                        JOIN
-                            sale_order so ON sol.order_id = so.id
-                        WHERE
-                            so.date_order >= NOW() - INTERVAL '{days} days'
-                            AND so.state IN ('sale', 'done')
-                        GROUP BY
-                            pt.id, pt.name
-                        HAVING
-                            SUM(sol.product_uom_qty) > 0
-                            AND (COALESCE(SUM(sq.quantity), 0) <= 0 OR SUM(sq.quantity) IS NULL)
-                        ORDER BY
-                            total_vendido DESC
-                        LIMIT 50;
-                        """
-
-                    # Fallback genérico para produtos sem estoque
-                    return """
-                    -- Produtos com estoque baixo ou zero
-                    SELECT
-                        pt.name AS produto,
-                        SUM(sol.product_uom_qty) AS total_vendido,
-                        COALESCE(SUM(sq.quantity), 0) AS estoque_atual
-                    FROM
-                        sale_order_line sol
-                    JOIN
-                        product_product pp ON sol.product_id = pp.id
-                    JOIN
-                        product_template pt ON pp.product_tmpl_id = pt.id
-                    LEFT JOIN
-                        stock_quant sq ON pp.id = sq.product_id
-                    JOIN
-                        sale_order so ON sol.order_id = so.id
-                    WHERE
-                        so.date_order >= NOW() - INTERVAL '120 days'
-                        AND so.state IN ('sale', 'done')
-                    GROUP BY
-                        pt.id, pt.name
-                    HAVING
-                        SUM(sol.product_uom_qty) > 0
-                        AND (COALESCE(SUM(sq.quantity), 0) <= 0 OR SUM(sq.quantity) IS NULL)
-                    ORDER BY
-                        total_vendido DESC
-                    LIMIT 20
-                    """
-
-                # Fallback for products by sales value in specific year
-                if (
-                    "nivel de estoque" in question.lower()
-                    and "produtos" in question.lower()
-                    and "vendidos em valor" in question.lower()
-                ):
-                    print(
-                        "[DEBUG] Using fallback for products by sales value in specific year"
-                    )
-
-                    # Extract year from question
-                    import re
-
-                    year_match = re.search(r"(\d{4})", question)
-                    year = 2024  # Default year
-                    if year_match:
-                        year = int(year_match.group(1))
-
-                    # Extract number of products
-                    num_products = 50  # Default number
-                    num_match = re.search(r"(\d+)\s+produtos", question.lower())
-                    if num_match:
-                        num_products = int(num_match.group(1))
-
-                    print(
-                        f"[DEBUG] Detected year: {year}, number of products: {num_products}"
-                    )
-
-                    return f"""
-                    WITH mais_vendidos_valor AS (
-                        SELECT
-                            pp.id AS product_id,
-                            pt.name AS product_name,
-                            SUM(sol.price_total) AS valor_total_vendido
-                        FROM
-                            sale_order_line sol
-                        JOIN
-                            sale_order so ON sol.order_id = so.id
-                        JOIN
-                            product_product pp ON sol.product_id = pp.id
-                        JOIN
-                            product_template pt ON pp.product_tmpl_id = pt.id
-                        WHERE
-                            so.state IN ('sale', 'done')
-                            AND EXTRACT(YEAR FROM so.date_order) = {year}
-                        GROUP BY
-                            pp.id, pt.name
-                        ORDER BY
-                            valor_total_vendido DESC
-                        LIMIT {num_products}
-                    ),
-                    estoque AS (
-                        SELECT
-                            sq.product_id,
-                            SUM(sq.quantity - sq.reserved_quantity) AS estoque_disponivel
-                        FROM
-                            stock_quant sq
-                        JOIN
-                            stock_location sl ON sq.location_id = sl.id
-                        WHERE
-                            sl.usage = 'internal'
-                        GROUP BY
-                            sq.product_id
-                    )
-                    SELECT
-                        mv.product_name,
-                        mv.valor_total_vendido,
-                        COALESCE(e.estoque_disponivel, 0) AS estoque_atual
-                    FROM
-                        mais_vendidos_valor mv
-                    LEFT JOIN
-                        estoque e ON mv.product_id = e.product_id
-                    ORDER BY
-                        mv.valor_total_vendido DESC;
-                    """
+                    return adapted_sql, question
+                else:
+                    print("[DEBUG] No similar questions found")
 
             return sql
         except Exception as e:
@@ -1543,6 +1369,88 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             traceback.print_exc()
             return None
+
+    def adapt_sql_from_similar_question(self, original_question, similar_question):
+        """
+        Adapta a consulta SQL de uma pergunta similar para a pergunta original
+
+        Args:
+            original_question (str): A pergunta original
+            similar_question (dict): Dicionário com a pergunta similar e sua consulta SQL
+
+        Returns:
+            str: A consulta SQL adaptada
+        """
+        try:
+            # Extrair a consulta SQL da pergunta similar
+            sql = similar_question.get('sql', '')
+
+            if not sql:
+                print("[DEBUG] No SQL found in similar question")
+                return None
+
+            print(f"[DEBUG] Original SQL from similar question:\n{sql}")
+
+            # Adaptar a consulta SQL com base na pergunta original
+            adapted_sql = sql
+
+            # Verificar se é uma consulta sobre produtos vendidos nos últimos dias
+            if ("últimos" in original_question.lower() and "dias" in original_question.lower()):
+                # Extrair o número de dias
+                import re
+                days_match = re.search(r"(\d+)\s+dias", original_question.lower())
+                if days_match:
+                    days = int(days_match.group(1))
+                    print(f"[DEBUG] Detected {days} days in original question")
+
+                    # Substituir o número de dias na consulta SQL
+                    if "INTERVAL '30 days'" in sql:
+                        adapted_sql = sql.replace("INTERVAL '30 days'", f"INTERVAL '{days} days'")
+                    elif "INTERVAL '7 days'" in sql:
+                        adapted_sql = sql.replace("INTERVAL '7 days'", f"INTERVAL '{days} days'")
+                    elif "INTERVAL '1 month'" in sql:
+                        adapted_sql = sql.replace("INTERVAL '1 month'", f"INTERVAL '{days} days'")
+
+            # Verificar se é uma consulta sobre produtos vendidos em um ano específico
+            if re.search(r"\b\d{4}\b", original_question):
+                # Extrair o ano
+                year_match = re.search(r"\b(\d{4})\b", original_question)
+                if year_match:
+                    year = int(year_match.group(1))
+                    print(f"[DEBUG] Detected year {year} in original question")
+
+                    # Substituir o ano na consulta SQL
+                    for existing_year in ["2024", "2025", "2023"]:
+                        if f"EXTRACT(YEAR FROM so.date_order) = {existing_year}" in adapted_sql:
+                            adapted_sql = adapted_sql.replace(
+                                f"EXTRACT(YEAR FROM so.date_order) = {existing_year}",
+                                f"EXTRACT(YEAR FROM so.date_order) = {year}"
+                            )
+
+            # Verificar se é uma consulta sobre um número específico de produtos
+            num_match = re.search(r"(\d+)\s+produtos", original_question.lower())
+            if num_match:
+                num_products = int(num_match.group(1))
+                print(f"[DEBUG] Detected {num_products} products in original question")
+
+                # Substituir o número de produtos na consulta SQL
+                for existing_limit in ["LIMIT 10", "LIMIT 20", "LIMIT 50"]:
+                    if existing_limit in adapted_sql:
+                        adapted_sql = adapted_sql.replace(existing_limit, f"LIMIT {num_products}")
+
+            # Verificar se a consulta SQL foi adaptada
+            if adapted_sql != sql:
+                print(f"[DEBUG] SQL adapted based on original question:\n{adapted_sql}")
+            else:
+                print("[DEBUG] No adaptations needed for SQL")
+
+            return adapted_sql
+
+        except Exception as e:
+            print(f"[DEBUG] Error adapting SQL: {e}")
+            import traceback
+            traceback.print_exc()
+            return similar_question.get('sql', '')
 
     def get_collection(self):
         """
