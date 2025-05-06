@@ -1357,24 +1357,6 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         mes
                     """
 
-                # Fallback para produtos com "caixa" no nome
-                if "caixa" in question.lower() and (
-                    "produtos" in question.lower() or "product" in question.lower() or "nome" in question.lower()
-                ):
-                    print("[DEBUG] Using fallback for products with 'caixa' in name")
-                    return """
-                    SELECT
-                        pt.name AS nome_produto,
-                        pt.list_price AS preco,
-                        pt.default_code AS codigo
-                    FROM
-                        product_template pt
-                    WHERE
-                        pt.name ILIKE '%Caixa%'
-                    ORDER BY
-                        pt.name;
-                    """
-
                 # Fallback for products without stock
                 if (
                     "produtos" in question.lower() or "product" in question.lower()
@@ -1775,15 +1757,38 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     content_hash = hashlib.md5(content.encode()).hexdigest()
                     doc_id = f"sql-{content_hash}"
 
+                    # Verificar se a pergunta contém 'caixa'
+                    if 'caixa' in question.lower():
+                        print(f"[DEBUG] Training example contains 'caixa': '{question}'")
+
+                    # Criar metadados com palavras-chave para melhorar a busca
+                    metadata = {
+                        "type": "sql",
+                        "question": question,
+                        "keywords": " ".join([word.lower() for word in question.split() if len(word) > 3])
+                    }
+                    print(f"[DEBUG] Metadata for training: {metadata}")
+
                     # Add directly to collection without embeddings for better text-based search
                     try:
                         # Add without embedding
                         self.collection.add(
                             documents=[content],
-                            metadatas=[{"type": "sql", "question": question}],
+                            metadatas=[metadata],
                             ids=[doc_id],
                         )
                         print(f"[DEBUG] Added document without embedding, ID: {doc_id}")
+
+                        # Verificar se o documento foi adicionado corretamente
+                        try:
+                            check_doc = self.collection.get(ids=[doc_id])
+                            if check_doc and "documents" in check_doc and check_doc["documents"]:
+                                print(f"[DEBUG] Document successfully stored: {check_doc['documents'][0][:100]}...")
+                            else:
+                                print("[DEBUG] Document not found after adding")
+                        except Exception as check_e:
+                            print(f"[DEBUG] Error checking document: {check_e}")
+
                     except Exception as e:
                         print(f"[DEBUG] Error adding without embedding: {e}")
                         import traceback
@@ -2085,11 +2090,30 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             # Use text-based search for better results
             print("[DEBUG] Using text-based similarity search for question-SQL pairs")
+            print(f"[DEBUG] Searching for question: '{question}'")
+
+            # Verificar se há exemplos com 'caixa' no nome
+            try:
+                caixa_count = self.collection.count(where={"type": "sql", "question": {"$contains": "caixa"}})
+                print(f"[DEBUG] Found {caixa_count} examples with 'caixa' in question metadata")
+            except Exception as e:
+                print(f"[DEBUG] Error checking for 'caixa' examples: {e}")
+
+            # Realizar a consulta
             query_results = self.collection.query(
                 query_texts=[question],
                 n_results=10,  # Increased from 5 to 10 for better coverage
                 where={"type": "sql"},
             )
+
+            # Log dos resultados da consulta
+            if query_results and "documents" in query_results and query_results["documents"]:
+                print(f"[DEBUG] Query returned {len(query_results['documents'][0])} documents")
+                # Verificar se algum documento contém 'caixa'
+                caixa_docs = [doc for doc in query_results['documents'][0] if 'caixa' in doc.lower()]
+                print(f"[DEBUG] Found {len(caixa_docs)} documents containing 'caixa'")
+            else:
+                print("[DEBUG] Query returned no documents")
 
             result_list = []
             if (
@@ -2253,6 +2277,80 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             traceback.print_exc()
             return []
+
+    def check_training_examples(self):
+        """
+        Verifica os exemplos de treinamento na coleção ChromaDB
+        """
+        if not self.collection:
+            return "Coleção ChromaDB não inicializada"
+
+        try:
+            # Contar total de documentos
+            total_count = self.collection.count()
+
+            # Contar documentos por tipo
+            sql_count = self.collection.count(where={"type": "sql"})
+            ddl_count = self.collection.count(where={"type": {"$in": ["ddl", "ddl_priority"]}})
+            doc_count = self.collection.count(where={"type": {"$in": ["documentation", "relationship", "relationship_priority"]}})
+
+            # Verificar exemplos com 'caixa'
+            try:
+                caixa_count = self.collection.count(where={"question": {"$contains": "caixa"}})
+            except Exception as e:
+                caixa_count = "Erro ao contar: " + str(e)
+
+            # Buscar exemplos com 'caixa'
+            caixa_examples = []
+            try:
+                caixa_results = self.collection.query(
+                    query_texts=["produtos caixa"],
+                    n_results=5,
+                    where={"type": "sql"}
+                )
+
+                if caixa_results and "documents" in caixa_results and caixa_results["documents"]:
+                    for doc in caixa_results["documents"][0]:
+                        if "Question:" in doc and "SQL:" in doc:
+                            question = doc.split("Question:")[1].split("SQL:")[0].strip()
+                            sql = doc.split("SQL:")[1].strip()
+                            caixa_examples.append(f"Q: {question}\nSQL: {sql[:100]}...")
+            except Exception as e:
+                caixa_examples.append(f"Erro ao buscar exemplos: {e}")
+
+            # Verificar exemplo específico
+            specific_example = None
+            try:
+                results = self.collection.query(
+                    query_texts=["Quais produtos têm o nome 'caixa' na descrição?"],
+                    n_results=1,
+                    where={"type": "sql"}
+                )
+
+                if results and "documents" in results and results["documents"] and results["documents"][0]:
+                    specific_example = results["documents"][0][0]
+            except Exception as e:
+                specific_example = f"Erro ao buscar exemplo específico: {e}"
+
+            return f"""
+            Diagnóstico dos Exemplos de Treinamento:
+            - Total de documentos: {total_count}
+            - Exemplos SQL: {sql_count}
+            - Exemplos DDL: {ddl_count}
+            - Documentação/Relacionamentos: {doc_count}
+            - Exemplos com 'caixa': {caixa_count}
+
+            Exemplos encontrados com 'caixa':
+            {chr(10).join(caixa_examples) if caixa_examples else "Nenhum exemplo encontrado"}
+
+            Exemplo específico "Quais produtos têm o nome 'caixa' na descrição?":
+            {specific_example if specific_example else "Não encontrado"}
+            """
+
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            return f"Erro ao verificar exemplos de treinamento: {e}\n\n{error_trace}"
 
     def check_product_template_table(self):
         """
