@@ -465,11 +465,11 @@ ORDER BY
 """,
         },
         {
-            "question": "Quais produtos têm 'perola' no nome, quantidade em estoque e preço de venda?",
+            "question": "Quais produtos têm 'porcelanato' no nome, quantidade em estoque e preço de venda?",
             "sql": """
 SELECT
     pt.name AS nome_produto,
-    COALESCE(SUM(sq.quantity), 0) AS quantidade_em_estoque,
+    COALESCE(SUM(sq.quantity), 0)AS quantidade_em_estoque,
     pt.list_price AS preco_venda
 FROM
     product_template pt
@@ -477,12 +477,15 @@ LEFT JOIN
     product_product pp ON pt.id = pp.product_tmpl_id
 LEFT JOIN
     stock_quant sq ON pp.id = sq.product_id
+LEFT JOIN
+    stock_location sl ON sq.location_id = sl.id
 WHERE
-    pt.name ILIKE '%perola%'
+    pt.name ILIKE '%porcelanato%'
+    AND sl.usage = 'internal'
 GROUP BY
     pt.id, pt.name, pt.list_price
 ORDER BY
     pt.name;
-"""
+""",
         },
     ]
