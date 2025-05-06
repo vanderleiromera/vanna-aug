@@ -2105,8 +2105,21 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             # Verificar se há exemplos com 'caixa' no nome
             try:
-                caixa_count = self.collection.count(where={"type": "sql", "question": {"$contains": "caixa"}})
-                print(f"[DEBUG] Found {caixa_count} examples with 'caixa' in question metadata")
+                # Usar query em vez de count com where
+                caixa_results = self.collection.query(
+                    query_texts=["caixa"],
+                    n_results=100,  # Aumentar para pegar mais resultados
+                    where={"type": "sql"}
+                )
+
+                # Contar manualmente os resultados que contêm 'caixa'
+                caixa_count = 0
+                if caixa_results and "documents" in caixa_results and caixa_results["documents"]:
+                    for doc in caixa_results["documents"][0]:
+                        if "caixa" in doc.lower():
+                            caixa_count += 1
+
+                print(f"[DEBUG] Found {caixa_count} examples with 'caixa' in content")
             except Exception as e:
                 print(f"[DEBUG] Error checking for 'caixa' examples: {e}")
 
@@ -2300,14 +2313,45 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             # Contar total de documentos
             total_count = self.collection.count()
 
-            # Contar documentos por tipo
-            sql_count = self.collection.count(where={"type": "sql"})
-            ddl_count = self.collection.count(where={"type": {"$in": ["ddl", "ddl_priority"]}})
-            doc_count = self.collection.count(where={"type": {"$in": ["documentation", "relationship", "relationship_priority"]}})
+            # Contar documentos por tipo usando query e contagem manual
+            # SQL count
+            sql_results = self.collection.query(
+                query_texts=["SELECT"],  # Termo genérico para SQL
+                n_results=1000,  # Valor alto para pegar todos
+                where={"type": "sql"}
+            )
+            sql_count = len(sql_results["documents"][0]) if sql_results and "documents" in sql_results and sql_results["documents"] else 0
+
+            # DDL count
+            ddl_results = self.collection.query(
+                query_texts=["CREATE TABLE"],  # Termo genérico para DDL
+                n_results=1000,
+                where={"type": {"$in": ["ddl", "ddl_priority"]}}
+            )
+            ddl_count = len(ddl_results["documents"][0]) if ddl_results and "documents" in ddl_results and ddl_results["documents"] else 0
+
+            # Documentation count
+            doc_results = self.collection.query(
+                query_texts=["table relationship"],  # Termo genérico para documentação
+                n_results=1000,
+                where={"type": {"$in": ["documentation", "relationship", "relationship_priority"]}}
+            )
+            doc_count = len(doc_results["documents"][0]) if doc_results and "documents" in doc_results and doc_results["documents"] else 0
 
             # Verificar exemplos com 'caixa'
             try:
-                caixa_count = self.collection.count(where={"question": {"$contains": "caixa"}})
+                caixa_results = self.collection.query(
+                    query_texts=["caixa"],
+                    n_results=100,
+                    where={"type": "sql"}
+                )
+
+                # Contar manualmente os resultados que contêm 'caixa'
+                caixa_count = 0
+                if caixa_results and "documents" in caixa_results and caixa_results["documents"]:
+                    for doc in caixa_results["documents"][0]:
+                        if "caixa" in doc.lower():
+                            caixa_count += 1
             except Exception as e:
                 caixa_count = "Erro ao contar: " + str(e)
 
