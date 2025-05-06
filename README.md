@@ -39,7 +39,9 @@ vanna-ai-odoo/
 ├── .env.example            # Exemplo de arquivo de variáveis de ambiente
 ├── docker-compose.yml      # Configuração do Docker Compose
 ├── Dockerfile              # Dockerfile para construir a imagem
-├── requirements.txt        # Dependências Python
+├── pyproject.toml          # Configuração do Poetry e dependências
+├── poetry.lock             # Arquivo de lock do Poetry com dependências fixadas
+├── requirements.txt        # Dependências Python (para compatibilidade)
 └── run_local.sh            # Script para executar a aplicação localmente
 ```
 
@@ -116,7 +118,35 @@ docker-compose up -d
 
 ## Desenvolvimento Local
 
-Se você quiser executar a aplicação localmente sem Docker:
+### Usando Poetry (Recomendado)
+
+O projeto agora usa Poetry para gerenciamento de dependências, o que garante que todas as dependências transitivas sejam fixadas corretamente.
+
+1. Instale o Poetry:
+   ```
+   curl -sSL https://install.python-poetry.org | python3 -
+   ```
+
+2. Instale as dependências:
+   ```
+   poetry install
+   ```
+
+3. Ative o ambiente virtual:
+   ```
+   poetry shell
+   ```
+
+4. Certifique-se de que seu arquivo `.env` esteja configurado corretamente.
+
+5. Execute a aplicação:
+   ```
+   streamlit run app/app.py
+   ```
+
+### Usando pip (Alternativa)
+
+Se preferir não usar o Poetry, você ainda pode usar o pip:
 
 1. Instale os pacotes Python necessários:
    ```

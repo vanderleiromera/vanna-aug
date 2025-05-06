@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "vanna-odoo"
+version = "0.1.0"
+description = "Aplicação para consultas em linguagem natural ao banco de dados Odoo usando Vanna.ai"
+authors = ["Vanderlei Romera <vanderleiromera@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+plotly = "^6.0.1"
+vanna = "^0.7.9"
+chromadb = "^1.0.8"
+openai = "^1.76.2"
+postgres = "^4.0"
+python-slugify = "^8.0.0"
+pillow = "^10.0.0"
+requests = "^2.28.0"
+psycopg2-binary = "^2.9.10"
+sqlalchemy = "^2.0.40"
+streamlit = "^1.45.0"
+python-dotenv = "^1.0.0"
+pandas = "^2.2.3"
+numpy = "^2.2.5"
+xlsxwriter = "^3.2.0"
+pydantic = "^2.11.4"
+python-dateutil = "*"
+statsmodels = "0.14.4"
+scikit-learn = "^1.6.1"
+scipy = "^1.15.2"
+pyod = "^2.0.5"
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -6,11 +6,21 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 - && \
+    ln -s /root/.local/bin/poetry /usr/local/bin/poetry
+
+# Configure Poetry to not create a virtual environment inside the container
+RUN poetry config virtualenvs.create false
+
+# Copy pyproject.toml and poetry.lock (if exists)
+COPY pyproject.toml poetry.lock* ./
+
+# Install dependencies
+RUN poetry install --no-interaction --no-ansi --no-root
 
 # Copy application code
 COPY app /app/app

@@ -1,5 +1,12 @@
-# Environment variables
-.env
+# Git
+.git
+.gitignore
+.github
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
 
 # Python
 __pycache__/
@@ -23,24 +30,25 @@ var/
 .installed.cfg
 *.egg
 
-# ChromaDB data
-data/
-
-# Logs
-*.log
-
 # Virtual Environment
 venv/
-.venv/
 ENV/
-vanna-aug-venv/
+.env
 
-# Poetry
-.poetry/
-poetry.toml
-
-# IDE files
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# Data
+data/
+*.db
+*.sqlite3
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Outros
+.DS_Store
