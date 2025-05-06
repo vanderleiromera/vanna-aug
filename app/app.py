@@ -399,7 +399,9 @@ with st.expander("Exemplos de Consultas"):
     - Quais são os 10 produtos mais vendidos? em valor!
     - Mostre o nivel de estoque de 50 produtos, mas vendidos em valor de 2024
     - Quais produtos tem 'caixa' no nome?
+    - Quais produtos têm 'porcelanato' no nome, quantidade em estoque e preço de venda?
     - Quais produtos foram vendidos nos últimos 30 dias, mas não têm estoque em mãos?
+    - Sugestão de Compra para os proximos 30 dias, dos 50 produtos mais vendidos!!!
     """
     )
 

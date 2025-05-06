@@ -488,4 +488,92 @@ ORDER BY
     pt.name;
 """,
         },
+        {
+            "question": "Sugestão de Compra para os proximos 30 dias, dos 50 produtos mais vendidos!!!",
+            "sql": """
+-- Consulta SQL revisada para eliminar problemas sintáticos
+-- Abordagem mais simples para recomendação de compras baseada em histórico de 12 meses
+SELECT 
+    p.id AS product_id,
+    p.default_code AS product_code,
+    p.name AS product_name,
+    c.name AS category_name,
+    vendas.quantidade_total AS quantidade_vendida_12_meses,
+    vendas.valor_total AS valor_vendido_12_meses,
+    -- Média diária de vendas
+    ROUND(vendas.quantidade_total / 365, 2) AS media_diaria_vendas,
+    -- Estoque atual
+    COALESCE(estoque.quantidade_disponivel, 0) AS estoque_atual,
+    -- Dias de cobertura atual
+    CASE 
+        WHEN vendas.quantidade_total > 0 
+        THEN ROUND(COALESCE(estoque.quantidade_disponivel, 0) / (vendas.quantidade_total / 365))
+        ELSE 999 
+    END AS dias_cobertura_atual,
+    -- Consumo projetado (30 dias)
+    ROUND((vendas.quantidade_total / 365) * 30, 0) AS consumo_projetado_30dias,
+    -- Sugestão de compra
+    GREATEST(0, ROUND((vendas.quantidade_total / 365) * 30, 0) - COALESCE(estoque.quantidade_disponivel, 0)) AS sugestao_compra,
+    -- Último fornecedor
+    ultimo_compra.fornecedor AS ultimo_fornecedor,
+    -- Último preço de compra
+    COALESCE(ultimo_compra.preco_compra, 0) AS ultimo_preco_compra,
+    -- Valor estimado
+    GREATEST(0, ROUND((vendas.quantidade_total / 365) * 30, 0) - COALESCE(estoque.quantidade_disponivel, 0)) * 
+    COALESCE(ultimo_compra.preco_compra, 0) AS valor_estimado_compra
+FROM 
+    product_product pp
+    JOIN product_template p ON pp.product_tmpl_id = p.id
+    JOIN product_category c ON p.categ_id = c.id
+    -- Vendas dos últimos 12 meses
+    JOIN (
+        SELECT 
+            l.product_id,
+            SUM(l.product_uom_qty) AS quantidade_total,
+            SUM(l.price_total) AS valor_total
+        FROM 
+            sale_order_line l
+            JOIN sale_order so ON l.order_id = so.id
+        WHERE 
+            so.state IN ('sale', 'done')
+            AND so.date_order >= (CURRENT_DATE - INTERVAL '365 days')
+            AND so.date_order < CURRENT_DATE
+        GROUP BY 
+            l.product_id
+    ) vendas ON pp.id = vendas.product_id
+    -- Estoque atual
+    LEFT JOIN (
+        SELECT 
+            sq.product_id,
+            SUM(sq.quantity) AS quantidade_disponivel
+        FROM 
+            stock_quant sq
+            JOIN stock_location sl ON sq.location_id = sl.id
+        WHERE 
+            sl.usage = 'internal'
+        GROUP BY 
+            sq.product_id
+    ) estoque ON pp.id = estoque.product_id
+    -- Última compra (fornecedor e preço)
+    LEFT JOIN (
+        SELECT DISTINCT ON (pol.product_id)
+            pol.product_id,
+            rp.name AS fornecedor,
+            pol.price_unit AS preco_compra
+        FROM 
+            purchase_order_line pol
+            JOIN purchase_order po ON pol.order_id = po.id
+            JOIN res_partner rp ON po.partner_id = rp.id
+        WHERE 
+            po.state IN ('purchase', 'done')
+        ORDER BY 
+            pol.product_id, po.date_order DESC
+    ) ultimo_compra ON pp.id = ultimo_compra.product_id
+WHERE 
+    vendas.quantidade_total > 0
+ORDER BY 
+    vendas.valor_total DESC
+LIMIT 50;
+""",
+        }
     ]
