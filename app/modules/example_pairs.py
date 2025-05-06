@@ -334,7 +334,7 @@ GROUP BY
 """,
         },
         {
-            "question": "Quais produtos têm 'caixa' no nome?",
+            "question": "Quais produtos têm o nome 'caixa' na descrição?",
             "sql": """
 SELECT
     pt.name AS nome_produto

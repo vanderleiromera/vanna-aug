@@ -98,8 +98,6 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             )
             print("Successfully initialized ChromaDB persistent client")
 
-
-
             # Use default embedding function instead of OpenAI
             from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
@@ -187,7 +185,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 return None
 
             db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
-            print(f"[DEBUG] Criando engine SQLAlchemy com URL: postgresql://{user}:***@{host}:{port}/{database}")
+            print(
+                f"[DEBUG] Criando engine SQLAlchemy com URL: postgresql://{user}:***@{host}:{port}/{database}"
+            )
 
             # Importar text para executar consultas SQL literais
             from sqlalchemy import text
@@ -200,12 +200,15 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 with engine.connect() as conn:
                     result = conn.execute(text("SELECT 1")).fetchone()
                     if result and result[0] == 1:
-                        print("[DEBUG] Conexão com o banco de dados testada com sucesso")
+                        print(
+                            "[DEBUG] Conexão com o banco de dados testada com sucesso"
+                        )
                     else:
                         print("[DEBUG] Teste de conexão retornou resultado inesperado")
             except Exception as conn_err:
                 print(f"[DEBUG] Erro ao testar conexão: {conn_err}")
                 import traceback
+
                 traceback.print_exc()
                 return None
 
@@ -213,6 +216,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"Error creating SQLAlchemy engine: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
@@ -689,7 +693,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             # Verificar se o DataFrame está vazio
             if df.empty:
-                print("[DEBUG] A consulta foi executada com sucesso, mas não retornou resultados.")
+                print(
+                    "[DEBUG] A consulta foi executada com sucesso, mas não retornou resultados."
+                )
             else:
                 print(f"[DEBUG] A consulta retornou {len(df)} resultados.")
 
@@ -697,6 +703,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"Error executing SQL query: {e}")
             import traceback
+
             traceback.print_exc()  # Imprimir o stack trace completo para diagnóstico
 
             # Se falhou, tente uma versão mais simples da consulta
@@ -753,6 +760,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 except Exception as e2:
                     print(f"Error executing simplified SQL query: {e2}")
                     import traceback
+
                     traceback.print_exc()  # Imprimir o stack trace completo para diagnóstico
 
             return None
@@ -1342,7 +1350,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
             # If we couldn't generate SQL, try using get_similar_question_sql
             if not sql:
-                print("[DEBUG] Failed to generate SQL, trying to find similar questions")
+                print(
+                    "[DEBUG] Failed to generate SQL, trying to find similar questions"
+                )
 
                 # Buscar perguntas similares
                 similar_questions = self.get_similar_question_sql(question)
@@ -1353,10 +1363,14 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
                     # Usar a primeira pergunta similar
                     similar_question = similar_questions[0]
-                    print(f"[DEBUG] Using similar question: '{similar_question['question']}'")
+                    print(
+                        f"[DEBUG] Using similar question: '{similar_question['question']}'"
+                    )
 
                     # Adaptar a consulta SQL se necessário
-                    adapted_sql = self.adapt_sql_from_similar_question(question, similar_question)
+                    adapted_sql = self.adapt_sql_from_similar_question(
+                        question, similar_question
+                    )
 
                     return adapted_sql, question
                 else:
@@ -1383,7 +1397,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         """
         try:
             # Extrair a consulta SQL da pergunta similar
-            sql = similar_question.get('sql', '')
+            sql = similar_question.get("sql", "")
 
             if not sql:
                 print("[DEBUG] No SQL found in similar question")
@@ -1395,9 +1409,13 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             adapted_sql = sql
 
             # Verificar se é uma consulta sobre produtos vendidos nos últimos dias
-            if ("últimos" in original_question.lower() and "dias" in original_question.lower()):
+            if (
+                "últimos" in original_question.lower()
+                and "dias" in original_question.lower()
+            ):
                 # Extrair o número de dias
                 import re
+
                 days_match = re.search(r"(\d+)\s+dias", original_question.lower())
                 if days_match:
                     days = int(days_match.group(1))
@@ -1405,11 +1423,17 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
                     # Substituir o número de dias na consulta SQL
                     if "INTERVAL '30 days'" in sql:
-                        adapted_sql = sql.replace("INTERVAL '30 days'", f"INTERVAL '{days} days'")
+                        adapted_sql = sql.replace(
+                            "INTERVAL '30 days'", f"INTERVAL '{days} days'"
+                        )
                     elif "INTERVAL '7 days'" in sql:
-                        adapted_sql = sql.replace("INTERVAL '7 days'", f"INTERVAL '{days} days'")
+                        adapted_sql = sql.replace(
+                            "INTERVAL '7 days'", f"INTERVAL '{days} days'"
+                        )
                     elif "INTERVAL '1 month'" in sql:
-                        adapted_sql = sql.replace("INTERVAL '1 month'", f"INTERVAL '{days} days'")
+                        adapted_sql = sql.replace(
+                            "INTERVAL '1 month'", f"INTERVAL '{days} days'"
+                        )
 
             # Verificar se é uma consulta sobre produtos vendidos em um ano específico
             if re.search(r"\b\d{4}\b", original_question):
@@ -1421,10 +1445,13 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
                     # Substituir o ano na consulta SQL
                     for existing_year in ["2024", "2025", "2023"]:
-                        if f"EXTRACT(YEAR FROM so.date_order) = {existing_year}" in adapted_sql:
+                        if (
+                            f"EXTRACT(YEAR FROM so.date_order) = {existing_year}"
+                            in adapted_sql
+                        ):
                             adapted_sql = adapted_sql.replace(
                                 f"EXTRACT(YEAR FROM so.date_order) = {existing_year}",
-                                f"EXTRACT(YEAR FROM so.date_order) = {year}"
+                                f"EXTRACT(YEAR FROM so.date_order) = {year}",
                             )
 
             # Verificar se é uma consulta sobre um número específico de produtos
@@ -1436,7 +1463,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 # Substituir o número de produtos na consulta SQL
                 for existing_limit in ["LIMIT 10", "LIMIT 20", "LIMIT 50"]:
                     if existing_limit in adapted_sql:
-                        adapted_sql = adapted_sql.replace(existing_limit, f"LIMIT {num_products}")
+                        adapted_sql = adapted_sql.replace(
+                            existing_limit, f"LIMIT {num_products}"
+                        )
 
             # Verificar se a consulta SQL foi adaptada
             if adapted_sql != sql:
@@ -1449,8 +1478,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         except Exception as e:
             print(f"[DEBUG] Error adapting SQL: {e}")
             import traceback
+
             traceback.print_exc()
-            return similar_question.get('sql', '')
+            return similar_question.get("sql", "")
 
     def get_collection(self):
         """
@@ -1677,14 +1707,18 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                     doc_id = f"sql-{content_hash}"
 
                     # Verificar se a pergunta contém 'caixa'
-                    if 'caixa' in question.lower():
-                        print(f"[DEBUG] Training example contains 'caixa': '{question}'")
+                    if "caixa" in question.lower():
+                        print(
+                            f"[DEBUG] Training example contains 'caixa': '{question}'"
+                        )
 
                     # Criar metadados com palavras-chave para melhorar a busca
                     metadata = {
                         "type": "sql",
                         "question": question,
-                        "keywords": " ".join([word.lower() for word in question.split() if len(word) > 3])
+                        "keywords": " ".join(
+                            [word.lower() for word in question.split() if len(word) > 3]
+                        ),
                     }
                     print(f"[DEBUG] Metadata for training: {metadata}")
 
@@ -1701,8 +1735,14 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                         # Verificar se o documento foi adicionado corretamente
                         try:
                             check_doc = self.collection.get(ids=[doc_id])
-                            if check_doc and "documents" in check_doc and check_doc["documents"]:
-                                print(f"[DEBUG] Document successfully stored: {check_doc['documents'][0][:100]}...")
+                            if (
+                                check_doc
+                                and "documents" in check_doc
+                                and check_doc["documents"]
+                            ):
+                                print(
+                                    f"[DEBUG] Document successfully stored: {check_doc['documents'][0][:100]}..."
+                                )
                             else:
                                 print("[DEBUG] Document not found after adding")
                         except Exception as check_e:
@@ -2017,12 +2057,16 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 caixa_results = self.collection.query(
                     query_texts=["caixa"],
                     n_results=100,  # Aumentar para pegar mais resultados
-                    where={"type": "sql"}
+                    where={"type": "sql"},
                 )
 
                 # Contar manualmente os resultados que contêm 'caixa'
                 caixa_count = 0
-                if caixa_results and "documents" in caixa_results and caixa_results["documents"]:
+                if (
+                    caixa_results
+                    and "documents" in caixa_results
+                    and caixa_results["documents"]
+                ):
                     for doc in caixa_results["documents"][0]:
                         if "caixa" in doc.lower():
                             caixa_count += 1
@@ -2039,10 +2083,20 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             )
 
             # Log dos resultados da consulta
-            if query_results and "documents" in query_results and query_results["documents"]:
-                print(f"[DEBUG] Query returned {len(query_results['documents'][0])} documents")
+            if (
+                query_results
+                and "documents" in query_results
+                and query_results["documents"]
+            ):
+                print(
+                    f"[DEBUG] Query returned {len(query_results['documents'][0])} documents"
+                )
                 # Verificar se algum documento contém 'caixa'
-                caixa_docs = [doc for doc in query_results['documents'][0] if 'caixa' in doc.lower()]
+                caixa_docs = [
+                    doc
+                    for doc in query_results["documents"][0]
+                    if "caixa" in doc.lower()
+                ]
                 print(f"[DEBUG] Found {len(caixa_docs)} documents containing 'caixa'")
             else:
                 print("[DEBUG] Query returned no documents")
@@ -2226,37 +2280,65 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             sql_results = self.collection.query(
                 query_texts=["SELECT"],  # Termo genérico para SQL
                 n_results=1000,  # Valor alto para pegar todos
-                where={"type": "sql"}
+                where={"type": "sql"},
             )
-            sql_count = len(sql_results["documents"][0]) if sql_results and "documents" in sql_results and sql_results["documents"] else 0
+            sql_count = (
+                len(sql_results["documents"][0])
+                if sql_results
+                and "documents" in sql_results
+                and sql_results["documents"]
+                else 0
+            )
 
             # DDL count
             ddl_results = self.collection.query(
                 query_texts=["CREATE TABLE"],  # Termo genérico para DDL
                 n_results=1000,
-                where={"type": {"$in": ["ddl", "ddl_priority"]}}
+                where={"type": {"$in": ["ddl", "ddl_priority"]}},
             )
-            ddl_count = len(ddl_results["documents"][0]) if ddl_results and "documents" in ddl_results and ddl_results["documents"] else 0
+            ddl_count = (
+                len(ddl_results["documents"][0])
+                if ddl_results
+                and "documents" in ddl_results
+                and ddl_results["documents"]
+                else 0
+            )
 
             # Documentation count
             doc_results = self.collection.query(
                 query_texts=["table relationship"],  # Termo genérico para documentação
                 n_results=1000,
-                where={"type": {"$in": ["documentation", "relationship", "relationship_priority"]}}
+                where={
+                    "type": {
+                        "$in": [
+                            "documentation",
+                            "relationship",
+                            "relationship_priority",
+                        ]
+                    }
+                },
             )
-            doc_count = len(doc_results["documents"][0]) if doc_results and "documents" in doc_results and doc_results["documents"] else 0
+            doc_count = (
+                len(doc_results["documents"][0])
+                if doc_results
+                and "documents" in doc_results
+                and doc_results["documents"]
+                else 0
+            )
 
             # Verificar exemplos com 'caixa'
             try:
                 caixa_results = self.collection.query(
-                    query_texts=["caixa"],
-                    n_results=100,
-                    where={"type": "sql"}
+                    query_texts=["caixa"], n_results=100, where={"type": "sql"}
                 )
 
                 # Contar manualmente os resultados que contêm 'caixa'
                 caixa_count = 0
-                if caixa_results and "documents" in caixa_results and caixa_results["documents"]:
+                if (
+                    caixa_results
+                    and "documents" in caixa_results
+                    and caixa_results["documents"]
+                ):
                     for doc in caixa_results["documents"][0]:
                         if "caixa" in doc.lower():
                             caixa_count += 1
@@ -2267,15 +2349,19 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             caixa_examples = []
             try:
                 caixa_results = self.collection.query(
-                    query_texts=["produtos caixa"],
-                    n_results=5,
-                    where={"type": "sql"}
+                    query_texts=["produtos caixa"], n_results=5, where={"type": "sql"}
                 )
 
-                if caixa_results and "documents" in caixa_results and caixa_results["documents"]:
+                if (
+                    caixa_results
+                    and "documents" in caixa_results
+                    and caixa_results["documents"]
+                ):
                     for doc in caixa_results["documents"][0]:
                         if "Question:" in doc and "SQL:" in doc:
-                            question = doc.split("Question:")[1].split("SQL:")[0].strip()
+                            question = (
+                                doc.split("Question:")[1].split("SQL:")[0].strip()
+                            )
                             sql = doc.split("SQL:")[1].strip()
                             caixa_examples.append(f"Q: {question}\nSQL: {sql[:100]}...")
             except Exception as e:
@@ -2287,10 +2373,15 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 results = self.collection.query(
                     query_texts=["Quais produtos têm o nome 'caixa' na descrição?"],
                     n_results=1,
-                    where={"type": "sql"}
+                    where={"type": "sql"},
                 )
 
-                if results and "documents" in results and results["documents"] and results["documents"][0]:
+                if (
+                    results
+                    and "documents" in results
+                    and results["documents"]
+                    and results["documents"][0]
+                ):
                     specific_example = results["documents"][0][0]
             except Exception as e:
                 specific_example = f"Erro ao buscar exemplo específico: {e}"
@@ -2312,6 +2403,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
         except Exception as e:
             import traceback
+
             error_trace = traceback.format_exc()
             return f"Erro ao verificar exemplos de treinamento: {e}\n\n{error_trace}"
 
@@ -2355,7 +2447,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             count = count_df.iloc[0, 0]
 
             # Verificar registros com 'caixa' no nome
-            caixa_sql = "SELECT COUNT(*) FROM product_template WHERE name ILIKE '%Caixa%';"
+            caixa_sql = (
+                "SELECT COUNT(*) FROM product_template WHERE name ILIKE '%Caixa%';"
+            )
             caixa_df = pd.read_sql_query(text(caixa_sql), engine)
             caixa_count = caixa_df.iloc[0, 0]
 
@@ -2385,6 +2479,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
         except Exception as e:
             import traceback
+
             error_trace = traceback.format_exc()
             return f"Erro ao verificar tabela product_template: {e}\n\n{error_trace}"
 

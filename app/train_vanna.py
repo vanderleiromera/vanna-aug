@@ -143,7 +143,9 @@ def train_vanna():
             if plan:
                 # Verificar o tipo do plano sem usar len()
                 plan_type = type(plan).__name__
-                print(f"✅ Training plan generated successfully! Plan type: {plan_type}")
+                print(
+                    f"✅ Training plan generated successfully! Plan type: {plan_type}"
+                )
 
                 # Adicionar informações adicionais sobre o plano
                 print(
