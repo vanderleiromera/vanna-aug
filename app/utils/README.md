@@ -8,7 +8,7 @@ Esta pasta contém scripts de verificação e diagnóstico para a aplicação Va
 
 - `check_persistence.py`: Verifica se a persistência do ChromaDB está funcionando corretamente
 - `check_documents.py`: Verifica se os documentos estão sendo armazenados corretamente no ChromaDB
-- `check_embedding_model.py`: Verifica o modelo de embeddings atual
+- `check_model.py`: Verifica o modelo LLM atual e a configuração do ChromaDB
 
 ### Scripts Shell
 
@@ -22,7 +22,7 @@ Para executar os scripts Python:
 ```bash
 python app/utils/check_persistence.py
 python app/utils/check_documents.py
-python app/utils/check_embedding_model.py
+python app/utils/check_model.py
 ```
 
 Para executar os scripts Shell:

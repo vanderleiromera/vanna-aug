@@ -52,15 +52,6 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             self.model = config["model"]
             print(f"Using OpenAI model: {self.model}")
 
-        # Store the embedding model from config or environment
-        if config and "embedding_model" in config:
-            self.embedding_model = config["embedding_model"]
-        else:
-            self.embedding_model = os.getenv(
-                "OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"
-            )
-        print(f"Using OpenAI embedding model: {self.embedding_model}")
-
         # Ensure the directory exists
         os.makedirs(self.chroma_persist_directory, exist_ok=True)
         print(f"ChromaDB persistence directory: {self.chroma_persist_directory}")
@@ -107,19 +98,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             )
             print("Successfully initialized ChromaDB persistent client")
 
-            # Get embedding model from config or environment
-            embedding_model = None
-            if hasattr(self, "embedding_model"):
-                embedding_model = self.embedding_model
-            elif config and "embedding_model" in config:
-                embedding_model = config["embedding_model"]
-            else:
-                embedding_model = os.getenv(
-                    "OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"
-                )
 
-            # Store the embedding model for reference
-            self.embedding_model = embedding_model
 
             # Use default embedding function instead of OpenAI
             from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
@@ -1537,11 +1516,6 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 self.model
                 if hasattr(self, "model")
                 else os.getenv("OPENAI_MODEL", "gpt-4")
-            ),
-            "embedding_model": (
-                self.embedding_model
-                if hasattr(self, "embedding_model")
-                else os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002")
             ),
             "api_key_available": bool(
                 self.api_key

@@ -63,7 +63,7 @@ st.sidebar.image("https://vanna.ai/img/vanna.svg", width=100)
 # Mostrar os modelos atuais de forma discreta
 model_info = vn.get_model_info()
 st.sidebar.caption(f"Modelo LLM: {model_info['model']}")
-# st.sidebar.caption(f"Modelo Embeddings: {model_info['embedding_model']}")
+
 
 # Separador para a próxima seção
 st.sidebar.markdown("---")
