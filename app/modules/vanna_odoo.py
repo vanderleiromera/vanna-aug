@@ -189,13 +189,16 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
             print(f"[DEBUG] Criando engine SQLAlchemy com URL: postgresql://{user}:***@{host}:{port}/{database}")
 
+            # Importar text para executar consultas SQL literais
+            from sqlalchemy import text
+
             # Criar engine com opções para diagnóstico
             engine = create_engine(db_url, echo=False, future=True)
 
             # Testar conexão
             try:
                 with engine.connect() as conn:
-                    result = conn.execute("SELECT 1").fetchone()
+                    result = conn.execute(text("SELECT 1")).fetchone()
                     if result and result[0] == 1:
                         print("[DEBUG] Conexão com o banco de dados testada com sucesso")
                     else:
@@ -677,9 +680,12 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             print(f"[DEBUG] SQL adaptado:\n{sql}")
 
         try:
+            # Importar text para executar consultas SQL literais
+            from sqlalchemy import text
+
             # Execute the query and return results as DataFrame using SQLAlchemy
             print(f"[DEBUG] Executando consulta SQL:\n{sql}")
-            df = pd.read_sql_query(sql, engine)
+            df = pd.read_sql_query(text(sql), engine)
 
             # Verificar se o DataFrame está vazio
             if df.empty:
@@ -738,11 +744,16 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 """
 
                 try:
+                    # Importar text para executar consultas SQL literais
+                    from sqlalchemy import text
+
                     print(f"[DEBUG] Executando consulta simplificada com {days} dias")
-                    df = pd.read_sql_query(simplified_sql, engine)
+                    df = pd.read_sql_query(text(simplified_sql), engine)
                     return df
                 except Exception as e2:
                     print(f"Error executing simplified SQL query: {e2}")
+                    import traceback
+                    traceback.print_exc()  # Imprimir o stack trace completo para diagnóstico
 
             return None
 
@@ -2361,6 +2372,9 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             return "Erro ao criar engine SQLAlchemy"
 
         try:
+            # Importar text para executar consultas SQL literais
+            from sqlalchemy import text
+
             # Verificar se a tabela existe
             check_sql = """
             SELECT EXISTS (
@@ -2369,7 +2383,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 AND table_name = 'product_template'
             );
             """
-            exists_df = pd.read_sql_query(check_sql, engine)
+            exists_df = pd.read_sql_query(text(check_sql), engine)
             if not exists_df.iloc[0, 0]:
                 return "Tabela product_template não existe no banco de dados"
 
@@ -2381,16 +2395,16 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             AND table_name = 'product_template'
             ORDER BY ordinal_position;
             """
-            columns_df = pd.read_sql_query(columns_sql, engine)
+            columns_df = pd.read_sql_query(text(columns_sql), engine)
 
             # Verificar contagem de registros
             count_sql = "SELECT COUNT(*) FROM product_template;"
-            count_df = pd.read_sql_query(count_sql, engine)
+            count_df = pd.read_sql_query(text(count_sql), engine)
             count = count_df.iloc[0, 0]
 
             # Verificar registros com 'caixa' no nome
             caixa_sql = "SELECT COUNT(*) FROM product_template WHERE name ILIKE '%Caixa%';"
-            caixa_df = pd.read_sql_query(caixa_sql, engine)
+            caixa_df = pd.read_sql_query(text(caixa_sql), engine)
             caixa_count = caixa_df.iloc[0, 0]
 
             # Obter amostra de produtos com 'caixa' no nome
@@ -2401,7 +2415,7 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 WHERE name ILIKE '%Caixa%'
                 LIMIT 5;
                 """
-                sample_df = pd.read_sql_query(sample_sql, engine)
+                sample_df = pd.read_sql_query(text(sample_sql), engine)
                 sample_str = sample_df.to_string()
             else:
                 sample_str = "Nenhum produto com 'caixa' no nome encontrado"
