@@ -1435,6 +1435,32 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                             "INTERVAL '1 month'", f"INTERVAL '{days} days'"
                         )
 
+                    # Verificar se é uma consulta de sugestão de compra
+                    if "sugestao de compra" in original_question.lower() or "sugestão de compra" in original_question.lower():
+                        print(f"[DEBUG] Detected purchase suggestion query, adapting for {days} days")
+
+                        # Substituir todas as ocorrências de "* 30" relacionadas a dias
+                        # Padrões mais específicos primeiro
+                        adapted_sql = adapted_sql.replace(
+                            "* 30,", f"* {days},"
+                        )
+                        adapted_sql = adapted_sql.replace(
+                            "* 30)", f"* {days})"
+                        )
+                        adapted_sql = adapted_sql.replace(
+                            "* 30 ", f"* {days} "
+                        )
+
+                        # Substituir no nome da coluna se necessário
+                        adapted_sql = adapted_sql.replace(
+                            "consumo_projetado_30dias", f"consumo_projetado_{days}dias"
+                        )
+
+                        # Substituir no comentário se existir
+                        adapted_sql = adapted_sql.replace(
+                            "-- Consumo projetado (30 dias)", f"-- Consumo projetado ({days} dias)"
+                        )
+
             # Verificar se é uma consulta sobre produtos vendidos em um ano específico
             if re.search(r"\b\d{4}\b", original_question):
                 # Extrair o ano
