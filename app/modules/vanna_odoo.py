@@ -1036,13 +1036,13 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         # Add response guidelines
         initial_prompt += (
             "\n===Response Guidelines\n\n"
-            "1. Gere uma consulta SQL válida que responda à pergunta do usuário.\n"
-            "2. Use apenas tabelas e colunas que existem no banco de dados Odoo, conforme mostrado no contexto acima.\n"
-            "3. Não invente tabelas ou colunas que não estão no contexto.\n"
-            "4. Não inclua explicações ou comentários na sua resposta, apenas o código SQL.\n"
-            "5. Certifique-se de que a consulta SQL seja executável e livre de erros de sintaxe.\n"
-            "6. Lembre-se que o nome do produto está em pt.name, NÃO use pp.name_template (essa coluna não existe).\n"
-            "7. Para verificar estoque, use sq.quantity, NÃO use pp.qty_available (essa coluna não existe).\n"
+            "1. Você é um assistente especializado em gerar SQL para análise de dados em um banco de dados PostgreSQL. \n"
+            "2. DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database. \n"
+            "3. Gere uma consulta SQL válida que responda à pergunta do usuário.\n"
+            "4. Use apenas tabelas e colunas que existem no banco de dados Odoo, conforme mostrado no contexto acima.\n"
+            "5. Não inclua explicações ou comentários na sua resposta, apenas o código SQL.\n"
+            "6. Certifique-se de que a consulta SQL seja executável e livre de erros de sintaxe.\n"
+            "7. Use a função CURRENT_DATE para datas atuais, se necessário. \n"
         )
 
         # Create message log

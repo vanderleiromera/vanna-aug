@@ -5,7 +5,7 @@ Documentação sobre a estrutura do banco de dados Odoo para treinamento do Vann
 ODOO_DOCUMENTATION = [
     # Informações gerais
     """
-    Tabelas res_partner contêm dados de parceiros/clientes
+    Tabela 'res_partner' contém clientes, fornecedores e contatos. Use 'is_company = TRUE' para filtrar apenas empresas. 'parent_id' indica a empresa mãe de um contato
     """,
     """
     Tabelas com prefixo account_ são relacionadas à contabilidade
@@ -24,6 +24,12 @@ ODOO_DOCUMENTATION = [
     """,
     """
     Campos como create_date, write_date são comuns para auditoria
+    """,
+    """
+    Nomes de tabelas e colunas geralmente usam underscores (_) e são em minúsculas.
+    """,
+    """
+    Use IDs numéricos inteiros para relacionamentos (ex: partner_id, product_id, user_id).
     """,
     # Estrutura de produtos
     """

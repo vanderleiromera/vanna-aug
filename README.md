@@ -238,11 +238,153 @@ A aplicação inclui um sistema avançado de detecção de anomalias que permite
 
 A aplicação irá destacar automaticamente os valores atípicos e fornecer um resumo estatístico das anomalias encontradas.
 
-Para informações detalhadas sobre a funcionalidade de detecção de anomalias, consulte:
+## Detecção de Anomalias - Documentação Detalhada
 
-- [Documentação completa de detecção de anomalias](docs/anomaly_detection.md) - Visão geral, algoritmos, casos de uso e interpretação
-- [Exemplos práticos de detecção de anomalias](docs/anomaly_detection_examples.md) - Cenários de negócio com consultas SQL e interpretações
-- [Guia de referência dos algoritmos](docs/anomaly_detection_algorithms.md) - Comparação detalhada dos algoritmos e guia de seleção
+### Visão Geral
+
+A detecção de anomalias é uma técnica utilizada para identificar valores atípicos (outliers) em conjuntos de dados. Esses valores podem representar erros, fraudes, comportamentos incomuns ou simplesmente observações raras que merecem atenção especial.
+
+O Vanna AI Odoo Assistant implementa quatro algoritmos diferentes de detecção de anomalias, cada um com suas próprias características e casos de uso ideais.
+
+### Algoritmos Implementados
+
+#### 1. Estatístico (Z-score)
+
+**Descrição:** O método Z-score é uma técnica estatística que mede quantos desvios padrão um valor está da média da distribuição. Valores com Z-score acima de um determinado limiar são considerados anomalias.
+
+**Parâmetros:**
+- `z_threshold`: Limiar do Z-score para considerar um valor como anomalia (padrão: 3.0)
+
+**Casos de uso ideais:**
+- Dados que seguem uma distribuição normal ou aproximadamente normal
+- Conjuntos de dados com anomalias que se desviam significativamente da média
+- Análise univariada (uma coluna por vez)
+
+#### 2. Intervalo Interquartil (IQR)
+
+**Descrição:** O método IQR identifica anomalias com base na distância dos quartis. Valores abaixo de Q1 - (IQR * multiplicador) ou acima de Q3 + (IQR * multiplicador) são considerados anomalias, onde Q1 é o primeiro quartil, Q3 é o terceiro quartil e IQR = Q3 - Q1.
+
+**Parâmetros:**
+- `iqr_multiplier`: Multiplicador do IQR para definir os limites (padrão: 1.5)
+
+**Casos de uso ideais:**
+- Dados que não seguem uma distribuição normal
+- Dados com distribuição assimétrica
+- Conjuntos de dados com valores extremos
+- Análise univariada (uma coluna por vez)
+
+#### 3. Isolation Forest
+
+**Descrição:** O Isolation Forest é um algoritmo de aprendizado de máquina baseado em árvores de decisão que isola observações criando partições recursivas. Anomalias são valores que requerem menos partições para serem isolados.
+
+**Parâmetros:**
+- `contamination`: Proporção esperada de anomalias nos dados (padrão: 0.05)
+- `random_state`: Semente para reprodutibilidade (padrão: 42)
+
+**Casos de uso ideais:**
+- Conjuntos de dados grandes
+- Dados multidimensionais (várias colunas)
+- Quando as anomalias são difíceis de detectar com métodos estatísticos simples
+- Quando a eficiência computacional é importante
+
+#### 4. K-Nearest Neighbors (KNN)
+
+**Descrição:** O método KNN para detecção de anomalias calcula a distância média aos k vizinhos mais próximos. Pontos com distâncias maiores são considerados anomalias.
+
+**Parâmetros:**
+- `n_neighbors`: Número de vizinhos a considerar (padrão: 5)
+- `contamination`: Proporção esperada de anomalias nos dados (padrão: 0.05)
+
+**Casos de uso ideais:**
+- Dados com clusters bem definidos
+- Conjuntos de dados de tamanho médio
+- Dados multidimensionais (várias colunas)
+- Quando as anomalias formam pequenos clusters
+
+### Exemplos Práticos
+
+#### Exemplo 1: Identificação de Vendas Atípicas
+
+**Cenário:** Você deseja identificar clientes com valores de compra atípicos.
+
+**Consulta SQL:**
+```sql
+SELECT
+    rp.name as cliente,
+    SUM(so.amount_total) as total_vendas
+FROM
+    sale_order so
+JOIN
+    res_partner rp ON so.partner_id = rp.id
+WHERE
+    so.state in ('sale', 'done')
+GROUP BY
+    rp.name
+ORDER BY
+    total_vendas DESC
+LIMIT 100
+```
+
+**Passos:**
+1. Execute a consulta acima
+2. Acesse a aba "Detecção de Anomalias"
+3. Selecione o método "Estatístico (Z-score)"
+4. Selecione a coluna "total_vendas"
+5. Defina o limiar Z-score como 2.5
+6. Clique em "Detectar Anomalias"
+
+**Resultado:** O sistema identificará clientes cujo valor total de compras é significativamente maior ou menor que a média, o que pode indicar clientes VIP ou clientes com problemas.
+
+#### Exemplo 2: Identificação de Produtos com Margens Atípicas
+
+**Cenário:** Você deseja identificar produtos com margens de lucro atípicas.
+
+**Consulta SQL:**
+```sql
+SELECT
+    pt.name as produto,
+    AVG((sol.price_unit - pt.standard_price) / NULLIF(sol.price_unit, 0) * 100) as margem_percentual,
+    COUNT(sol.id) as quantidade_vendas
+FROM
+    sale_order_line sol
+JOIN
+    product_product pp ON sol.product_id = pp.id
+JOIN
+    product_template pt ON pp.product_tmpl_id = pt.id
+WHERE
+    sol.state in ('sale', 'done')
+GROUP BY
+    pt.name
+HAVING
+    COUNT(sol.id) > 5
+ORDER BY
+    margem_percentual DESC
+LIMIT 100
+```
+
+### Guia de Seleção de Algoritmo
+
+#### Fluxograma de Decisão
+
+1. **Os dados são univariados (uma única coluna)?**
+   - **Sim**:
+     - **Os dados seguem uma distribuição normal?**
+       - **Sim**: Use **Z-score**
+       - **Não**: Use **IQR**
+   - **Não** (dados multivariados):
+     - **O conjunto de dados é grande (>10.000 registros)?**
+       - **Sim**: Use **Isolation Forest**
+       - **Não**:
+         - **Os dados têm clusters bem definidos?**
+           - **Sim**: Use **KNN**
+           - **Não**: Use **Isolation Forest**
+
+#### Considerações Adicionais
+
+- **Interpretabilidade**: Z-score > IQR > Isolation Forest > KNN
+- **Eficiência computacional**: Z-score > IQR > Isolation Forest > KNN
+- **Robustez a valores extremos**: IQR > Isolation Forest > KNN > Z-score
+- **Capacidade de lidar com alta dimensionalidade**: Isolation Forest > KNN > Z-score/IQR
 
 ### Treinamento Automático vs. Manual
 

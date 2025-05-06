@@ -12,9 +12,8 @@ from dotenv import load_dotenv
 # Add the current directory to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from modules.example_pairs import get_example_pairs
-
 # Import the VannaOdoo class and example pairs from the modules directory
+from modules.example_pairs import get_example_pairs
 from modules.vanna_odoo import VannaOdoo
 
 # Load environment variables
@@ -144,15 +143,13 @@ def train_vanna():
             if plan:
                 # Verificar o tipo do plano sem usar len()
                 plan_type = type(plan).__name__
-                print(f"✅ Training plan generated successfully! Plan type: {plan_type}")
+                print(
+                    f"✅ Training plan generated successfully! Plan type: {plan_type}"
+                )
 
                 # Adicionar informações adicionais sobre o plano
-                print(
-                    "This training plan contains instructions for the model based on the database schema."
-                )
-                print(
-                    "It will be used to train the model on the structure of your priority tables."
-                )
+                print("This training plan contains instructions for the model based on the schema.")
+                print("It will be used to train the model on your priority tables structure.")
 
                 try:
                     result = vn.train(plan=plan)
