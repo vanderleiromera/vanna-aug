@@ -2077,30 +2077,6 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             print("[DEBUG] Using text-based similarity search for question-SQL pairs")
             print(f"[DEBUG] Searching for question: '{question}'")
 
-            # Verificar se há exemplos com 'caixa' no nome
-            try:
-                # Usar query em vez de count com where
-                caixa_results = self.collection.query(
-                    query_texts=["caixa"],
-                    n_results=100,  # Aumentar para pegar mais resultados
-                    where={"type": "sql"},
-                )
-
-                # Contar manualmente os resultados que contêm 'caixa'
-                caixa_count = 0
-                if (
-                    caixa_results
-                    and "documents" in caixa_results
-                    and caixa_results["documents"]
-                ):
-                    for doc in caixa_results["documents"][0]:
-                        if "caixa" in doc.lower():
-                            caixa_count += 1
-
-                print(f"[DEBUG] Found {caixa_count} examples with 'caixa' in content")
-            except Exception as e:
-                print(f"[DEBUG] Error checking for 'caixa' examples: {e}")
-
             # Realizar a consulta
             query_results = self.collection.query(
                 query_texts=[question],
@@ -2117,13 +2093,6 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 print(
                     f"[DEBUG] Query returned {len(query_results['documents'][0])} documents"
                 )
-                # Verificar se algum documento contém 'caixa'
-                caixa_docs = [
-                    doc
-                    for doc in query_results["documents"][0]
-                    if "caixa" in doc.lower()
-                ]
-                print(f"[DEBUG] Found {len(caixa_docs)} documents containing 'caixa'")
             else:
                 print("[DEBUG] Query returned no documents")
 
