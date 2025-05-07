@@ -218,6 +218,86 @@ class VannaOdooExtended(VannaOdooNumeric):
         }
         return model_info
 
+    def train_on_priority_relationships(self):
+        """
+        Treina o modelo Vanna nos relacionamentos das tabelas prioritárias do Odoo.
+
+        Este método é um wrapper para o método train_on_relationships da classe VannaOdooTraining.
+
+        Returns:
+            bool: True se o treinamento foi bem-sucedido, False caso contrário
+        """
+        try:
+            # Verificar se a classe pai tem o método train_on_relationships
+            if hasattr(super(), "train_on_relationships"):
+                # Chamar o método da classe pai
+                return super().train_on_relationships()
+            else:
+                # Se a classe pai não tiver o método, implementar aqui
+                # Import the list of priority tables
+                from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+
+                # Get available tables in the database
+                available_tables = self.get_odoo_tables()
+
+                # Filter priority tables that exist in the database
+                tables_to_train = [
+                    table for table in ODOO_PRIORITY_TABLES if table in available_tables
+                ]
+
+                total_tables = len(tables_to_train)
+                trained_count = 0
+
+                print(f"Starting training on relationships for {total_tables} priority tables...")
+
+                for table in tables_to_train:
+                    # Get relationships for the table
+                    relationships_df = self.get_table_relationships(table)
+                    if relationships_df is not None and not relationships_df.empty:
+                        try:
+                            # Create documentation string for relationships
+                            doc = f"Table {table} has the following relationships:\n"
+                            for _, row in relationships_df.iterrows():
+                                doc += f"- Column {row['column_name']} references {row['foreign_table_name']}.{row['foreign_column_name']}\n"
+
+                            # Train Vanna on the relationships
+                            result = self.train(documentation=doc)
+                            print(f"Trained on relationships for table: {table}, result: {result}")
+
+                            # Add directly to collection for better persistence
+                            if hasattr(self, "collection") and self.collection:
+                                content = doc
+                                import hashlib
+                                content_hash = hashlib.md5(content.encode()).hexdigest()
+                                doc_id = f"rel-{content_hash}"
+
+                                # Add directly to collection without embeddings for better text-based search
+                                try:
+                                    # Add without embedding
+                                    self.collection.add(
+                                        documents=[content],
+                                        metadatas=[{"type": "relationship", "table": table}],
+                                        ids=[doc_id],
+                                    )
+                                    print(f"Added relationship document without embedding, ID: {doc_id}")
+                                except Exception as e:
+                                    print(f"Error adding relationship without embedding: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+
+                                print(f"Added relationship document directly with ID: {doc_id}")
+                                trained_count += 1
+                        except Exception as e:
+                            print(f"Error training on relationships for table {table}: {e}")
+
+                print(f"Trained on relationships for {trained_count} tables")
+                return trained_count > 0
+        except Exception as e:
+            print(f"Error in train_on_priority_relationships: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def get_collection(self):
         """
         Retorna a coleção ChromaDB atual. Se a coleção não existir, tenta criá-la.
