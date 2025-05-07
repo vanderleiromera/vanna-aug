@@ -220,7 +220,7 @@ class VannaOdooNumeric(VannaOdoo):
         normalized_question, _ = self.normalize_question(question)
 
         # Use the parent method with the normalized question
-        return super().get_similar_question_sql(normalized_question)
+        return super().get_similar_questions(normalized_question)
 
     def ask(self, question: str) -> str:
         """
