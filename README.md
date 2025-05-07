@@ -189,6 +189,97 @@ Modelos de embeddings suportados incluem:
 - `text-embedding-3-small`
 - `text-embedding-3-large`
 
+## Fluxo de Processamento de Perguntas
+
+Quando um usuário faz uma pergunta em linguagem natural, a aplicação segue um fluxo específico para gerar a consulta SQL correspondente. Este fluxo é projetado para maximizar a precisão e relevância das consultas geradas.
+
+### Visão Geral do Fluxo
+
+1. **Normalização da Pergunta**:
+   - Extração de valores numéricos (anos, quantidades, etc.)
+   - Normalização do texto para melhorar a busca semântica
+
+2. **Busca de Contexto Relevante**:
+   - Busca de perguntas similares já treinadas
+   - Busca de esquemas de tabelas (DDL) relacionados
+   - Busca de documentação relevante
+
+3. **Geração de SQL**:
+   - Criação de um prompt para o LLM com todo o contexto coletado
+   - Geração da consulta SQL pelo modelo de linguagem
+   - Extração e adaptação do SQL da resposta
+
+4. **Execução e Visualização**:
+   - Execução da consulta SQL no banco de dados
+   - Geração automática de visualizações
+   - Detecção de anomalias (opcional)
+
+### Fluxo Detalhado e Métodos Envolvidos
+
+O fluxo de processamento de perguntas envolve os seguintes métodos principais, executados nesta ordem:
+
+1. **`ask_with_results`** (em `VannaOdooExtended`):
+   - Ponto de entrada principal que coordena todo o processo
+   - Chama `ask` para gerar o SQL
+   - Executa a consulta e gera visualizações
+
+2. **`ask`** (em `VannaOdooExtended`):
+   - Normaliza a pergunta e extrai valores numéricos
+   - Chama `generate_sql` para gerar o SQL
+   - Adapta o SQL para os valores específicos da pergunta
+
+3. **`generate_sql`** (em `VannaOdooSQL`):
+   - Coordena a coleta de contexto e geração de SQL
+   - Chama os métodos de busca de contexto
+   - Gera o prompt e envia para o LLM
+
+4. **`get_similar_questions`** (em `VannaOdoo`):
+   - Busca perguntas similares no ChromaDB
+   - Se não encontrar, busca em `example_pairs.py` usando `get_similar_question_sql`
+   - Retorna uma lista de pares pergunta-SQL similares
+
+5. **`get_related_ddl`** (em `VannaOdoo`):
+   - Busca DDLs relacionados no ChromaDB
+   - Se não encontrar, busca DDL das tabelas prioritárias em `odoo_priority_tables.py`
+   - Retorna uma lista de DDLs relacionados
+
+6. **`get_related_documentation`** (em `VannaOdoo`):
+   - Busca documentação relacionada no ChromaDB
+   - Se não encontrar, busca documentação dos exemplos em `example_pairs.py`
+   - Retorna uma lista de documentações relacionadas
+
+7. **`get_sql_prompt`** (herdado de `VannaBase`):
+   - Cria um prompt para o LLM com todo o contexto coletado
+   - Inclui instruções específicas para geração de SQL
+
+8. **`submit_prompt`** (herdado de `VannaBase`):
+   - Envia o prompt para o LLM (OpenAI)
+   - Recebe e retorna a resposta
+
+### Hierarquia de Busca de Contexto
+
+Quando o usuário faz uma pergunta, o sistema busca informações nesta ordem:
+
+1. **ChromaDB** - Primeiro busca no banco de dados ChromaDB (que contém todos os dados treinados)
+2. **example_pairs.py** - Se não encontrar no ChromaDB, busca nos exemplos predefinidos
+3. **odoo_priority_tables.py** - Para DDL, busca nas tabelas prioritárias
+4. **Outros arquivos** - Arquivos como `odoo_sql_examples.py` e `odoo_documentation.py` seriam usados se implementados
+
+### Exemplo de Fluxo Completo
+
+Vamos ver um exemplo de como funciona quando um usuário pergunta "Quais produtos têm 'porcelanato' no nome?":
+
+1. O método `ask_with_results` é chamado
+2. `ask` normaliza a pergunta e chama `generate_sql`
+3. `generate_sql` busca contexto:
+   - `get_similar_questions` busca perguntas similares e encontra "Quais produtos têm 'porcelanato' no nome, quantidade em estoque e preço de venda?"
+   - `get_related_ddl` busca DDLs relacionados (product_template, product_product, etc.)
+   - `get_related_documentation` busca documentação relevante
+4. `get_sql_prompt` gera o prompt com todas essas informações
+5. `submit_prompt` envia o prompt para o LLM
+6. O SQL é extraído da resposta e adaptado
+7. A consulta é executada e os resultados são retornados
+
 ## Treinando o Modelo
 
 ### Opções de Treinamento
