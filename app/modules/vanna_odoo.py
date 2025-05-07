@@ -56,10 +56,11 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
     """
 
     def __init__(self, config=None):
-        # Converter config para modelo Pydantic ou criar um novo
+        # Verificar se config é um objeto VannaConfig
         if isinstance(config, VannaConfig):
             # Se já é um objeto VannaConfig, use-o diretamente
             self.vanna_config = config
+
             # Criar um dicionário de configuração para compatibilidade com as classes pai
             self.config = {
                 "model": config.model,
@@ -71,16 +72,23 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         else:
             # Se não é um objeto VannaConfig, crie um a partir do dicionário
             config_dict = config or {}
+
+            # Obter valores do dicionário ou usar valores padrão
+            model = config_dict.get("model") if config_dict.get("model") else os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
+            allow_llm_to_see_data = config_dict.get("allow_llm_to_see_data", False)
+            chroma_persist_directory = config_dict.get("chroma_persist_directory") if config_dict.get("chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+            max_tokens = config_dict.get("max_tokens", 14000)
+            api_key = config_dict.get("api_key") if config_dict.get("api_key") else os.getenv("OPENAI_API_KEY")
+
+            # Criar o objeto VannaConfig com os valores obtidos
             self.vanna_config = VannaConfig(
-                model=config_dict.get("model", os.getenv("OPENAI_MODEL", "gpt-4.1-nano")),
-                allow_llm_to_see_data=config_dict.get("allow_llm_to_see_data", False),
-                chroma_persist_directory=config_dict.get(
-                    "chroma_persist_directory",
-                    os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
-                ),
-                max_tokens=config_dict.get("max_tokens", 14000),
-                api_key=config_dict.get("api_key", os.getenv("OPENAI_API_KEY"))
+                model=model,
+                allow_llm_to_see_data=allow_llm_to_see_data,
+                chroma_persist_directory=chroma_persist_directory,
+                max_tokens=max_tokens,
+                api_key=api_key
             )
+
             # Manter o dicionário original para compatibilidade
             self.config = config or {}
 
