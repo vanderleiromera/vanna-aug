@@ -25,6 +25,8 @@ var/
 
 # ChromaDB data
 data/
+chroma.sqlite3
+**/chroma.sqlite3
 
 # Logs
 *.log
