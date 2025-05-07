@@ -340,15 +340,44 @@ if col7.button("🗑️ Resetar Dados"):
                                 # É uma coleção real do ChromaDB
                                 # Para excluir todos os documentos da coleção, precisamos obter todos os IDs
                                 try:
-                                    # Tentar obter todos os IDs da coleção
-                                    all_ids = collection.get()["ids"]
+                                    # Tentar obter todos os documentos da coleção
+                                    try:
+                                        # Primeiro, verificar se a coleção tem documentos
+                                        count = collection.count()
+                                        st.info(f"A coleção tem {count} documentos.")
 
-                                    if all_ids and len(all_ids) > 0:
-                                        # Excluir todos os documentos da coleção
-                                        collection.delete(ids=all_ids)
-                                        st.success(f"✅ {len(all_ids)} documentos excluídos com sucesso!")
-                                    else:
-                                        st.info("A coleção já está vazia.")
+                                        if count > 0:
+                                            # Obter todos os documentos da coleção (sem filtro)
+                                            all_docs = collection.get(limit=count)
+
+                                            if all_docs and "ids" in all_docs and len(all_docs["ids"]) > 0:
+                                                all_ids = all_docs["ids"]
+
+                                                # Excluir todos os documentos da coleção
+                                                collection.delete(ids=all_ids)
+                                                st.success(f"✅ {len(all_ids)} documentos excluídos com sucesso!")
+                                            else:
+                                                st.warning("Não foi possível obter os IDs dos documentos.")
+
+                                                # Tentar excluir usando where={} para excluir todos os documentos
+                                                try:
+                                                    st.info("Tentando excluir todos os documentos usando where={}...")
+                                                    collection.delete(where={})
+                                                    st.success("✅ Todos os documentos excluídos com sucesso!")
+                                                except Exception as e:
+                                                    st.error(f"Erro ao excluir usando where={{}}: {e}")
+                                        else:
+                                            st.info("A coleção já está vazia.")
+                                    except Exception as e:
+                                        st.error(f"Erro ao obter documentos: {e}")
+
+                                        # Tentar excluir usando where={} para excluir todos os documentos
+                                        try:
+                                            st.info("Tentando excluir todos os documentos usando where={}...")
+                                            collection.delete(where={})
+                                            st.success("✅ Todos os documentos excluídos com sucesso!")
+                                        except Exception as e2:
+                                            st.error(f"Erro ao excluir usando where={{}}: {e2}")
 
                                     # Não precisamos recriar a coleção, pois apenas excluímos os documentos
                                 except Exception as e:
