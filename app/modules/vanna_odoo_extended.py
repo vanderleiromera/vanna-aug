@@ -220,7 +220,7 @@ class VannaOdooExtended(VannaOdooNumeric):
 
     def get_collection(self):
         """
-        Retorna a coleção ChromaDB atual.
+        Retorna a coleção ChromaDB atual. Se a coleção não existir, tenta criá-la.
 
         Returns:
             Collection: A coleção ChromaDB ou None se não estiver disponível
@@ -228,11 +228,11 @@ class VannaOdooExtended(VannaOdooNumeric):
         try:
             # Verificar se temos acesso ao cliente ChromaDB
             if hasattr(self, "_chroma_client") and self._chroma_client is not None:
-                # Tentar obter a coleção
-                return self._chroma_client.get_collection("vanna")
+                # Tentar obter ou criar a coleção
+                return self._chroma_client.get_or_create_collection("vanna")
             elif hasattr(self, "chroma_client") and self.chroma_client is not None:
-                # Tentar obter a coleção
-                return self.chroma_client.get_collection("vanna")
+                # Tentar obter ou criar a coleção
+                return self.chroma_client.get_or_create_collection("vanna")
             else:
                 # Tentar criar um novo cliente
                 import chromadb
@@ -241,7 +241,7 @@ class VannaOdooExtended(VannaOdooNumeric):
                     path=self.chroma_persist_directory if hasattr(self, "chroma_persist_directory")
                     else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
                 )
-                return client.get_collection("vanna")
+                return client.get_or_create_collection("vanna")
         except Exception as e:
             print(f"Erro ao obter coleção ChromaDB: {e}")
             import traceback
