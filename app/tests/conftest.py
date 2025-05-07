@@ -25,10 +25,11 @@ os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 try:
     from app.modules.models import VannaConfig, DatabaseConfig, ProductData
     from app.modules.data_converter import dataframe_to_model_list
-    from tests.fixtures import get_test_vanna_config, get_test_db_config, get_test_products
+    from app.tests.pydantic.fixtures import get_test_vanna_config, get_test_db_config, get_test_products
 
     PYDANTIC_AVAILABLE = True
-except ImportError:
+except ImportError as e:
+    print(f"Módulos Pydantic não disponíveis: {e}")
     PYDANTIC_AVAILABLE = False
 
 
