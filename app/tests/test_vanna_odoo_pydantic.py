@@ -67,6 +67,12 @@ class TestVannaOdooPydantic(unittest.TestCase):
 
     def test_initialization_with_pydantic_config(self):
         """Testar inicialização com configuração Pydantic."""
+        # Imprimir informações de diagnóstico
+        print(f"Configuração original: {self.vanna_config.chroma_persist_directory}")
+        print(f"Configuração na instância: {self.vanna.vanna_config.chroma_persist_directory}")
+        print(f"Configuração no dicionário: {self.vanna.config.get('chroma_persist_directory', 'Não definido')}")
+        print(f"Atributo da instância: {self.vanna.chroma_persist_directory}")
+
         # Verificar se a configuração foi aplicada corretamente
         self.assertEqual(self.vanna.vanna_config.model, "gpt-4.1-nano")
         self.assertEqual(self.vanna.vanna_config.chroma_persist_directory, "/tmp/test_chromadb")
