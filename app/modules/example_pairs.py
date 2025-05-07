@@ -1,6 +1,58 @@
 """
 Module containing example question-SQL pairs for training.
 """
+import re
+from difflib import SequenceMatcher
+
+
+def get_similar_question_sql(question, example_pairs):
+    """
+    Find the most similar question in the example pairs and return the question-SQL pair.
+
+    Args:
+        question (str): The question to find a similar question for
+        example_pairs (list): A list of question-SQL pairs
+
+    Returns:
+        dict: The most similar question-SQL pair, or None if no similar question is found
+    """
+    if not question or not example_pairs:
+        return None
+
+    # Normalize the question (lowercase, remove punctuation)
+    normalized_question = question.lower()
+    normalized_question = re.sub(r'[^\w\s]', '', normalized_question)
+
+    best_match = None
+    best_score = 0.0
+
+    for pair in example_pairs:
+        if "question" not in pair or "sql" not in pair:
+            continue
+
+        # Normalize the example question
+        example_question = pair["question"].lower()
+        example_question = re.sub(r'[^\w\s]', '', example_question)
+
+        # Calculate similarity score
+        score = SequenceMatcher(None, normalized_question, example_question).ratio()
+
+        # Check for keyword matches to boost score
+        keywords = normalized_question.split()
+        for keyword in keywords:
+            if len(keyword) > 3 and keyword in example_question:
+                score += 0.1
+
+        # If this is the best match so far, save it
+        if score > best_score:
+            best_score = score
+            best_match = pair
+
+    # Only return matches with a score above a threshold
+    if best_score > 0.5:
+        return best_match
+
+    return None
 
 
 def get_example_pairs():
@@ -493,7 +545,7 @@ ORDER BY
             "sql": """
 -- Consulta SQL revisada para eliminar problemas sintáticos
 -- Abordagem mais simples para recomendação de compras baseada em histórico de 12 meses
-SELECT 
+SELECT
     p.id AS product_id,
     p.default_code AS product_code,
     p.name AS product_name,
@@ -505,10 +557,10 @@ SELECT
     -- Estoque atual
     COALESCE(estoque.quantidade_disponivel, 0) AS estoque_atual,
     -- Dias de cobertura atual
-    CASE 
-        WHEN vendas.quantidade_total > 0 
+    CASE
+        WHEN vendas.quantidade_total > 0
         THEN ROUND(COALESCE(estoque.quantidade_disponivel, 0) / (vendas.quantidade_total / 365))
-        ELSE 999 
+        ELSE 999
     END AS dias_cobertura_atual,
     -- Consumo projetado (30 dias)
     ROUND((vendas.quantidade_total / 365) * 30, 0) AS consumo_projetado_30dias,
@@ -519,39 +571,39 @@ SELECT
     -- Último preço de compra
     COALESCE(ultimo_compra.preco_compra, 0) AS ultimo_preco_compra,
     -- Valor estimado
-    GREATEST(0, ROUND((vendas.quantidade_total / 365) * 30, 0) - COALESCE(estoque.quantidade_disponivel, 0)) * 
+    GREATEST(0, ROUND((vendas.quantidade_total / 365) * 30, 0) - COALESCE(estoque.quantidade_disponivel, 0)) *
     COALESCE(ultimo_compra.preco_compra, 0) AS valor_estimado_compra
-FROM 
+FROM
     product_product pp
     JOIN product_template p ON pp.product_tmpl_id = p.id
     JOIN product_category c ON p.categ_id = c.id
     -- Vendas dos últimos 12 meses
     JOIN (
-        SELECT 
+        SELECT
             l.product_id,
             SUM(l.product_uom_qty) AS quantidade_total,
             SUM(l.price_total) AS valor_total
-        FROM 
+        FROM
             sale_order_line l
             JOIN sale_order so ON l.order_id = so.id
-        WHERE 
+        WHERE
             so.state IN ('sale', 'done')
             AND so.date_order >= (CURRENT_DATE - INTERVAL '365 days')
             AND so.date_order < CURRENT_DATE
-        GROUP BY 
+        GROUP BY
             l.product_id
     ) vendas ON pp.id = vendas.product_id
     -- Estoque atual
     LEFT JOIN (
-        SELECT 
+        SELECT
             sq.product_id,
             SUM(sq.quantity) AS quantidade_disponivel
-        FROM 
+        FROM
             stock_quant sq
             JOIN stock_location sl ON sq.location_id = sl.id
-        WHERE 
+        WHERE
             sl.usage = 'internal'
-        GROUP BY 
+        GROUP BY
             sq.product_id
     ) estoque ON pp.id = estoque.product_id
     -- Última compra (fornecedor e preço)
@@ -560,18 +612,18 @@ FROM
             pol.product_id,
             rp.name AS fornecedor,
             pol.price_unit AS preco_compra
-        FROM 
+        FROM
             purchase_order_line pol
             JOIN purchase_order po ON pol.order_id = po.id
             JOIN res_partner rp ON po.partner_id = rp.id
-        WHERE 
+        WHERE
             po.state IN ('purchase', 'done')
-        ORDER BY 
+        ORDER BY
             pol.product_id, po.date_order DESC
     ) ultimo_compra ON pp.id = ultimo_compra.product_id
-WHERE 
+WHERE
     vendas.quantidade_total > 0
-ORDER BY 
+ORDER BY
     vendas.valor_total DESC
 LIMIT 50;
 """,
