@@ -15,7 +15,7 @@ from modules.vanna_odoo_db import VannaOdooDB
 class VannaOdooSQL(VannaOdooDB):
     """
     Classe que implementa as funcionalidades relacionadas à geração e processamento de SQL.
-    
+
     Esta classe herda de VannaOdooDB e adiciona métodos para geração de consultas SQL
     a partir de perguntas em linguagem natural, extração de SQL de respostas do LLM,
     e adaptação de consultas SQL.
@@ -24,7 +24,7 @@ class VannaOdooSQL(VannaOdooDB):
     def __init__(self, config=None):
         """
         Inicializa a classe VannaOdooSQL com configuração.
-        
+
         Args:
             config: Pode ser um objeto VannaConfig ou um dicionário de configuração
         """
@@ -177,10 +177,10 @@ class VannaOdooSQL(VannaOdooDB):
     def extract_sql_from_markdown(self, response):
         """
         Extract SQL from markdown code block
-        
+
         Args:
             response (str): The LLM response
-            
+
         Returns:
             str: The extracted SQL or None if not found
         """
@@ -190,14 +190,14 @@ class VannaOdooSQL(VannaOdooDB):
                 sql_code = sql_parts[1].split("```")[0].strip()
                 return sql_code
         return None
-        
+
     def extract_sql_from_text(self, response):
         """
         Extract SQL from plain text by looking for SQL keywords
-        
+
         Args:
             response (str): The LLM response
-            
+
         Returns:
             str: The extracted SQL or None if not found
         """
@@ -236,17 +236,17 @@ class VannaOdooSQL(VannaOdooDB):
 
             if sql_lines:
                 return "\n".join(sql_lines)
-                
+
         return None
-        
+
     def fix_cte_without_with(self, sql, question):
         """
         Fix Common Table Expression (CTE) that is missing the WITH keyword
-        
+
         Args:
             sql (str): The SQL query to fix
             question (str): The original question
-            
+
         Returns:
             str: The fixed SQL query
         """
@@ -273,15 +273,15 @@ class VannaOdooSQL(VannaOdooDB):
                 except Exception as e:
                     print(f"[DEBUG] Error looking for matching CTE: {e}")
         return sql
-        
+
     def adapt_product_query(self, sql, question):
         """
         Adapt SQL query for products based on the question
-        
+
         Args:
             sql (str): The SQL query to adapt
             question (str): The original question
-            
+
         Returns:
             str: The adapted SQL query
         """
@@ -368,7 +368,7 @@ class VannaOdooSQL(VannaOdooDB):
                 sql = sql.replace(
                     ";", " ORDER BY SUM(sol.product_uom_qty) DESC LIMIT 50;"
                 )
-                
+
         return sql
 
     def extract_sql(self, response, question=None):
@@ -387,24 +387,87 @@ class VannaOdooSQL(VannaOdooDB):
 
         # Try to extract SQL from markdown code block
         sql = self.extract_sql_from_markdown(response)
-        
+
         # If not found in markdown, try to extract from text
         if not sql:
             sql = self.extract_sql_from_text(response)
-            
+
         # If we still couldn't extract SQL, return the whole response
         if not sql:
             return response
 
         # Fix CTE without WITH keyword
         sql = self.fix_cte_without_with(sql, question)
-        
+
         # If we have a SQL query and the original question, adapt the SQL based on the question
         if sql and question:
             # Adapt product query
             sql = self.adapt_product_query(sql, question)
 
         return sql
+
+    def get_similar_questions(self, question, **kwargs):
+        """
+        Get similar questions from the training data
+
+        Args:
+            question (str): The question to find similar questions for
+            **kwargs: Additional arguments
+
+        Returns:
+            list: A list of similar questions and their SQL
+        """
+        try:
+            # Implementação básica que retorna uma lista vazia
+            # Este método será sobrescrito pelas classes filhas
+            return []
+        except Exception as e:
+            print(f"Error getting similar questions: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def get_related_ddl(self, question, **kwargs):
+        """
+        Get DDL statements related to a question
+
+        Args:
+            question (str): The question to find related DDL statements for
+            **kwargs: Additional arguments
+
+        Returns:
+            list: A list of DDL statements
+        """
+        try:
+            # Implementação básica que retorna uma lista vazia
+            # Este método será sobrescrito pelas classes filhas
+            return []
+        except Exception as e:
+            print(f"Error getting related DDL: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def get_related_documentation(self, question, **kwargs):
+        """
+        Get documentation related to a question
+
+        Args:
+            question (str): The question to find related documentation for
+            **kwargs: Additional arguments
+
+        Returns:
+            list: A list of documentation strings
+        """
+        try:
+            # Implementação básica que retorna uma lista vazia
+            # Este método será sobrescrito pelas classes filhas
+            return []
+        except Exception as e:
+            print(f"Error getting related documentation: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
 
     def generate_sql(self, question, allow_llm_to_see_data=False, **kwargs):
         """
