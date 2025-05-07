@@ -190,6 +190,29 @@ class TestVannaOdooPydantic(unittest.TestCase):
         self.assertEqual(sql, "SELECT * FROM product_product LIMIT 10")
         self.assertEqual(question, "Quais são os 10 produtos mais recentes?")
 
+    def test_get_model_info(self):
+        """Testar método get_model_info."""
+        # Verificar se a função get_model_info está disponível
+        self.assertTrue(hasattr(self.vanna, "get_model_info"))
+
+        # Chamar o método get_model_info
+        model_info = self.vanna.get_model_info()
+
+        # Verificar se o resultado é um dicionário
+        self.assertIsInstance(model_info, dict)
+
+        # Verificar se o dicionário contém as chaves esperadas
+        self.assertIn("model", model_info)
+        self.assertIn("allow_llm_to_see_data", model_info)
+        self.assertIn("chroma_persist_directory", model_info)
+        self.assertIn("max_tokens", model_info)
+
+        # Verificar os valores
+        self.assertEqual(model_info["model"], "gpt-4.1-nano")
+        self.assertEqual(model_info["allow_llm_to_see_data"], False)
+        self.assertIsInstance(model_info["chroma_persist_directory"], str)
+        self.assertIsInstance(model_info["max_tokens"], int)
+
 
 if __name__ == "__main__":
     unittest.main()
