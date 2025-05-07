@@ -2680,6 +2680,24 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             error_trace = traceback.format_exc()
             return f"Erro ao verificar tabela product_template: {e}\n\n{error_trace}"
 
+    def estimate_tokens(self, text, model=None):
+        """
+        Estima o número de tokens em um texto para um modelo específico.
+
+        Args:
+            text (str): O texto para estimar os tokens
+            model (str): O modelo para o qual estimar os tokens (default: o modelo configurado)
+
+        Returns:
+            int: Número estimado de tokens
+        """
+        # Usar o modelo configurado se nenhum for especificado
+        if model is None:
+            model = self.model if hasattr(self, "model") else "gpt-4"
+
+        # Usar a função global estimate_tokens
+        return estimate_tokens(text, model)
+
     def get_training_plan(self):
         """
         Generate a training plan for the Odoo database using only priority tables
