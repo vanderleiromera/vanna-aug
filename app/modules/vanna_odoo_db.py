@@ -1,0 +1,337 @@
+"""
+Módulo de funcionalidades de banco de dados do VannaOdoo.
+
+Este módulo contém a classe VannaOdooDB que implementa as funcionalidades
+relacionadas ao banco de dados PostgreSQL do Odoo, como conexão, consultas e
+manipulação de esquemas.
+"""
+
+import os
+import pandas as pd
+import psycopg2
+from sqlalchemy import create_engine, text
+
+from modules.models import DatabaseConfig
+from modules.vanna_odoo_core import VannaOdooCore
+
+
+class VannaOdooDB(VannaOdooCore):
+    """
+    Classe que implementa as funcionalidades relacionadas ao banco de dados PostgreSQL do Odoo.
+    
+    Esta classe herda de VannaOdooCore e adiciona métodos para conexão com o banco de dados,
+    execução de consultas SQL e manipulação de esquemas.
+    """
+
+    def __init__(self, config=None):
+        """
+        Inicializa a classe VannaOdooDB com configuração.
+        
+        Args:
+            config: Pode ser um objeto VannaConfig ou um dicionário de configuração
+        """
+        # Inicializar a classe pai
+        super().__init__(config)
+        
+        # Criar configuração do banco de dados
+        self.db_config = DatabaseConfig(
+            host=os.getenv("ODOO_DB_HOST", ""),
+            port=int(os.getenv("ODOO_DB_PORT", "5432")),
+            database=os.getenv("ODOO_DB_NAME", ""),
+            user=os.getenv("ODOO_DB_USER", ""),
+            password=os.getenv("ODOO_DB_PASSWORD", "")
+        )
+        
+        # Manter compatibilidade com código existente
+        self.db_params = self.db_config.to_dict()
+
+    def connect_to_db(self):
+        """
+        Connect to the Odoo PostgreSQL database using psycopg2
+        """
+        try:
+            conn = psycopg2.connect(**self.db_params)
+            return conn
+        except Exception as e:
+            print(f"Error connecting to database: {e}")
+            return None
+
+    def get_sqlalchemy_engine(self):
+        """
+        Create a SQLAlchemy engine for the Odoo PostgreSQL database
+        """
+        try:
+            # Create SQLAlchemy connection string
+            user = self.db_params["user"]
+            password = self.db_params["password"]
+            host = self.db_params["host"]
+            port = self.db_params["port"]
+            database = self.db_params["database"]
+
+            # Verificar se todos os parâmetros estão presentes
+            if not all([user, password, host, port, database]):
+                print("[DEBUG] Parâmetros de conexão incompletos:")
+                print(f"  - user: {'OK' if user else 'FALTANDO'}")
+                print(f"  - password: {'OK' if password else 'FALTANDO'}")
+                print(f"  - host: {'OK' if host else 'FALTANDO'}")
+                print(f"  - port: {'OK' if port else 'FALTANDO'}")
+                print(f"  - database: {'OK' if database else 'FALTANDO'}")
+                return None
+
+            db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+            print(
+                f"[DEBUG] Criando engine SQLAlchemy com URL: postgresql://{user}:***@{host}:{port}/{database}"
+            )
+
+            # Criar engine com opções para diagnóstico
+            engine = create_engine(db_url, echo=False, future=True)
+
+            # Testar conexão
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute(text("SELECT 1")).fetchone()
+                    if result and result[0] == 1:
+                        print(
+                            "[DEBUG] Conexão com o banco de dados testada com sucesso"
+                        )
+                    else:
+                        print("[DEBUG] Teste de conexão retornou resultado inesperado")
+            except Exception as conn_err:
+                print(f"[DEBUG] Erro ao testar conexão: {conn_err}")
+                import traceback
+
+                traceback.print_exc()
+                return None
+
+            return engine
+        except Exception as e:
+            print(f"Error creating SQLAlchemy engine: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return None
+
+    def get_odoo_tables(self):
+        """
+        Get list of tables from Odoo database
+        """
+        conn = self.connect_to_db()
+        if not conn:
+            return []
+
+        try:
+            cursor = conn.cursor()
+            # Query to get all tables in the database
+            cursor.execute(
+                """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                ORDER BY table_name
+            """
+            )
+            tables = [row[0] for row in cursor.fetchall()]
+            cursor.close()
+            conn.close()
+            return tables
+        except Exception as e:
+            print(f"Error getting tables: {e}")
+            if conn:
+                conn.close()
+            return []
+
+    def get_table_schema(self, table_name):
+        """
+        Get schema information for a specific table
+        """
+        conn = self.connect_to_db()
+        if not conn:
+            return None
+
+        try:
+            cursor = conn.cursor()
+            # Query to get column information for the table
+            cursor.execute(
+                """
+                SELECT column_name, data_type, is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = %s
+                ORDER BY ordinal_position
+            """,
+                (table_name,),
+            )
+
+            columns = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            return pd.DataFrame(
+                columns, columns=["column_name", "data_type", "is_nullable"]
+            )
+        except Exception as e:
+            print(f"Error getting schema for table {table_name}: {e}")
+            if conn:
+                conn.close()
+            return None
+
+    def get_table_ddl(self, table_name):
+        """
+        Generate DDL statement for a table
+        """
+        schema_df = self.get_table_schema(table_name)
+        if schema_df is None or schema_df.empty:
+            return None
+
+        ddl = f"CREATE TABLE {table_name} (\n"
+
+        for _, row in schema_df.iterrows():
+            nullable = "NULL" if row["is_nullable"] == "YES" else "NOT NULL"
+            ddl += f"    {row['column_name']} {row['data_type']} {nullable},\n"
+
+        # Remove the last comma and close the statement
+        ddl = ddl.rstrip(",\n") + "\n);"
+
+        return ddl
+
+    def run_sql_query(self, sql):
+        """
+        Execute SQL query on the Odoo database using SQLAlchemy
+        """
+        # Estimar tokens da consulta SQL
+        model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
+        sql_tokens = self.estimate_tokens(sql, model)
+        print(f"[DEBUG] Executando SQL ({sql_tokens} tokens estimados)")
+
+        # Get SQLAlchemy engine
+        engine = self.get_sqlalchemy_engine()
+        if not engine:
+            print("[DEBUG] Não foi possível criar engine SQLAlchemy")
+            return None
+
+        try:
+            # Execute the query
+            with engine.connect() as conn:
+                # Usar text() para executar SQL literal
+                result = conn.execute(text(sql))
+                
+                # Fetch all results
+                rows = result.fetchall()
+                
+                # Get column names
+                columns = result.keys()
+                
+                # Create DataFrame
+                df = pd.DataFrame(rows, columns=columns)
+                
+                print(f"[DEBUG] Query executada com sucesso: {len(df)} linhas retornadas")
+                return df
+        except Exception as e:
+            print(f"[DEBUG] Erro ao executar SQL: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def get_table_relationships(self, table_name):
+        """
+        Get relationships for a specific table
+        """
+        conn = self.connect_to_db()
+        if not conn:
+            return None
+
+        try:
+            cursor = conn.cursor()
+            # Query to get foreign key relationships
+            cursor.execute(
+                """
+                SELECT
+                    tc.table_schema, 
+                    tc.constraint_name, 
+                    tc.table_name, 
+                    kcu.column_name, 
+                    ccu.table_schema AS foreign_table_schema,
+                    ccu.table_name AS foreign_table_name,
+                    ccu.column_name AS foreign_column_name 
+                FROM 
+                    information_schema.table_constraints AS tc 
+                    JOIN information_schema.key_column_usage AS kcu
+                      ON tc.constraint_name = kcu.constraint_name
+                      AND tc.table_schema = kcu.table_schema
+                    JOIN information_schema.constraint_column_usage AS ccu
+                      ON ccu.constraint_name = tc.constraint_name
+                      AND ccu.table_schema = tc.table_schema
+                WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name=%s
+            """,
+                (table_name,),
+            )
+
+            relationships = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            return pd.DataFrame(
+                relationships,
+                columns=[
+                    "table_schema",
+                    "constraint_name",
+                    "table_name",
+                    "column_name",
+                    "foreign_table_schema",
+                    "foreign_table_name",
+                    "foreign_column_name",
+                ],
+            )
+        except Exception as e:
+            print(f"Error getting relationships for table {table_name}: {e}")
+            if conn:
+                conn.close()
+            return None
+
+    def get_table_indexes(self, table_name):
+        """
+        Get indexes for a specific table
+        """
+        conn = self.connect_to_db()
+        if not conn:
+            return None
+
+        try:
+            cursor = conn.cursor()
+            # Query to get indexes
+            cursor.execute(
+                """
+                SELECT
+                    i.relname as index_name,
+                    a.attname as column_name,
+                    ix.indisunique as is_unique
+                FROM
+                    pg_class t,
+                    pg_class i,
+                    pg_index ix,
+                    pg_attribute a
+                WHERE
+                    t.oid = ix.indrelid
+                    and i.oid = ix.indexrelid
+                    and a.attrelid = t.oid
+                    and a.attnum = ANY(ix.indkey)
+                    and t.relkind = 'r'
+                    and t.relname = %s
+                ORDER BY
+                    t.relname,
+                    i.relname
+            """,
+                (table_name,),
+            )
+
+            indexes = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            return pd.DataFrame(
+                indexes, columns=["index_name", "column_name", "is_unique"]
+            )
+        except Exception as e:
+            print(f"Error getting indexes for table {table_name}: {e}")
+            if conn:
+                conn.close()
+            return None
