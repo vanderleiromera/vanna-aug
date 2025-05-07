@@ -206,7 +206,7 @@ class VannaOdooNumeric(VannaOdoo):
 
         return normalized_question, values
 
-    def get_similar_question_sql(self, question: str) -> list:
+    def get_similar_questions(self, question: str) -> list:
         """
         Get similar questions and their SQL from the training data
 
