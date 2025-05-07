@@ -627,6 +627,117 @@ if user_question:
 
                             st.code(traceback.format_exc())
 
+            # Adicionar botão para diagnóstico do ChromaDB
+            col3, col4 = st.columns(2)
+            with col3:
+                if st.button("Verificar ChromaDB"):
+                    with st.spinner("Verificando ChromaDB..."):
+                        try:
+                            # Verificar se o ChromaDB está funcionando corretamente
+                            if hasattr(vn, "collection") and vn.collection:
+                                try:
+                                    # Verificar se a coleção tem documentos
+                                    count = vn.collection.count()
+                                    st.success(f"✅ ChromaDB está funcionando! Coleção tem {count} documentos.")
+
+                                    # Mostrar alguns documentos da coleção
+                                    if count > 0:
+                                        try:
+                                            # Obter alguns documentos da coleção
+                                            docs = vn.collection.get(limit=5)
+                                            st.info("Exemplos de documentos na coleção:")
+                                            for i, doc in enumerate(docs["documents"][:5]):
+                                                st.code(f"Documento {i+1}:\n{doc[:200]}...")
+                                        except Exception as e:
+                                            st.warning(f"Não foi possível obter documentos: {e}")
+                                    else:
+                                        st.warning("⚠️ A coleção está vazia. Treine o modelo primeiro.")
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao verificar coleção: {e}")
+                            else:
+                                st.error("❌ ChromaDB não está disponível. A coleção não foi inicializada.")
+
+                            # Verificar o diretório de persistência
+                            persist_dir = vn.chroma_persist_directory if hasattr(vn, "chroma_persist_directory") else "/app/data/chromadb"
+                            st.info(f"Diretório de persistência: {persist_dir}")
+
+                            # Verificar se o diretório existe
+                            import os
+                            if os.path.exists(persist_dir):
+                                st.success(f"✅ Diretório de persistência existe!")
+
+                                # Listar arquivos no diretório
+                                files = os.listdir(persist_dir)
+                                st.info(f"Arquivos no diretório ({len(files)}):")
+                                for file in files:
+                                    st.code(file)
+                            else:
+                                st.error(f"❌ Diretório de persistência não existe!")
+                        except Exception as e:
+                            st.error(f"❌ Erro ao verificar ChromaDB: {e}")
+                            import traceback
+                            st.code(traceback.format_exc())
+
+            with col4:
+                if st.button("🔄 Recarregar ChromaDB"):
+                    with st.spinner("Recarregando ChromaDB..."):
+                        try:
+                            # Verificar se o método check_chromadb existe
+                            if hasattr(vn, "check_chromadb"):
+                                # Chamar o método check_chromadb
+                                result = vn.check_chromadb()
+
+                                # Verificar o resultado
+                                if result["status"] == "success":
+                                    st.success(f"✅ {result['message']}")
+
+                                    # Mostrar informações adicionais
+                                    st.info(f"Documentos encontrados: {result['count']}")
+
+                                    # Sugerir próximos passos
+                                    st.info("Agora você pode fazer perguntas usando os dados treinados.")
+                                elif result["status"] == "warning":
+                                    st.warning(f"⚠️ {result['message']}")
+
+                                    # Sugerir próximos passos
+                                    st.info("Treine o modelo primeiro usando os botões de treinamento acima.")
+                                else:
+                                    st.error(f"❌ {result['message']}")
+
+                                    # Sugerir próximos passos
+                                    st.info("Verifique os logs para mais informações.")
+                            else:
+                                st.error("❌ Método check_chromadb não encontrado.")
+
+                                # Tentar uma abordagem alternativa
+                                st.info("Tentando abordagem alternativa...")
+
+                                # Reinicializar o ChromaDB
+                                try:
+                                    # Verificar se o método _init_chromadb existe
+                                    if hasattr(vn, "_init_chromadb"):
+                                        # Chamar o método _init_chromadb
+                                        vn._init_chromadb()
+
+                                        # Verificar se a coleção foi inicializada
+                                        if hasattr(vn, "collection") and vn.collection:
+                                            try:
+                                                # Verificar se a coleção tem documentos
+                                                count = vn.collection.count()
+                                                st.success(f"✅ ChromaDB reinicializado! Coleção tem {count} documentos.")
+                                            except Exception as e:
+                                                st.error(f"❌ Erro ao verificar coleção: {e}")
+                                        else:
+                                            st.error("❌ ChromaDB não foi inicializado corretamente.")
+                                    else:
+                                        st.error("❌ Método _init_chromadb não encontrado.")
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao reinicializar ChromaDB: {e}")
+                        except Exception as e:
+                            st.error(f"❌ Erro ao recarregar ChromaDB: {e}")
+                            import traceback
+                            st.code(traceback.format_exc())
+
             # Mostrar avisos
             if evaluation["warnings"]:
                 st.warning("Avisos:")

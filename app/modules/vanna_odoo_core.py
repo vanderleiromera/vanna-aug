@@ -172,9 +172,15 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
             )
 
             # List directory contents for debugging
-            print(
-                f"Directory contents before initialization: {os.listdir(self.chroma_persist_directory)}"
-            )
+            try:
+                dir_contents = os.listdir(self.chroma_persist_directory)
+                print(f"Directory contents before initialization: {dir_contents}")
+
+                # Check if the directory has any files
+                if len(dir_contents) == 0:
+                    print("WARNING: ChromaDB directory is empty. No data will be loaded.")
+            except Exception as e:
+                print(f"Error listing directory contents: {e}")
 
             # Use persistent client with explicit settings
             settings = Settings(
@@ -182,38 +188,71 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
             )
 
             # Create the client with explicit settings
-            self.chromadb_client = chromadb.PersistentClient(
-                path=self.chroma_persist_directory, settings=settings
-            )
-            print("Successfully initialized ChromaDB persistent client")
+            try:
+                self.chromadb_client = chromadb.PersistentClient(
+                    path=self.chroma_persist_directory, settings=settings
+                )
+                print("Successfully initialized ChromaDB persistent client")
+            except Exception as e:
+                print(f"Error initializing ChromaDB client: {e}")
+                import traceback
+                traceback.print_exc()
+
+                # Try again with default settings
+                try:
+                    print("Trying again with default settings...")
+                    self.chromadb_client = chromadb.PersistentClient(
+                        path=self.chroma_persist_directory
+                    )
+                    print("Successfully initialized ChromaDB persistent client with default settings")
+                except Exception as e2:
+                    print(f"Error initializing ChromaDB client with default settings: {e2}")
+                    traceback.print_exc()
+                    self.chromadb_client = None
+                    self.collection = None
+                    return
 
             # Use default embedding function instead of OpenAI
             embedding_function = DefaultEmbeddingFunction()
             print("Using default embedding function for better text-based search")
 
             # Check if collection exists
+            collection_exists = False
             try:
-                # Try to get the collection first
-                self.collection = self.chromadb_client.get_collection(
-                    name="vanna", embedding_function=embedding_function
-                )
-                print("Found existing collection")
+                # List all collections
+                collections = self.chromadb_client.list_collections()
+                print(f"Found {len(collections)} collections: {[c.name for c in collections]}")
 
-                # Check if collection has documents
-                try:
-                    count = self.collection.count()
-                    print(f"Collection has {count} documents")
-
-                    # If collection is empty, print a warning
-                    if count == 0:
-                        print("WARNING: Collection is empty. No training data found.")
-                except Exception as e:
-                    print(f"Error checking collection count: {e}")
-
+                # Check if 'vanna' collection exists
+                for collection in collections:
+                    if collection.name == "vanna":
+                        collection_exists = True
+                        print("Found 'vanna' collection in list")
+                        break
             except Exception as e:
-                print(f"Collection not found: {e}, creating new one")
+                print(f"Error listing collections: {e}")
 
-                # Create a new collection without trying to delete the old one first
+            # Try to get or create the collection
+            if collection_exists:
+                try:
+                    # Try to get the collection first
+                    self.collection = self.chromadb_client.get_collection(
+                        name="vanna", embedding_function=embedding_function
+                    )
+                    print("Successfully retrieved existing 'vanna' collection")
+                except Exception as e:
+                    print(f"Error getting existing collection: {e}")
+
+                    # Try to get or create the collection
+                    try:
+                        self.collection = self.chromadb_client.get_or_create_collection(
+                            name="vanna", embedding_function=embedding_function
+                        )
+                        print("Successfully retrieved or created 'vanna' collection")
+                    except Exception as e2:
+                        print(f"Error getting or creating collection: {e2}")
+                        self.collection = None
+            else:
                 try:
                     # Create a new collection
                     self.collection = self.chromadb_client.create_collection(
@@ -221,45 +260,57 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                         embedding_function=embedding_function,
                         metadata={"description": "Vanna AI training data"},
                     )
-                    print("Created new collection")
-                except Exception as e2:
-                    print(f"Error creating collection: {e2}")
+                    print("Successfully created new 'vanna' collection")
+                except Exception as e:
+                    print(f"Error creating new collection: {e}")
 
-                    # If we can't create the collection, try to get it again
-                    # This handles the case where the collection exists but there was an error getting it
+                    # Try to get or create the collection
                     try:
-                        self.collection = self.chromadb_client.get_collection(
+                        self.collection = self.chromadb_client.get_or_create_collection(
                             name="vanna", embedding_function=embedding_function
                         )
-                        print("Retrieved existing collection after error")
-                    except Exception as e3:
-                        print(f"Error retrieving collection after error: {e3}")
+                        print("Successfully retrieved or created 'vanna' collection as fallback")
+                    except Exception as e2:
+                        print(f"Error getting or creating collection as fallback: {e2}")
+                        self.collection = None
 
-                        # Last resort: try to get or create the collection
-                        try:
-                            self.collection = self.chromadb_client.get_or_create_collection(
-                                name="vanna",
-                                embedding_function=embedding_function,
-                                metadata={"description": "Vanna AI training data"},
-                            )
-                            print("Retrieved or created collection as last resort")
-                        except Exception as e4:
-                            print(f"Error retrieving or creating collection as last resort: {e4}")
-                            self.collection = None
+            # Check if collection was successfully initialized
+            if self.collection is None:
+                print("ERROR: Failed to initialize ChromaDB collection")
+                return
 
             print(f"Using ChromaDB collection: {self.collection.name}")
 
             # Check if collection has documents
             try:
                 count = self.collection.count()
-                print(f"Collection has {count} documents after initialization")
+                print(f"Collection has {count} documents")
+
+                # If collection is empty, print a warning
+                if count == 0:
+                    print("WARNING: Collection is empty. No training data found.")
+                else:
+                    print(f"SUCCESS: Collection has {count} documents. Training data is available.")
+
+                    # Try to get some documents to verify
+                    try:
+                        docs = self.collection.get(limit=1)
+                        if docs and "documents" in docs and len(docs["documents"]) > 0:
+                            print(f"Sample document: {docs['documents'][0][:100]}...")
+                        else:
+                            print("WARNING: Could not retrieve sample document")
+                    except Exception as e:
+                        print(f"Error retrieving sample document: {e}")
             except Exception as e:
                 print(f"Error checking collection count: {e}")
 
             # List directory contents after initialization
-            print(
-                f"Directory contents after initialization: {os.listdir(self.chroma_persist_directory)}"
-            )
+            try:
+                print(
+                    f"Directory contents after initialization: {os.listdir(self.chroma_persist_directory)}"
+                )
+            except Exception as e:
+                print(f"Error listing directory contents after initialization: {e}")
 
         except Exception as e:
             print(f"Error initializing ChromaDB: {e}")

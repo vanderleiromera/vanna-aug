@@ -298,6 +298,140 @@ class VannaOdooExtended(VannaOdooNumeric):
             traceback.print_exc()
             return False
 
+    def check_chromadb(self):
+        """
+        Verifica o estado do ChromaDB e força a recarga dos dados.
+
+        Returns:
+            dict: Informações sobre o estado do ChromaDB
+        """
+        try:
+            import os
+            import chromadb
+            from chromadb.config import Settings
+            from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
+            # Obter o diretório de persistência
+            persist_dir = self.chroma_persist_directory if hasattr(self, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+
+            # Verificar se o diretório existe
+            if not os.path.exists(persist_dir):
+                os.makedirs(persist_dir, exist_ok=True)
+                print(f"Criado diretório de persistência: {persist_dir}")
+
+            # Listar arquivos no diretório
+            files = os.listdir(persist_dir)
+            print(f"Arquivos no diretório ({len(files)}): {files}")
+
+            # Criar um novo cliente ChromaDB
+            settings = Settings(
+                allow_reset=True, anonymized_telemetry=False, is_persistent=True
+            )
+
+            # Criar o cliente com configurações explícitas
+            try:
+                chroma_client = chromadb.PersistentClient(
+                    path=persist_dir, settings=settings
+                )
+                print("Cliente ChromaDB inicializado com sucesso")
+            except Exception as e:
+                print(f"Erro ao inicializar cliente ChromaDB: {e}")
+                # Tentar novamente com configurações padrão
+                try:
+                    chroma_client = chromadb.PersistentClient(path=persist_dir)
+                    print("Cliente ChromaDB inicializado com configurações padrão")
+                except Exception as e2:
+                    print(f"Erro ao inicializar cliente ChromaDB com configurações padrão: {e2}")
+                    return {"status": "error", "message": f"Erro ao inicializar cliente ChromaDB: {e2}"}
+
+            # Usar função de embedding padrão
+            embedding_function = DefaultEmbeddingFunction()
+
+            # Listar coleções
+            collections = chroma_client.list_collections()
+            print(f"Coleções encontradas ({len(collections)}): {[c.name for c in collections]}")
+
+            # Verificar se a coleção 'vanna' existe
+            vanna_collection = None
+            for collection in collections:
+                if collection.name == "vanna":
+                    print("Coleção 'vanna' encontrada")
+                    try:
+                        # Obter a coleção
+                        vanna_collection = chroma_client.get_collection(
+                            name="vanna", embedding_function=embedding_function
+                        )
+                        print("Coleção 'vanna' obtida com sucesso")
+                    except Exception as e:
+                        print(f"Erro ao obter coleção 'vanna': {e}")
+                    break
+
+            # Se a coleção não existir, criar uma nova
+            if vanna_collection is None:
+                try:
+                    vanna_collection = chroma_client.create_collection(
+                        name="vanna",
+                        embedding_function=embedding_function,
+                        metadata={"description": "Vanna AI training data"}
+                    )
+                    print("Coleção 'vanna' criada com sucesso")
+                except Exception as e:
+                    print(f"Erro ao criar coleção 'vanna': {e}")
+                    return {"status": "error", "message": f"Erro ao criar coleção 'vanna': {e}"}
+
+            # Verificar se a coleção tem documentos
+            try:
+                count = vanna_collection.count()
+                print(f"Coleção 'vanna' tem {count} documentos")
+
+                # Se a coleção tiver documentos, atualizar a coleção da instância
+                if count > 0:
+                    # Atualizar o cliente ChromaDB da instância
+                    if hasattr(self, "_chroma_client"):
+                        self._chroma_client = chroma_client
+                    if hasattr(self, "chroma_client"):
+                        self.chroma_client = chroma_client
+                    if hasattr(self, "chromadb_client"):
+                        self.chromadb_client = chroma_client
+
+                    # Atualizar a coleção da instância
+                    self.collection = vanna_collection
+
+                    print("Cliente ChromaDB e coleção atualizados na instância")
+
+                    # Obter alguns documentos para verificar
+                    try:
+                        docs = vanna_collection.get(limit=3)
+                        if docs and "documents" in docs and len(docs["documents"]) > 0:
+                            print(f"Exemplos de documentos:")
+                            for i, doc in enumerate(docs["documents"]):
+                                print(f"Documento {i+1}: {doc[:100]}...")
+                        else:
+                            print("Não foi possível obter documentos")
+                    except Exception as e:
+                        print(f"Erro ao obter documentos: {e}")
+
+                    return {
+                        "status": "success",
+                        "message": f"ChromaDB verificado com sucesso. Coleção tem {count} documentos.",
+                        "count": count
+                    }
+                else:
+                    return {
+                        "status": "warning",
+                        "message": "Coleção está vazia. Treine o modelo primeiro.",
+                        "count": 0
+                    }
+            except Exception as e:
+                print(f"Erro ao verificar documentos: {e}")
+                return {"status": "error", "message": f"Erro ao verificar documentos: {e}"}
+
+        except Exception as e:
+            print(f"Erro ao verificar ChromaDB: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"status": "error", "message": f"Erro ao verificar ChromaDB: {e}"}
+
     def get_collection(self):
         """
         Retorna a coleção ChromaDB atual. Se a coleção não existir, tenta criá-la.
@@ -329,6 +463,19 @@ class VannaOdooExtended(VannaOdooNumeric):
                     # Tentar obter a coleção sem criar
                     try:
                         return self.chroma_client.get_collection("vanna")
+                    except Exception as e2:
+                        print(f"Erro ao obter coleção existente: {e2}")
+                        pass
+
+            elif hasattr(self, "chromadb_client") and self.chromadb_client is not None:
+                # Tentar obter ou criar a coleção
+                try:
+                    return self.chromadb_client.get_or_create_collection("vanna")
+                except Exception as e1:
+                    print(f"Erro ao usar chromadb_client: {e1}")
+                    # Tentar obter a coleção sem criar
+                    try:
+                        return self.chromadb_client.get_collection("vanna")
                     except Exception as e2:
                         print(f"Erro ao obter coleção existente: {e2}")
                         pass
