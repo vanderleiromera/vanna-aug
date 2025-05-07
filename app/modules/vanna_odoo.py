@@ -159,6 +159,10 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         self.allow_llm_to_see_data = self.vanna_config.allow_llm_to_see_data
         self.model = self.vanna_config.model
 
+        # Atualizar o dicionário de configuração para garantir que os valores do VannaConfig sejam usados
+        if isinstance(config, VannaConfig):
+            self.config["chroma_persist_directory"] = config.chroma_persist_directory
+
         # Logs para depuração
         print(f"LLM allowed to see data: {self.allow_llm_to_see_data}")
         print(f"Using OpenAI model: {self.model}")
