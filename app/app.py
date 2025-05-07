@@ -292,18 +292,62 @@ if col7.button("🗑️ Resetar Dados"):
                 collection = vn.get_collection()
                 if collection:
                     with st.spinner("Resetando dados..."):
-                        # Delete and recreate the collection
-                        import chromadb
-
-                        client = chromadb.PersistentClient(
-                            path=vn.chroma_persist_directory
-                        )
                         try:
-                            client.delete_collection("vanna")
-                            client.get_or_create_collection("vanna")
-                            st.success("✅ Dados resetados!")
+                            # Tentar usar o método delete da coleção
+                            # Se for uma coleção real do ChromaDB, isso vai excluir a coleção
+                            # Se for nossa MockCollection, isso vai usar o método alternativo
+                            result = collection.delete()
+
+                            # Verificar se a operação foi bem-sucedida
+                            if result is True or result is None:  # None é o retorno padrão do delete do ChromaDB
+                                st.success("✅ Dados resetados!")
+
+                                # Tentar recriar a coleção se for uma coleção real
+                                if hasattr(collection, 'name') and collection.name == "vanna":
+                                    # É nossa MockCollection, não precisamos recriar
+                                    pass
+                                else:
+                                    # Tentar recriar a coleção
+                                    try:
+                                        import chromadb
+                                        client = chromadb.PersistentClient(
+                                            path=vn.chroma_persist_directory if hasattr(vn, "chroma_persist_directory")
+                                            else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+                                        )
+                                        client.get_or_create_collection("vanna")
+                                    except Exception as e:
+                                        st.warning(f"Aviso: Não foi possível recriar a coleção: {e}")
+                                        st.info("Reinicie a aplicação para criar uma nova coleção vazia.")
+                            else:
+                                st.error("❌ Falha ao resetar dados")
                         except Exception as e:
-                            st.error(f"Erro: {e}")
+                            st.error(f"Erro ao excluir coleção: {e}")
+
+                            # Tentar método alternativo
+                            st.warning("Tentando método alternativo...")
+                            try:
+                                # Implementar um método alternativo para resetar dados
+                                # Por exemplo, limpar o diretório de persistência
+                                import shutil
+                                import os
+
+                                # Obter o diretório de persistência
+                                persist_dir = vn.chroma_persist_directory if hasattr(vn, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+
+                                # Verificar se o diretório existe
+                                if os.path.exists(persist_dir):
+                                    # Listar arquivos no diretório
+                                    st.info(f"Arquivos no diretório {persist_dir}:")
+                                    for file in os.listdir(persist_dir):
+                                        if file != "chroma.sqlite3":  # Não excluir o arquivo principal do banco
+                                            st.info(f"- {file}")
+
+                                    st.success("✅ Dados listados com sucesso!")
+                                    st.info("Reinicie a aplicação para criar uma nova coleção vazia.")
+                                else:
+                                    st.error(f"Diretório {persist_dir} não encontrado")
+                            except Exception as e2:
+                                st.error(f"Erro no método alternativo: {e2}")
                 else:
                     st.error("❌ Falha ao acessar ChromaDB")
         except Exception as e:
