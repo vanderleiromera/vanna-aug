@@ -30,6 +30,7 @@ scipy = "^1.15.2"
 pyod = "^2.0.5"
 kaleido = "0.2.1"
 protobuf = "3.20.3"
+tiktoken = "^0.9.0"
 
 [tool.poetry.group.dev.dependencies]
 ipython = "^8.12.0"
