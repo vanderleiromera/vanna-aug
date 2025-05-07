@@ -58,8 +58,18 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
     def __init__(self, config=None):
         # Converter config para modelo Pydantic ou criar um novo
         if isinstance(config, VannaConfig):
+            # Se já é um objeto VannaConfig, use-o diretamente
             self.vanna_config = config
+            # Criar um dicionário de configuração para compatibilidade com as classes pai
+            self.config = {
+                "model": config.model,
+                "allow_llm_to_see_data": config.allow_llm_to_see_data,
+                "chroma_persist_directory": config.chroma_persist_directory,
+                "max_tokens": config.max_tokens,
+                "api_key": config.api_key
+            }
         else:
+            # Se não é um objeto VannaConfig, crie um a partir do dicionário
             config_dict = config or {}
             self.vanna_config = VannaConfig(
                 model=config_dict.get("model", os.getenv("OPENAI_MODEL", "gpt-4.1-nano")),
@@ -71,9 +81,8 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 max_tokens=config_dict.get("max_tokens", 14000),
                 api_key=config_dict.get("api_key", os.getenv("OPENAI_API_KEY"))
             )
-
-        # Manter compatibilidade com a API existente
-        self.config = config or {}
+            # Manter o dicionário original para compatibilidade
+            self.config = config or {}
 
         # Criar configuração do banco de dados
         self.db_config = DatabaseConfig(
