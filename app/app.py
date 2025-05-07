@@ -316,127 +316,42 @@ col7, col8 = st.sidebar.columns(2)
 if col7.button("🗑️ Resetar Dados"):
     with st.sidebar:
         try:
-            # Check if the reset_training method exists
-            if hasattr(vn, "reset_training"):
+            # Verificar se o método reset_chromadb existe
+            if hasattr(vn, "reset_chromadb"):
+                with st.spinner("Resetando dados do ChromaDB..."):
+                    # Chamar o método reset_chromadb
+                    result = vn.reset_chromadb()
+
+                    # Verificar o resultado
+                    if result["status"] == "success":
+                        st.success(f"✅ {result['message']}")
+                        st.info("Agora você pode treinar o modelo novamente.")
+                    else:
+                        st.error(f"❌ {result['message']}")
+
+                        # Tentar método alternativo
+                        st.warning("Tentando método alternativo...")
+
+                        # Verificar se o método reset_training existe
+                        if hasattr(vn, "reset_training"):
+                            with st.spinner("Resetando dados usando reset_training..."):
+                                vn.reset_training()
+                            st.success("✅ Dados resetados usando método alternativo!")
+                        else:
+                            st.error("❌ Método reset_training não encontrado.")
+                            st.info("Reinicie a aplicação para criar uma nova coleção vazia.")
+            # Verificar se o método reset_training existe
+            elif hasattr(vn, "reset_training"):
                 with st.spinner("Resetando dados..."):
                     vn.reset_training()
                 st.success("✅ Dados resetados!")
             else:
-                # Try to reset by recreating the collection
-                collection = vn.get_collection()
-                if collection:
-                    with st.spinner("Resetando dados..."):
-                        try:
-                            # Verificar se é nossa MockCollection
-                            if hasattr(collection, 'name') and collection.name == "vanna" and hasattr(collection, 'delete'):
-                                # É nossa MockCollection, usar o método alternativo
-                                result = collection.delete()
-                                if result is True:
-                                    st.success("✅ Dados listados com sucesso!")
-                                    st.info("Reinicie a aplicação para criar uma nova coleção vazia.")
-                                else:
-                                    st.error("❌ Falha ao listar dados")
-                            else:
-                                # É uma coleção real do ChromaDB
-                                # Para excluir todos os documentos da coleção, precisamos obter todos os IDs
-                                try:
-                                    # Tentar obter todos os documentos da coleção
-                                    try:
-                                        # Primeiro, verificar se a coleção tem documentos
-                                        count = collection.count()
-                                        st.info(f"A coleção tem {count} documentos.")
-
-                                        if count > 0:
-                                            # Obter todos os documentos da coleção (sem filtro)
-                                            all_docs = collection.get(limit=count)
-
-                                            if all_docs and "ids" in all_docs and len(all_docs["ids"]) > 0:
-                                                all_ids = all_docs["ids"]
-
-                                                # Excluir todos os documentos da coleção
-                                                collection.delete(ids=all_ids)
-                                                st.success(f"✅ {len(all_ids)} documentos excluídos com sucesso!")
-                                            else:
-                                                st.warning("Não foi possível obter os IDs dos documentos.")
-
-                                                # Tentar excluir usando where={} para excluir todos os documentos
-                                                try:
-                                                    st.info("Tentando excluir todos os documentos usando where={}...")
-                                                    collection.delete(where={})
-                                                    st.success("✅ Todos os documentos excluídos com sucesso!")
-                                                except Exception as e:
-                                                    st.error(f"Erro ao excluir usando where={{}}: {e}")
-                                        else:
-                                            st.info("A coleção já está vazia.")
-                                    except Exception as e:
-                                        st.error(f"Erro ao obter documentos: {e}")
-
-                                        # Tentar excluir usando where={} para excluir todos os documentos
-                                        try:
-                                            st.info("Tentando excluir todos os documentos usando where={}...")
-                                            collection.delete(where={})
-                                            st.success("✅ Todos os documentos excluídos com sucesso!")
-                                        except Exception as e2:
-                                            st.error(f"Erro ao excluir usando where={{}}: {e2}")
-
-                                    # Não precisamos recriar a coleção, pois apenas excluímos os documentos
-                                except Exception as e:
-                                    st.error(f"Erro ao excluir documentos: {e}")
-
-                                    # Tentar método alternativo usando o cliente ChromaDB
-                                    st.warning("Tentando método alternativo...")
-                                    try:
-                                        # Obter o cliente ChromaDB
-                                        import chromadb
-
-                                        # Obter o diretório de persistência
-                                        persist_dir = vn.chroma_persist_directory if hasattr(vn, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
-
-                                        # Criar um novo cliente
-                                        client = chromadb.PersistentClient(path=persist_dir)
-
-                                        # Excluir a coleção
-                                        client.delete_collection("vanna")
-
-                                        # Recriar a coleção
-                                        client.get_or_create_collection("vanna")
-
-                                        st.success("✅ Coleção recriada com sucesso!")
-                                    except Exception as e2:
-                                        st.error(f"Erro ao recriar coleção: {e2}")
-                                        st.info("Reinicie a aplicação para criar uma nova coleção vazia.")
-                        except Exception as e:
-                            st.error(f"Erro ao excluir coleção: {e}")
-
-                            # Tentar método alternativo
-                            st.warning("Tentando método alternativo...")
-                            try:
-                                # Implementar um método alternativo para resetar dados
-                                # Por exemplo, limpar o diretório de persistência
-                                import shutil
-                                import os
-
-                                # Obter o diretório de persistência
-                                persist_dir = vn.chroma_persist_directory if hasattr(vn, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
-
-                                # Verificar se o diretório existe
-                                if os.path.exists(persist_dir):
-                                    # Listar arquivos no diretório
-                                    st.info(f"Arquivos no diretório {persist_dir}:")
-                                    for file in os.listdir(persist_dir):
-                                        if file != "chroma.sqlite3":  # Não excluir o arquivo principal do banco
-                                            st.info(f"- {file}")
-
-                                    st.success("✅ Dados listados com sucesso!")
-                                    st.info("Reinicie a aplicação para criar uma nova coleção vazia.")
-                                else:
-                                    st.error(f"Diretório {persist_dir} não encontrado")
-                            except Exception as e2:
-                                st.error(f"Erro no método alternativo: {e2}")
-                else:
-                    st.error("❌ Falha ao acessar ChromaDB")
+                st.error("❌ Métodos de reset não encontrados.")
+                st.info("Reinicie a aplicação para criar uma nova coleção vazia.")
         except Exception as e:
-            st.error(f"❌ Erro: {e}")
+            st.error(f"❌ Erro ao resetar dados: {e}")
+            import traceback
+            st.code(traceback.format_exc())
 
 # Botão para gerenciar dados de treinamento
 if col8.button("📋 Gerenciar"):

@@ -298,6 +298,107 @@ class VannaOdooExtended(VannaOdooNumeric):
             traceback.print_exc()
             return False
 
+    def reset_chromadb(self):
+        """
+        Reseta o ChromaDB excluindo todos os documentos da coleção.
+
+        Returns:
+            dict: Informações sobre o resultado da operação
+        """
+        try:
+            import os
+            import chromadb
+            from chromadb.config import Settings
+            from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
+            # Obter o diretório de persistência
+            persist_dir = self.chroma_persist_directory if hasattr(self, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+
+            # Verificar se o diretório existe
+            if not os.path.exists(persist_dir):
+                os.makedirs(persist_dir, exist_ok=True)
+                print(f"Criado diretório de persistência: {persist_dir}")
+
+            # Criar um novo cliente ChromaDB
+            settings = Settings(
+                allow_reset=True, anonymized_telemetry=False, is_persistent=True
+            )
+
+            # Criar o cliente com configurações explícitas
+            try:
+                chroma_client = chromadb.PersistentClient(
+                    path=persist_dir, settings=settings
+                )
+                print("Cliente ChromaDB inicializado com sucesso")
+            except Exception as e:
+                print(f"Erro ao inicializar cliente ChromaDB: {e}")
+                # Tentar novamente com configurações padrão
+                try:
+                    chroma_client = chromadb.PersistentClient(path=persist_dir)
+                    print("Cliente ChromaDB inicializado com configurações padrão")
+                except Exception as e2:
+                    print(f"Erro ao inicializar cliente ChromaDB com configurações padrão: {e2}")
+                    return {"status": "error", "message": f"Erro ao inicializar cliente ChromaDB: {e2}"}
+
+            # Listar coleções
+            collections = chroma_client.list_collections()
+            print(f"Coleções encontradas ({len(collections)}): {[c.name for c in collections]}")
+
+            # Verificar se a coleção 'vanna' existe
+            vanna_collection_exists = False
+            for collection in collections:
+                if collection.name == "vanna":
+                    vanna_collection_exists = True
+                    print("Coleção 'vanna' encontrada")
+                    break
+
+            if vanna_collection_exists:
+                # Excluir a coleção
+                try:
+                    chroma_client.delete_collection("vanna")
+                    print("Coleção 'vanna' excluída com sucesso")
+                except Exception as e:
+                    print(f"Erro ao excluir coleção 'vanna': {e}")
+                    return {"status": "error", "message": f"Erro ao excluir coleção: {e}"}
+
+            # Criar uma nova coleção
+            try:
+                embedding_function = DefaultEmbeddingFunction()
+                vanna_collection = chroma_client.create_collection(
+                    name="vanna",
+                    embedding_function=embedding_function,
+                    metadata={"description": "Vanna AI training data"}
+                )
+                print("Coleção 'vanna' criada com sucesso")
+            except Exception as e:
+                print(f"Erro ao criar coleção 'vanna': {e}")
+                return {"status": "error", "message": f"Erro ao criar coleção: {e}"}
+
+            # Atualizar o cliente ChromaDB da instância
+            if hasattr(self, "_chroma_client"):
+                self._chroma_client = chroma_client
+            if hasattr(self, "chroma_client"):
+                self.chroma_client = chroma_client
+            if hasattr(self, "chromadb_client"):
+                self.chromadb_client = chroma_client
+
+            # Atualizar a coleção da instância
+            self.collection = vanna_collection
+
+            print("Cliente ChromaDB e coleção atualizados na instância")
+
+            return {
+                "status": "success",
+                "message": "ChromaDB resetado com sucesso. Coleção recriada.",
+                "count": 0
+            }
+
+        except Exception as e:
+            print(f"Erro ao resetar ChromaDB: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"status": "error", "message": f"Erro ao resetar ChromaDB: {e}"}
+
     def check_chromadb(self):
         """
         Verifica o estado do ChromaDB e força a recarga dos dados.
