@@ -56,6 +56,19 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
     """
 
     def __init__(self, config=None):
+        """
+        Inicializa a classe VannaOdoo com configuração.
+
+        Args:
+            config: Pode ser um objeto VannaConfig ou um dicionário de configuração
+        """
+        # Definir valores padrão
+        default_model = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
+        default_allow_llm_to_see_data = False
+        default_chroma_persist_directory = os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+        default_max_tokens = 14000
+        default_api_key = os.getenv("OPENAI_API_KEY")
+
         # Verificar se config é um objeto VannaConfig
         if isinstance(config, VannaConfig):
             # Se já é um objeto VannaConfig, use-o diretamente
@@ -69,16 +82,35 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 "max_tokens": config.max_tokens,
                 "api_key": config.api_key
             }
-        else:
-            # Se não é um objeto VannaConfig, crie um a partir do dicionário
-            config_dict = config or {}
+        elif isinstance(config, dict):
+            # Se é um dicionário, extrair valores com segurança
+            config_dict = config
 
-            # Obter valores do dicionário ou usar valores padrão
-            model = config_dict.get("model") if config_dict.get("model") else os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
-            allow_llm_to_see_data = config_dict.get("allow_llm_to_see_data", False)
-            chroma_persist_directory = config_dict.get("chroma_persist_directory") if config_dict.get("chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
-            max_tokens = config_dict.get("max_tokens", 14000)
-            api_key = config_dict.get("api_key") if config_dict.get("api_key") else os.getenv("OPENAI_API_KEY")
+            # Extrair valores do dicionário com segurança
+            if "model" in config_dict and config_dict["model"]:
+                model = config_dict["model"]
+            else:
+                model = default_model
+
+            if "allow_llm_to_see_data" in config_dict:
+                allow_llm_to_see_data = config_dict["allow_llm_to_see_data"]
+            else:
+                allow_llm_to_see_data = default_allow_llm_to_see_data
+
+            if "chroma_persist_directory" in config_dict and config_dict["chroma_persist_directory"]:
+                chroma_persist_directory = config_dict["chroma_persist_directory"]
+            else:
+                chroma_persist_directory = default_chroma_persist_directory
+
+            if "max_tokens" in config_dict:
+                max_tokens = config_dict["max_tokens"]
+            else:
+                max_tokens = default_max_tokens
+
+            if "api_key" in config_dict and config_dict["api_key"]:
+                api_key = config_dict["api_key"]
+            else:
+                api_key = default_api_key
 
             # Criar o objeto VannaConfig com os valores obtidos
             self.vanna_config = VannaConfig(
@@ -90,7 +122,19 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
             )
 
             # Manter o dicionário original para compatibilidade
-            self.config = config or {}
+            self.config = config
+        else:
+            # Se não é nem VannaConfig nem dicionário, usar valores padrão
+            self.vanna_config = VannaConfig(
+                model=default_model,
+                allow_llm_to_see_data=default_allow_llm_to_see_data,
+                chroma_persist_directory=default_chroma_persist_directory,
+                max_tokens=default_max_tokens,
+                api_key=default_api_key
+            )
+
+            # Criar um dicionário vazio para compatibilidade
+            self.config = {}
 
         # Criar configuração do banco de dados
         self.db_config = DatabaseConfig(
@@ -105,10 +149,10 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         self.db_params = self.db_config.to_dict()
 
         # Initialize ChromaDB vector store
-        ChromaDB_VectorStore.__init__(self, config=config)
+        ChromaDB_VectorStore.__init__(self, config=self.config)
 
         # Initialize OpenAI chat
-        OpenAI_Chat.__init__(self, config=config)
+        OpenAI_Chat.__init__(self, config=self.config)
 
         # Atribuir propriedades do modelo para compatibilidade
         self.chroma_persist_directory = self.vanna_config.chroma_persist_directory
