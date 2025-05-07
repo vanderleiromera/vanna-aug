@@ -19,7 +19,7 @@ from modules.vanna_odoo_training import VannaOdooTraining
 class VannaOdoo(VannaOdooTraining):
     """
     Classe principal do Vanna AI para banco de dados PostgreSQL do Odoo.
-    
+
     Esta classe integra todas as funcionalidades do sistema VannaOdoo,
     incluindo conexão com banco de dados, geração de SQL, e treinamento do modelo.
     """
@@ -27,7 +27,7 @@ class VannaOdoo(VannaOdooTraining):
     def __init__(self, config=None):
         """
         Inicializa a classe VannaOdoo com configuração.
-        
+
         Args:
             config: Pode ser um objeto VannaConfig ou um dicionário de configuração
         """
@@ -42,7 +42,7 @@ class VannaOdoo(VannaOdooTraining):
         if question:
             # Store the original SQL for comparison
             original_sql = sql
-            
+
             # Check if this is a query about products without stock
             if ("produto" in sql.lower() or "product" in sql.lower()) and (
                 "estoque" in sql.lower() or "stock" in sql.lower()
@@ -134,7 +134,7 @@ class VannaOdoo(VannaOdooTraining):
         try:
             # Obter a consulta SQL da pergunta similar
             sql = similar_question["sql"]
-            
+
             # Verificar se a consulta contém parâmetros que podem ser adaptados
             if "INTERVAL '30 days'" in sql:
                 # Extrair o número de dias da pergunta atual
@@ -144,7 +144,7 @@ class VannaOdoo(VannaOdooTraining):
                     # Substituir o número de dias na consulta
                     sql = sql.replace("INTERVAL '30 days'", f"INTERVAL '{days} days'")
                     print(f"[DEBUG] Adaptando consulta para usar {days} dias")
-            
+
             return sql
         except Exception as e:
             print(f"[DEBUG] Erro ao adaptar SQL: {e}")
@@ -205,36 +205,68 @@ class VannaOdoo(VannaOdooTraining):
         Get similar questions from the training data
         """
         try:
+            # Verificar se o ChromaDB está funcionando corretamente
+            chromadb_working = False
+            if hasattr(self, "collection") and self.collection:
+                try:
+                    # Verificar se a coleção tem documentos
+                    count = self.collection.count()
+                    print(f"[DEBUG] ChromaDB collection has {count} documents")
+
+                    # Se a coleção tem documentos, consideramos que o ChromaDB está funcionando
+                    if count > 0:
+                        chromadb_working = True
+                    else:
+                        print("[DEBUG] ChromaDB collection is empty. Using fallback.")
+                except Exception as e:
+                    print(f"[DEBUG] Error checking ChromaDB collection: {e}")
+            else:
+                print("[DEBUG] ChromaDB collection not available. Using fallback.")
+
             # Use the parent method to get similar questions
-            similar_questions = super().get_similar_questions(question, **kwargs)
-            
+            similar_questions = []
+            if chromadb_working:
+                try:
+                    similar_questions = super().get_similar_questions(question, **kwargs)
+                    print(f"[DEBUG] Found {len(similar_questions)} similar questions in ChromaDB")
+                except Exception as e:
+                    print(f"[DEBUG] Error getting similar questions from ChromaDB: {e}")
+
             # If we have similar questions, return them
             if similar_questions:
+                print("[DEBUG] Using similar questions from ChromaDB")
                 return similar_questions
-                
+
             # If we don't have similar questions, try to get them from example_pairs
+            print("[DEBUG] No similar questions found in ChromaDB. Using fallback to example_pairs.")
             try:
                 from modules.example_pairs import get_example_pairs, get_similar_question_sql
-                
+
                 # Get example pairs
                 example_pairs = get_example_pairs()
-                
+                print(f"[DEBUG] Found {len(example_pairs)} example pairs")
+
                 # Get similar question
                 similar_question = get_similar_question_sql(question, example_pairs)
-                
+
                 # If we have a similar question, return it
                 if similar_question:
+                    print(f"[DEBUG] Found similar question in example_pairs: {similar_question['question']}")
                     return [similar_question]
-                    
+                else:
+                    print("[DEBUG] No similar question found in example_pairs")
+
             except Exception as e:
-                print(f"Error getting similar questions from example_pairs: {e}")
-                
+                print(f"[DEBUG] Error getting similar questions from example_pairs: {e}")
+                import traceback
+                traceback.print_exc()
+
             # If we still don't have similar questions, return empty list
+            print("[DEBUG] No similar questions found. Returning empty list.")
             return []
         except Exception as e:
-            print(f"Error getting similar questions: {e}")
+            print(f"[DEBUG] Error in get_similar_questions: {e}")
             import traceback
-
             traceback.print_exc()
             return []
 
@@ -245,36 +277,36 @@ class VannaOdoo(VannaOdooTraining):
         try:
             # Use the parent method to get related DDL statements
             ddl_list = super().get_related_ddl(question, **kwargs)
-            
+
             # If we have DDL statements, return them
             if ddl_list:
                 return ddl_list
-                
+
             # If we don't have DDL statements, try to get them from priority tables
             try:
                 from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
-                
+
                 # Get available tables in the database
                 available_tables = self.get_odoo_tables()
-                
+
                 # Filter priority tables that exist in the database
                 tables_to_check = [
                     table for table in ODOO_PRIORITY_TABLES if table in available_tables
                 ]
-                
+
                 # Get DDL for priority tables
                 ddl_list = []
                 for table in tables_to_check:
                     ddl = self.get_table_ddl(table)
                     if ddl:
                         ddl_list.append(ddl)
-                        
+
                 # Return DDL list
                 return ddl_list
-                    
+
             except Exception as e:
                 print(f"Error getting DDL from priority tables: {e}")
-                
+
             # If we still don't have DDL statements, return empty list
             return []
         except Exception as e:
@@ -291,30 +323,30 @@ class VannaOdoo(VannaOdooTraining):
         try:
             # Use the parent method to get related documentation
             doc_list = super().get_related_documentation(question, **kwargs)
-            
+
             # If we have documentation, return it
             if doc_list:
                 return doc_list
-                
+
             # If we don't have documentation, try to get it from example_pairs
             try:
                 from modules.example_pairs import get_example_pairs
-                
+
                 # Get example pairs
                 example_pairs = get_example_pairs()
-                
+
                 # Create documentation from example pairs
                 doc_list = []
                 for pair in example_pairs:
                     if "documentation" in pair:
                         doc_list.append(pair["documentation"])
-                        
+
                 # Return documentation list
                 return doc_list
-                    
+
             except Exception as e:
                 print(f"Error getting documentation from example_pairs: {e}")
-                
+
             # If we still don't have documentation, return empty list
             return []
         except Exception as e:

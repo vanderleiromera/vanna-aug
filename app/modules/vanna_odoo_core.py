@@ -26,7 +26,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
     """
     Classe base do Vanna AI para banco de dados PostgreSQL do Odoo usando OpenAI e ChromaDB
     com cliente HTTP para melhor compatibilidade com Docker.
-    
+
     Esta classe implementa as funcionalidades principais como inicialização, configuração
     e métodos de utilidade.
     """
@@ -34,7 +34,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
     def __init__(self, config=None):
         """
         Inicializa a classe VannaOdooCore com configuração.
-        
+
         Args:
             config: Pode ser um objeto VannaConfig ou um dicionário de configuração
         """
@@ -44,12 +44,12 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
         default_chroma_persist_directory = os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
         default_max_tokens = 14000
         default_api_key = os.getenv("OPENAI_API_KEY")
-        
+
         # Verificar se config é um objeto VannaConfig
         if isinstance(config, VannaConfig):
             # Se já é um objeto VannaConfig, use-o diretamente
             self.vanna_config = config
-            
+
             # Criar um dicionário de configuração para compatibilidade com as classes pai
             self.config = {
                 "model": config.model,
@@ -61,33 +61,33 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
         elif isinstance(config, dict):
             # Se é um dicionário, extrair valores com segurança
             config_dict = config
-            
+
             # Extrair valores do dicionário com segurança
             if "model" in config_dict and config_dict["model"]:
                 model = config_dict["model"]
             else:
                 model = default_model
-                
+
             if "allow_llm_to_see_data" in config_dict:
                 allow_llm_to_see_data = config_dict["allow_llm_to_see_data"]
             else:
                 allow_llm_to_see_data = default_allow_llm_to_see_data
-                
+
             if "chroma_persist_directory" in config_dict and config_dict["chroma_persist_directory"]:
                 chroma_persist_directory = config_dict["chroma_persist_directory"]
             else:
                 chroma_persist_directory = default_chroma_persist_directory
-                
+
             if "max_tokens" in config_dict:
                 max_tokens = config_dict["max_tokens"]
             else:
                 max_tokens = default_max_tokens
-                
+
             if "api_key" in config_dict and config_dict["api_key"]:
                 api_key = config_dict["api_key"]
             else:
                 api_key = default_api_key
-            
+
             # Criar o objeto VannaConfig com os valores obtidos
             self.vanna_config = VannaConfig(
                 model=model,
@@ -96,7 +96,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 max_tokens=max_tokens,
                 api_key=api_key
             )
-            
+
             # Manter o dicionário original para compatibilidade
             self.config = config
         else:
@@ -108,7 +108,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 max_tokens=default_max_tokens,
                 api_key=default_api_key
             )
-            
+
             # Criar um dicionário vazio para compatibilidade
             self.config = {}
 
@@ -124,12 +124,12 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 max_tokens=config.max_tokens,
                 api_key=config.api_key
             )
-            
+
         # Atribuir propriedades do modelo para compatibilidade
         self.chroma_persist_directory = self.vanna_config.chroma_persist_directory
         self.allow_llm_to_see_data = self.vanna_config.allow_llm_to_see_data
         self.model = self.vanna_config.model
-        
+
         # Logs para depuração
         print(f"LLM allowed to see data: {self.allow_llm_to_see_data}")
         print(f"Using OpenAI model: {self.model}")
@@ -198,23 +198,54 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                     name="vanna", embedding_function=embedding_function
                 )
                 print("Found existing collection")
+
+                # Check if collection has documents
+                try:
+                    count = self.collection.count()
+                    print(f"Collection has {count} documents")
+
+                    # If collection is empty, print a warning
+                    if count == 0:
+                        print("WARNING: Collection is empty. No training data found.")
+                except Exception as e:
+                    print(f"Error checking collection count: {e}")
+
             except Exception as e:
                 print(f"Collection not found: {e}, creating new one")
 
-                # If collection doesn't exist or there's an error, try to delete it first
+                # Create a new collection without trying to delete the old one first
                 try:
-                    self.chromadb_client.delete_collection("vanna")
-                    print("Deleted existing collection")
-                except Exception as e:
-                    print(f"Error deleting collection: {e}")
+                    # Create a new collection
+                    self.collection = self.chromadb_client.create_collection(
+                        name="vanna",
+                        embedding_function=embedding_function,
+                        metadata={"description": "Vanna AI training data"},
+                    )
+                    print("Created new collection")
+                except Exception as e2:
+                    print(f"Error creating collection: {e2}")
 
-                # Create a new collection
-                self.collection = self.chromadb_client.create_collection(
-                    name="vanna",
-                    embedding_function=embedding_function,
-                    metadata={"description": "Vanna AI training data"},
-                )
-                print("Created new collection")
+                    # If we can't create the collection, try to get it again
+                    # This handles the case where the collection exists but there was an error getting it
+                    try:
+                        self.collection = self.chromadb_client.get_collection(
+                            name="vanna", embedding_function=embedding_function
+                        )
+                        print("Retrieved existing collection after error")
+                    except Exception as e3:
+                        print(f"Error retrieving collection after error: {e3}")
+
+                        # Last resort: try to get or create the collection
+                        try:
+                            self.collection = self.chromadb_client.get_or_create_collection(
+                                name="vanna",
+                                embedding_function=embedding_function,
+                                metadata={"description": "Vanna AI training data"},
+                            )
+                            print("Retrieved or created collection as last resort")
+                        except Exception as e4:
+                            print(f"Error retrieving or creating collection as last resort: {e4}")
+                            self.collection = None
 
             print(f"Using ChromaDB collection: {self.collection.name}")
 
@@ -241,18 +272,18 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
     def estimate_tokens(self, text, model=None):
         """
         Estima o número de tokens em um texto para um modelo específico.
-        
+
         Args:
             text (str): O texto para estimar os tokens
             model (str): O modelo para o qual estimar os tokens (default: o modelo configurado)
-            
+
         Returns:
             int: Número estimado de tokens
         """
         # Usar o modelo configurado se nenhum for especificado
         if model is None:
             model = self.model if hasattr(self, "model") else "gpt-4"
-            
+
         try:
             # Mapear nomes de modelos para codificadores
             if model.startswith("gpt-4"):
@@ -261,11 +292,11 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 encoding_name = "cl100k_base"  # Para GPT-3.5 Turbo
             else:
                 encoding_name = "cl100k_base"  # Fallback para outros modelos
-                
+
             # Obter o codificador
             import tiktoken
             encoding = tiktoken.get_encoding(encoding_name)
-            
+
             # Contar tokens
             tokens = len(encoding.encode(text))
             return tokens
