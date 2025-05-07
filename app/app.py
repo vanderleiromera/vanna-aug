@@ -270,19 +270,42 @@ if col6.button("🔄 6. Plano"):
                     plan_type = type(plan).__name__
                     st.info(f"Tipo: {plan_type}")
 
+                    # Mostrar detalhes do plano
+                    st.info("Detalhes do plano:")
+                    if "tables" in plan:
+                        st.info(f"- Tabelas: {len(plan['tables'])} tabelas")
+                    if "relationships" in plan:
+                        st.info(f"- Relacionamentos: {'Sim' if plan['relationships'] else 'Não'}")
+                    if "example_pairs" in plan:
+                        st.info(f"- Exemplos: {'Sim' if plan['example_pairs'] else 'Não'}")
+
                     with st.spinner("Executando plano..."):
                         try:
-                            result = vn.train(plan=plan)
+                            # Usar execute_training_plan em vez de train
+                            result = vn.execute_training_plan(plan=plan)
                             if result:
                                 st.success("✅ Plano executado!")
+
+                                # Mostrar resultados
+                                st.info("Resultados:")
+                                if "tables_trained" in result:
+                                    st.info(f"- Tabelas treinadas: {result['tables_trained']}")
+                                if "relationships_trained" in result:
+                                    st.info(f"- Relacionamentos treinados: {result['relationships_trained']}")
+                                if "example_pairs_trained" in result:
+                                    st.info(f"- Exemplos treinados: {result['example_pairs_trained']}")
                             else:
                                 st.error("❌ Falha na execução")
                         except Exception as e:
                             st.error(f"❌ Erro: {e}")
+                            import traceback
+                            st.code(traceback.format_exc())
                 else:
                     st.error("❌ Falha ao gerar plano")
             except Exception as e:
                 st.error(f"❌ Erro: {e}")
+                import traceback
+                st.code(traceback.format_exc())
 
 # Adicionar botões de gerenciamento em colunas
 st.sidebar.markdown("---")
