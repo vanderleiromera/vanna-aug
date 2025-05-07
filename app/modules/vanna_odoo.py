@@ -1,4 +1,6 @@
 import os
+import re
+import tiktoken
 
 import pandas as pd
 import psycopg2
@@ -9,6 +11,37 @@ from vanna.openai.openai_chat import OpenAI_Chat
 
 # Load environment variables
 load_dotenv()
+
+def estimate_tokens(text, model="gpt-4"):
+    """
+    Estima o número de tokens em um texto para um modelo específico.
+
+    Args:
+        text (str): O texto para estimar os tokens
+        model (str): O modelo para o qual estimar os tokens (default: gpt-4)
+
+    Returns:
+        int: Número estimado de tokens
+    """
+    try:
+        # Mapear nomes de modelos para codificadores
+        if model.startswith("gpt-4"):
+            encoding_name = "cl100k_base"  # Para GPT-4 e GPT-4 Turbo
+        elif model.startswith("gpt-3.5"):
+            encoding_name = "cl100k_base"  # Para GPT-3.5 Turbo
+        else:
+            encoding_name = "cl100k_base"  # Fallback para outros modelos
+
+        # Obter o codificador
+        encoding = tiktoken.get_encoding(encoding_name)
+
+        # Contar tokens
+        tokens = len(encoding.encode(text))
+        return tokens
+    except Exception as e:
+        print(f"[DEBUG] Erro ao estimar tokens: {e}")
+        # Estimativa aproximada baseada em palavras (menos precisa)
+        return len(text.split()) * 1.3  # Multiplicador aproximado
 
 
 class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
@@ -611,6 +644,11 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         """
         Execute SQL query on the Odoo database using SQLAlchemy
         """
+        # Estimar tokens da consulta SQL
+        model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
+        sql_tokens = estimate_tokens(sql, model)
+        print(f"[DEBUG] Executando SQL ({sql_tokens} tokens estimados)")
+
         # Get SQLAlchemy engine
         engine = self.get_sqlalchemy_engine()
         if not engine:
@@ -1317,11 +1355,17 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 **kwargs,
             )
 
-            print(f"[DEBUG] Generated prompt with {len(prompt)} messages")
+            # Estimar tokens do prompt
+            model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
+            prompt_tokens = sum(estimate_tokens(msg["content"], model) for msg in prompt if "content" in msg)
+            print(f"[DEBUG] Generated prompt with {len(prompt)} messages ({prompt_tokens} tokens estimados)")
 
             # Submit the prompt to the LLM
             response = self.submit_prompt(prompt, temperature=0.1, **kwargs)
-            print(f"[DEBUG] Received response from LLM")
+
+            # Estimar tokens da resposta
+            response_tokens = estimate_tokens(response, model)
+            print(f"[DEBUG] Received response from LLM ({response_tokens} tokens estimados)")
 
             # Extract SQL from the response and adapt it based on the original question
             sql = self.extract_sql(response, question=question)
@@ -1340,8 +1384,18 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         Generate SQL from a natural language question with improved handling for Portuguese
         """
         try:
+            # Estimar tokens da pergunta
+            model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
+            question_tokens = estimate_tokens(question, model)
+            print(f"[DEBUG] Pergunta: '{question}' ({question_tokens} tokens estimados)")
+
             # Use the generate_sql method to generate SQL
             sql = self.generate_sql(question, allow_llm_to_see_data=False)
+
+            # Estimar tokens da resposta SQL
+            if sql:
+                sql_tokens = estimate_tokens(sql, model)
+                print(f"[DEBUG] SQL gerado pelo método generate_sql ({sql_tokens} tokens estimados)")
 
             # Execute the SQL with the original question for context
             if sql:
@@ -1363,14 +1417,21 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
 
                     # Usar a primeira pergunta similar
                     similar_question = similar_questions[0]
+                    similar_question_tokens = estimate_tokens(similar_question['question'], model)
                     print(
-                        f"[DEBUG] Using similar question: '{similar_question['question']}'"
+                        f"[DEBUG] Using similar question: '{similar_question['question']}' ({similar_question_tokens} tokens estimados)"
                     )
 
                     # Adaptar a consulta SQL se necessário
                     adapted_sql = self.adapt_sql_from_similar_question(
                         question, similar_question
                     )
+
+                    # Estimar tokens da SQL adaptada
+                    if adapted_sql:
+                        adapted_sql_tokens = estimate_tokens(adapted_sql, model)
+                        print(f"[DEBUG] SQL adaptado ({adapted_sql_tokens} tokens estimados)")
+                        print(f"[DEBUG] Adaptando SQL para os valores da pergunta")
 
                     return adapted_sql, question
                 else:
