@@ -230,18 +230,29 @@ if col5.button("📚 5. Exemplos"):
                 example_pairs = get_example_pairs()
 
                 # Train with each example pair
+                success_count = 0
                 for i, example in enumerate(example_pairs):
                     st.text(f"Ex. {i+1}/{len(example_pairs)}...")
-                    vn.train(question=example["question"], sql=example["sql"])
+                    try:
+                        # Usar o método train_on_example_pair que não chama ask()
+                        # Isso evita o erro de DataFrame ambíguo
+                        result = vn.train_on_example_pair(example["question"], example["sql"])
+                        if result:
+                            success_count += 1
+                    except Exception as ex:
+                        st.warning(f"Erro no exemplo {i+1}: {ex}")
 
-                st.success(f"✅ {len(example_pairs)} exemplos treinados!")
+                st.success(f"✅ {success_count}/{len(example_pairs)} exemplos treinados!")
 
                 # Verify training was successful
-                training_data = vn.get_training_data()
-                if training_data and len(training_data) > 0:
-                    st.success(f"✅ Total: {len(training_data)} exemplos")
-                else:
-                    st.warning("⚠️ Nenhum dado encontrado")
+                try:
+                    training_data = vn.get_training_data()
+                    if training_data is not None and len(training_data) > 0:
+                        st.success(f"✅ Total: {len(training_data)} exemplos")
+                    else:
+                        st.warning("⚠️ Nenhum dado encontrado")
+                except Exception as ex:
+                    st.warning(f"Erro ao verificar dados de treinamento: {ex}")
             except Exception as e:
                 st.error(f"❌ Erro: {e}")
 

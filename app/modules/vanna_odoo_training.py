@@ -15,7 +15,7 @@ from modules.vanna_odoo_sql import VannaOdooSQL
 class VannaOdooTraining(VannaOdooSQL):
     """
     Classe que implementa as funcionalidades relacionadas ao treinamento do modelo Vanna AI.
-    
+
     Esta classe herda de VannaOdooSQL e adiciona métodos para treinamento do modelo
     com dados do Odoo, como esquemas de tabelas, relacionamentos e exemplos de consultas.
     """
@@ -23,7 +23,7 @@ class VannaOdooTraining(VannaOdooSQL):
     def __init__(self, config=None):
         """
         Inicializa a classe VannaOdooTraining com configuração.
-        
+
         Args:
             config: Pode ser um objeto VannaConfig ou um dicionário de configuração
         """
@@ -193,6 +193,53 @@ class VannaOdooTraining(VannaOdooSQL):
         print(f"Trained on relationships for {trained_count} tables")
         return trained_count > 0
 
+    def train_on_example_pair(self, question, sql):
+        """
+        Train Vanna on a single example question-SQL pair without calling ask()
+
+        Args:
+            question (str): The question to train on
+            sql (str): The SQL to train on
+
+        Returns:
+            bool: True if training was successful, False otherwise
+        """
+        try:
+            # Train directly using the parent class method
+            # This avoids calling ask() which can return a DataFrame
+            result = super().train(question=question, sql=sql)
+            print(f"Trained on question: {question}, result: {result}")
+
+            # Add directly to collection for better persistence
+            if self.collection:
+                content = f"Question: {question}\nSQL: {sql}"
+                content_hash = hashlib.md5(content.encode()).hexdigest()
+                doc_id = f"pair-{content_hash}"
+
+                # Add directly to collection without embeddings for better text-based search
+                try:
+                    # Add without embedding
+                    self.collection.add(
+                        documents=[content],
+                        metadatas=[{"type": "pair", "question": question}],
+                        ids=[doc_id],
+                    )
+                    print(f"Added pair document without embedding, ID: {doc_id}")
+                except Exception as e:
+                    print(f"Error adding pair without embedding: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+                print(f"Added pair document directly with ID: {doc_id}")
+                return True
+
+            return result is not None
+        except Exception as e:
+            print(f"Error training on pair: {question}, {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def train_on_example_pairs(self):
         """
         Train Vanna on example question-SQL pairs
@@ -209,31 +256,9 @@ class VannaOdooTraining(VannaOdooSQL):
             for pair in example_pairs:
                 if "question" in pair and "sql" in pair:
                     try:
-                        # Train Vanna on the question-SQL pair
-                        result = self.train(question=pair["question"], sql=pair["sql"])
-                        print(f"Trained on question: {pair['question']}, result: {result}")
-
-                        # Add directly to collection for better persistence
-                        if self.collection:
-                            content = f"Question: {pair['question']}\nSQL: {pair['sql']}"
-                            content_hash = hashlib.md5(content.encode()).hexdigest()
-                            doc_id = f"pair-{content_hash}"
-
-                            # Add directly to collection without embeddings for better text-based search
-                            try:
-                                # Add without embedding
-                                self.collection.add(
-                                    documents=[content],
-                                    metadatas=[{"type": "pair", "question": pair["question"]}],
-                                    ids=[doc_id],
-                                )
-                                print(f"Added pair document without embedding, ID: {doc_id}")
-                            except Exception as e:
-                                print(f"Error adding pair without embedding: {e}")
-                                import traceback
-
-                                traceback.print_exc()
-                            print(f"Added pair document directly with ID: {doc_id}")
+                        # Use the new method that doesn't call ask()
+                        result = self.train_on_example_pair(pair["question"], pair["sql"])
+                        if result:
                             trained_count += 1
                     except Exception as e:
                         print(f"Error training on pair: {pair['question']}, {e}")
