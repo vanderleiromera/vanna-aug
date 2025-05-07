@@ -203,6 +203,21 @@ class VannaOdooExtended(VannaOdooNumeric):
         print(f"[DEBUG] Não foi possível gerar SQL, usando método ask da classe pai")
         return super().ask(question)
 
+    def get_model_info(self):
+        """
+        Retorna informações sobre o modelo LLM e configurações atuais.
+
+        Returns:
+            dict: Dicionário com informações do modelo
+        """
+        model_info = {
+            "model": self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4"),
+            "allow_llm_to_see_data": self.allow_llm_to_see_data if hasattr(self, "allow_llm_to_see_data") else False,
+            "chroma_persist_directory": self.chroma_persist_directory if hasattr(self, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"),
+            "max_tokens": self.vanna_config.max_tokens if hasattr(self, "vanna_config") else 14000,
+        }
+        return model_info
+
     def ask_with_results(
         self, question, print_results=True, auto_train=False, debug=True
     ):
