@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, validator
 
 class VannaConfig(BaseModel):
     """Configuração para o cliente Vanna.ai"""
-    
+
     model: str = Field(
         default="gpt-4.1-nano",
         description="Modelo OpenAI a ser utilizado para geração de SQL"
@@ -39,12 +39,12 @@ class VannaConfig(BaseModel):
         default=None,
         description="Chave de API OpenAI (se não for fornecida, será usada a variável de ambiente)"
     )
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
         extra = "ignore"
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "model": "gpt-4.1-nano",
                 "allow_llm_to_see_data": False,
@@ -56,18 +56,18 @@ class VannaConfig(BaseModel):
 
 class DatabaseConfig(BaseModel):
     """Configuração para conexão com banco de dados"""
-    
+
     host: str = Field(..., description="Host do banco de dados")
     port: int = Field(default=5432, description="Porta do banco de dados")
     database: str = Field(..., description="Nome do banco de dados")
     user: str = Field(..., description="Usuário do banco de dados")
     password: str = Field(..., description="Senha do banco de dados")
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
         extra = "ignore"
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "host": "db",
                 "port": 5432,
@@ -76,11 +76,11 @@ class DatabaseConfig(BaseModel):
                 "password": "odoo"
             }
         }
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Converte o modelo para um dicionário para uso com psycopg2"""
         return self.model_dump()
-    
+
     def get_connection_string(self) -> str:
         """Retorna a string de conexão SQLAlchemy"""
         return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
@@ -88,7 +88,7 @@ class DatabaseConfig(BaseModel):
 
 class AnomalyDetectionMethod(str, Enum):
     """Métodos disponíveis para detecção de anomalias"""
-    
+
     Z_SCORE = "z_score"
     IQR = "iqr"
     ISOLATION_FOREST = "isolation_forest"
@@ -97,7 +97,7 @@ class AnomalyDetectionMethod(str, Enum):
 
 class AnomalyDetectionConfig(BaseModel):
     """Configuração para detecção de anomalias"""
-    
+
     method: AnomalyDetectionMethod = Field(
         default=AnomalyDetectionMethod.Z_SCORE,
         description="Método de detecção de anomalias"
@@ -117,11 +117,11 @@ class AnomalyDetectionConfig(BaseModel):
         le=10.0,
         description="Sensibilidade da detecção (maior = mais sensível)"
     )
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "method": "z_score",
                 "threshold": 3.0,
@@ -135,7 +135,7 @@ class AnomalyDetectionConfig(BaseModel):
 
 class ProductData(BaseModel):
     """Modelo para dados de produtos"""
-    
+
     id: int
     name: str
     default_code: Optional[str] = None
@@ -143,11 +143,11 @@ class ProductData(BaseModel):
     quantity_available: float = Field(default=0, ge=0)
     category_id: Optional[int] = None
     category_name: Optional[str] = None
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "name": "Produto Teste",
@@ -162,14 +162,14 @@ class ProductData(BaseModel):
 
 class SaleOrderLine(BaseModel):
     """Modelo para linhas de pedido de venda"""
-    
+
     id: int
     product_id: int
     product_name: str
     product_uom_qty: float = Field(ge=0)
     price_unit: float = Field(ge=0)
     price_total: float = Field(ge=0)
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
@@ -177,7 +177,7 @@ class SaleOrderLine(BaseModel):
 
 class SaleOrder(BaseModel):
     """Modelo para pedidos de venda"""
-    
+
     id: int
     name: str
     date_order: datetime
@@ -186,11 +186,11 @@ class SaleOrder(BaseModel):
     partner_name: str
     order_lines: List[SaleOrderLine] = Field(default_factory=list)
     amount_total: float = Field(ge=0)
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "name": "SO001",
@@ -215,14 +215,14 @@ class SaleOrder(BaseModel):
 
 class PurchaseOrderLine(BaseModel):
     """Modelo para linhas de pedido de compra"""
-    
+
     id: int
     product_id: int
     product_name: str
     product_qty: float = Field(ge=0)
     price_unit: float = Field(ge=0)
     price_total: float = Field(ge=0)
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
@@ -230,7 +230,7 @@ class PurchaseOrderLine(BaseModel):
 
 class PurchaseOrder(BaseModel):
     """Modelo para pedidos de compra"""
-    
+
     id: int
     name: str
     date_order: datetime
@@ -239,7 +239,7 @@ class PurchaseOrder(BaseModel):
     partner_name: str
     order_lines: List[PurchaseOrderLine] = Field(default_factory=list)
     amount_total: float = Field(ge=0)
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
@@ -247,7 +247,7 @@ class PurchaseOrder(BaseModel):
 
 class PurchaseSuggestion(BaseModel):
     """Modelo para sugestões de compra"""
-    
+
     product_id: int
     product_code: Optional[str] = None
     product_name: str
@@ -262,7 +262,7 @@ class PurchaseSuggestion(BaseModel):
     ultimo_fornecedor: Optional[str] = None
     ultimo_preco_compra: float = Field(default=0, ge=0)
     valor_estimado_compra: float = Field(default=0, ge=0)
-    
+
     class Config:
         """Configuração do modelo Pydantic"""
         validate_assignment = True
