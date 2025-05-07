@@ -1,6 +1,7 @@
 import os
 import re
 import tiktoken
+from typing import Dict, List, Optional, Union, Any
 
 import pandas as pd
 import psycopg2
@@ -8,6 +9,10 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from vanna.chromadb.chromadb_vector import ChromaDB_VectorStore
 from vanna.openai.openai_chat import OpenAI_Chat
+
+# Importar modelos Pydantic
+from modules.models import VannaConfig, DatabaseConfig, ProductData, SaleOrder, PurchaseSuggestion
+from modules.data_converter import dataframe_to_model_list, model_list_to_dataframe
 
 # Load environment variables
 load_dotenv()
@@ -51,8 +56,36 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
     """
 
     def __init__(self, config=None):
-        # Store the config for later use
+        # Converter config para modelo Pydantic ou criar um novo
+        if isinstance(config, VannaConfig):
+            self.vanna_config = config
+        else:
+            config_dict = config or {}
+            self.vanna_config = VannaConfig(
+                model=config_dict.get("model", os.getenv("OPENAI_MODEL", "gpt-4.1-nano")),
+                allow_llm_to_see_data=config_dict.get("allow_llm_to_see_data", False),
+                chroma_persist_directory=config_dict.get(
+                    "chroma_persist_directory",
+                    os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+                ),
+                max_tokens=config_dict.get("max_tokens", 14000),
+                api_key=config_dict.get("api_key", os.getenv("OPENAI_API_KEY"))
+            )
+
+        # Manter compatibilidade com a API existente
         self.config = config or {}
+
+        # Criar configuração do banco de dados
+        self.db_config = DatabaseConfig(
+            host=os.getenv("ODOO_DB_HOST", ""),
+            port=int(os.getenv("ODOO_DB_PORT", "5432")),
+            database=os.getenv("ODOO_DB_NAME", ""),
+            user=os.getenv("ODOO_DB_USER", ""),
+            password=os.getenv("ODOO_DB_PASSWORD", "")
+        )
+
+        # Manter compatibilidade com código existente
+        self.db_params = self.db_config.to_dict()
 
         # Initialize ChromaDB vector store
         ChromaDB_VectorStore.__init__(self, config=config)
@@ -60,34 +93,19 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
         # Initialize OpenAI chat
         OpenAI_Chat.__init__(self, config=config)
 
-        # Database connection parameters
-        self.db_params = {
-            "host": os.getenv("ODOO_DB_HOST"),
-            "port": os.getenv("ODOO_DB_PORT", 5432),
-            "database": os.getenv("ODOO_DB_NAME"),
-            "user": os.getenv("ODOO_DB_USER"),
-            "password": os.getenv("ODOO_DB_PASSWORD"),
-        }
+        # Atribuir propriedades do modelo para compatibilidade
+        self.chroma_persist_directory = self.vanna_config.chroma_persist_directory
+        self.allow_llm_to_see_data = self.vanna_config.allow_llm_to_see_data
+        self.model = self.vanna_config.model
 
-        # ChromaDB persistence directory
-        self.chroma_persist_directory = os.getenv(
-            "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"
-        )
-
-        # Flag to control if LLM can see data
-        self.allow_llm_to_see_data = False
-        if config and "allow_llm_to_see_data" in config:
-            self.allow_llm_to_see_data = config["allow_llm_to_see_data"]
+        # Logs para depuração
         print(f"LLM allowed to see data: {self.allow_llm_to_see_data}")
-
-        # Store the model from config for reference
-        if config and "model" in config:
-            self.model = config["model"]
-            print(f"Using OpenAI model: {self.model}")
+        print(f"Using OpenAI model: {self.model}")
+        print(f"ChromaDB persistence directory: {self.chroma_persist_directory}")
+        print(f"Max tokens: {self.vanna_config.max_tokens}")
 
         # Ensure the directory exists
         os.makedirs(self.chroma_persist_directory, exist_ok=True)
-        print(f"ChromaDB persistence directory: {self.chroma_persist_directory}")
 
         # Initialize ChromaDB client
         self._init_chromadb(config=self.config)
@@ -734,8 +752,45 @@ class VannaOdoo(ChromaDB_VectorStore, OpenAI_Chat):
                 print(
                     "[DEBUG] A consulta foi executada com sucesso, mas não retornou resultados."
                 )
+                return df
             else:
                 print(f"[DEBUG] A consulta retornou {len(df)} resultados.")
+
+            # Tentar converter para modelos Pydantic com base no conteúdo
+            try:
+                # Verificar se é uma consulta de produtos
+                if any(col in df.columns for col in ['product_name', 'name']) and 'price' in ' '.join(df.columns):
+                    print("[DEBUG] Detectada consulta de produtos, convertendo para modelo ProductData")
+                    # Mapear colunas para o modelo ProductData
+                    column_mapping = {
+                        'id': 'id',
+                        'name': 'name',
+                        'default_code': 'default_code',
+                        'list_price': 'list_price',
+                        'qty_available': 'quantity_available',
+                        'categ_id': 'category_id',
+                        'categ_name': 'category_name',
+                        'product_name': 'name',  # Alternativa
+                        'price': 'list_price',   # Alternativa
+                        'quantity': 'quantity_available'  # Alternativa
+                    }
+
+                    # Renomear colunas para corresponder ao modelo
+                    df_renamed = df.rename(columns={k: v for k, v in column_mapping.items()
+                                                  if k in df.columns and v not in df.columns})
+
+                    # Converter para lista de modelos
+                    products = dataframe_to_model_list(df_renamed, ProductData)
+                    print(f"[DEBUG] Convertidos {len(products)} produtos para modelos Pydantic")
+
+                # Verificar se é uma consulta de sugestão de compra
+                elif any(col in ' '.join(df.columns) for col in ['sugestao', 'compra', 'estoque']):
+                    print("[DEBUG] Detectada consulta de sugestão de compra, convertendo para modelo PurchaseSuggestion")
+                    purchase_suggestions = dataframe_to_model_list(df, PurchaseSuggestion)
+                    print(f"[DEBUG] Convertidas {len(purchase_suggestions)} sugestões para modelos Pydantic")
+            except Exception as e:
+                print(f"[DEBUG] Erro ao converter para modelos Pydantic: {e}")
+                # Continuar com o DataFrame normal em caso de erro
 
             return df
         except Exception as e:
