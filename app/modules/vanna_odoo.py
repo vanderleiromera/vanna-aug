@@ -227,14 +227,87 @@ class VannaOdoo(VannaOdooTraining):
             similar_questions = []
             if chromadb_working:
                 try:
-                    similar_questions = super().get_similar_questions(question, **kwargs)
-                    print(f"[DEBUG] Found {len(similar_questions)} similar questions in ChromaDB")
+                    # Forçar o uso do ChromaDB para obter perguntas similares
+                    # Isso é feito chamando diretamente o método query_collection
+                    if hasattr(self, "collection") and self.collection:
+                        try:
+                            # Preparar a consulta
+                            query_text = question
+
+                            # Consultar a coleção
+                            results = self.collection.query(
+                                query_texts=[query_text],
+                                n_results=5,
+                                where={"type": "pair"}
+                            )
+
+                            # Processar os resultados
+                            if results and "documents" in results and len(results["documents"]) > 0 and len(results["documents"][0]) > 0:
+                                print(f"[DEBUG] Found {len(results['documents'][0])} documents in ChromaDB")
+
+                                # Extrair perguntas e SQL dos documentos
+                                for doc in results["documents"][0]:
+                                    try:
+                                        # Verificar se o documento contém "Question:" e "SQL:"
+                                        if "Question:" in doc and "SQL:" in doc:
+                                            # Extrair a pergunta e o SQL
+                                            question_part = doc.split("Question:")[1].split("SQL:")[0].strip()
+                                            sql_part = doc.split("SQL:")[1].strip()
+
+                                            # Adicionar à lista de perguntas similares
+                                            similar_questions.append({
+                                                "question": question_part,
+                                                "sql": sql_part
+                                            })
+                                            print(f"[DEBUG] Extracted question: {question_part[:50]}...")
+                                    except Exception as e:
+                                        print(f"[DEBUG] Error extracting question and SQL from document: {e}")
+
+                            # Se não encontramos documentos com o filtro "type": "pair", tentar sem filtro
+                            if not similar_questions:
+                                print("[DEBUG] No documents found with type 'pair'. Trying without filter.")
+                                results = self.collection.query(
+                                    query_texts=[query_text],
+                                    n_results=5
+                                )
+
+                                # Processar os resultados
+                                if results and "documents" in results and len(results["documents"]) > 0 and len(results["documents"][0]) > 0:
+                                    print(f"[DEBUG] Found {len(results['documents'][0])} documents in ChromaDB without filter")
+
+                                    # Extrair perguntas e SQL dos documentos
+                                    for doc in results["documents"][0]:
+                                        try:
+                                            # Verificar se o documento contém "Question:" e "SQL:"
+                                            if "Question:" in doc and "SQL:" in doc:
+                                                # Extrair a pergunta e o SQL
+                                                question_part = doc.split("Question:")[1].split("SQL:")[0].strip()
+                                                sql_part = doc.split("SQL:")[1].strip()
+
+                                                # Adicionar à lista de perguntas similares
+                                                similar_questions.append({
+                                                    "question": question_part,
+                                                    "sql": sql_part
+                                                })
+                                                print(f"[DEBUG] Extracted question: {question_part[:50]}...")
+                                        except Exception as e:
+                                            print(f"[DEBUG] Error extracting question and SQL from document: {e}")
+                        except Exception as e:
+                            print(f"[DEBUG] Error querying ChromaDB collection: {e}")
+
+                    # Se não conseguimos extrair perguntas diretamente, tentar o método padrão
+                    if not similar_questions:
+                        print("[DEBUG] Trying parent method to get similar questions")
+                        similar_questions = super().get_similar_questions(question, **kwargs)
+                        print(f"[DEBUG] Found {len(similar_questions)} similar questions using parent method")
                 except Exception as e:
                     print(f"[DEBUG] Error getting similar questions from ChromaDB: {e}")
+                    import traceback
+                    traceback.print_exc()
 
             # If we have similar questions, return them
             if similar_questions:
-                print("[DEBUG] Using similar questions from ChromaDB")
+                print(f"[DEBUG] Using {len(similar_questions)} similar questions from ChromaDB")
                 return similar_questions
 
             # If we don't have similar questions, try to get them from example_pairs
