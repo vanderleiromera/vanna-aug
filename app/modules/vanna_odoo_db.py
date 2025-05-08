@@ -222,7 +222,7 @@ class VannaOdooDB(VannaOdooCore):
                         print(f"[DEBUG] Cláusula HAVING: {having_clause}")
 
                         # Verificar se há colunas no HAVING que não estão no GROUP BY ou em funções de agregação
-                        # Procurar por padrões como "COALESCE(coluna, 0)" que não estão em funções de agregação
+                        # Primeiro, verificar padrões como "COALESCE(coluna, 0)" que não estão em funções de agregação
                         coalesce_match = re.search(r'COALESCE\s*\(\s*([^,\s]+)\.([^,\s\)]+)', having_clause)
                         if coalesce_match:
                             table_alias = coalesce_match.group(1)
@@ -234,12 +234,19 @@ class VannaOdooDB(VannaOdooCore):
                             if column_ref not in group_by_columns:
                                 print(f"[DEBUG] Coluna {column_ref} não está no GROUP BY, corrigindo...")
 
-                                # Corrigir usando SUM ou outra função de agregação apropriada
-                                # Substituir COALESCE(coluna, 0) por COALESCE(SUM(coluna), 0)
-                                fixed_having = having_clause.replace(
-                                    f"COALESCE({column_ref}",
-                                    f"COALESCE(SUM({column_ref})"
-                                )
+                                # Verificar se a coluna vem de uma subconsulta (alias de tabela com resultado agregado)
+                                if table_alias.lower() in ["estoque", "inventory", "stock"]:
+                                    print(f"[DEBUG] Coluna {column_ref} vem de uma subconsulta, usando diretamente")
+                                    # Para subconsultas, não precisamos agregar novamente, pois já está agregado
+                                    # Apenas garantir que estamos usando o valor agregado corretamente
+                                    fixed_having = having_clause
+                                else:
+                                    # Corrigir usando SUM ou outra função de agregação apropriada
+                                    # Substituir COALESCE(coluna, 0) por COALESCE(SUM(coluna), 0)
+                                    fixed_having = having_clause.replace(
+                                        f"COALESCE({column_ref}",
+                                        f"COALESCE(SUM({column_ref})"
+                                    )
 
                                 # Substituir a cláusula HAVING na consulta original
                                 sql = sql.replace(having_clause, fixed_having)

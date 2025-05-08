@@ -233,24 +233,42 @@ class VannaOdoo(VannaOdooTraining):
                 print(f"[DEBUG] Checking {len(example_pairs)} example pairs for exact match")
 
                 # Normalizar a pergunta para comparação
+                import re
+                # Normalização mais agressiva: remover caracteres extras, normalizar espaços
                 normalized_question = question.lower().strip().rstrip('?')
+                # Remover caracteres repetidos (como 'diasss' -> 'dias')
+                normalized_question = re.sub(r'([a-z])\1{2,}', r'\1', normalized_question)
+                # Normalizar espaços
+                normalized_question = re.sub(r'\s+', ' ', normalized_question)
                 print(f"[DEBUG] Normalized question: '{normalized_question}'")
 
                 # Procurar por correspondência exata ou muito próxima
                 for pair in example_pairs:
+                    # Aplicar a mesma normalização ao exemplo
                     pair_question = pair.get("question", "").lower().strip().rstrip('?')
+                    pair_question = re.sub(r'([a-z])\1{2,}', r'\1', pair_question)
+                    pair_question = re.sub(r'\s+', ' ', pair_question)
                     print(f"[DEBUG] Checking against example: '{pair_question}'")
+
+                    # Calcular similaridade usando distância de Levenshtein
+                    from difflib import SequenceMatcher
+                    similarity = SequenceMatcher(None, normalized_question, pair_question).ratio()
 
                     # Verificar se as perguntas são idênticas ou muito similares
                     exact_match = normalized_question == pair_question
                     contains_match = normalized_question in pair_question or pair_question in normalized_question
+                    similar_match = similarity > 0.85  # 85% de similaridade é um bom limiar
 
                     if exact_match:
-                        print(f"[DEBUG] Found EXACT match in example_pairs: {pair['question']}")
+                        print(f"[DEBUG] Found EXACT match in example_pairs: {pair['question']} (100% similarity)")
                         print(f"[DEBUG] SQL from example: {pair['sql'][:100]}...")
                         return [pair]
                     elif contains_match:
-                        print(f"[DEBUG] Found SIMILAR match in example_pairs: {pair['question']}")
+                        print(f"[DEBUG] Found CONTAINS match in example_pairs: {pair['question']} (substring match)")
+                        print(f"[DEBUG] SQL from example: {pair['sql'][:100]}...")
+                        return [pair]
+                    elif similar_match:
+                        print(f"[DEBUG] Found SIMILAR match in example_pairs: {pair['question']} ({similarity:.2%} similarity)")
                         print(f"[DEBUG] SQL from example: {pair['sql'][:100]}...")
                         return [pair]
 
