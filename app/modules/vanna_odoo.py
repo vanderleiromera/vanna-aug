@@ -134,17 +134,40 @@ class VannaOdoo(VannaOdooTraining):
         try:
             # Obter a consulta SQL da pergunta similar
             sql = similar_question["sql"]
+            print(f"[DEBUG] SQL original:\n{sql}")
 
-            # Verificar se a consulta contém parâmetros que podem ser adaptados
-            if "INTERVAL '30 days'" in sql:
-                # Extrair o número de dias da pergunta atual
-                days_match = re.search(r"(\d+)\s+dias", question.lower())
-                if days_match:
-                    days = int(days_match.group(1))
-                    # Substituir o número de dias na consulta
-                    sql = sql.replace("INTERVAL '30 days'", f"INTERVAL '{days} days'")
-                    print(f"[DEBUG] Adaptando consulta para usar {days} dias")
+            # Extrair o número de dias da pergunta atual
+            days_match = re.search(r"(\d+)\s+dias", question.lower())
+            if days_match:
+                days = int(days_match.group(1))
+                print(f"[DEBUG] Detectado {days} dias na pergunta original")
 
+                # Verificar se a consulta contém parâmetros que podem ser adaptados
+                # Procurar por diferentes padrões de intervalo de dias
+                patterns = [
+                    r"INTERVAL\s+'30\s+days'",
+                    r"INTERVAL\s+\'30\s+days\'",
+                    r"NOW\(\)\s*-\s*INTERVAL\s+'30\s+days'",
+                    r"CURRENT_DATE\s*-\s*INTERVAL\s+'30\s+days'",
+                    r"INTERVAL\s+'30 days'"
+                ]
+
+                original_sql = sql
+                for pattern in patterns:
+                    # Procurar o padrão na consulta
+                    matches = re.findall(pattern, sql, re.IGNORECASE)
+                    for match in matches:
+                        # Substituir o número de dias na consulta
+                        replacement = match.replace("'30 days'", f"'{days} days'")
+                        sql = sql.replace(match, replacement)
+
+                # Verificar se houve alteração
+                if sql != original_sql:
+                    print(f"[DEBUG] Substituído dias no SQL para {days}")
+                else:
+                    print(f"[DEBUG] Não foi possível substituir dias no SQL")
+
+            print(f"[DEBUG] SQL adaptado:\n{sql}")
             return sql
         except Exception as e:
             print(f"[DEBUG] Erro ao adaptar SQL: {e}")
