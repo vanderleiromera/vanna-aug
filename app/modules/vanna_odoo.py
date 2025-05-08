@@ -75,7 +75,11 @@ class VannaOdoo(VannaOdooTraining):
         """
         Generate SQL from a natural language question
 
-        Esta implementação sobrescreve o método da classe pai para priorizar o uso de exemplos.
+        Esta implementação segue o fluxo correto do Vanna.ai:
+        1. Obter perguntas similares com get_similar_questions()
+        2. Obter DDL relacionados com get_related_ddl()
+        3. Obter documentação relacionada com get_related_documentation()
+        4. Usar o SQL do exemplo diretamente, sem gerar um novo
 
         Args:
             question (str): The question to generate SQL for
@@ -88,47 +92,57 @@ class VannaOdoo(VannaOdooTraining):
         try:
             print(f"[DEBUG] Processing question: {question}")
 
-            # Verificar se a pergunta é sobre produtos mais vendidos em valor
-            if "produtos mais vendidos" in question.lower() and "valor" in question.lower():
-                print(f"[DEBUG] Detected question about top selling products by value")
-
-                # Buscar o exemplo específico para produtos mais vendidos em valor
-                from modules.example_pairs import get_example_pairs
-                for pair in get_example_pairs():
-                    if "10 produtos mais vendidos em valor" in pair.get("question", "").lower():
-                        print(f"[DEBUG] Found exact example for top selling products by value")
-                        # Extrair o número de produtos solicitados
-                        import re
-                        limit_match = re.search(r"(\d+)\s+produtos", question.lower())
-                        limit = 10  # Valor padrão
-                        if limit_match:
-                            limit = int(limit_match.group(1))
-                            print(f"[DEBUG] Detected limit of {limit} products")
-
-                        # Adaptar o SQL para o limite solicitado
-                        sql = pair.get("sql", "")
-                        if limit != 10:
-                            sql = sql.replace("LIMIT 10", f"LIMIT {limit}")
-                            print(f"[DEBUG] Adapted SQL with limit {limit}")
-
-                        return sql
-
-            # Primeiro, verificar se temos um exemplo similar em example_pairs
-            # Isso é mais eficiente do que gerar SQL do zero
+            # 1. Obter perguntas similares
             similar_questions = self.get_similar_questions(question)
+            print(f"[DEBUG] Found {len(similar_questions)} similar questions")
+
+            # Se encontramos perguntas similares, usar o SQL do exemplo diretamente
             if similar_questions and len(similar_questions) > 0:
-                print(f"[DEBUG] Found similar question in example_pairs")
                 similar_question = similar_questions[0]
+                print(f"[DEBUG] Using SQL from similar question: {similar_question.get('question', '')}")
 
-                # Adaptar o SQL do exemplo para a pergunta atual
-                adapted_sql = self.adapt_sql_from_similar_question(question, similar_question)
-                if adapted_sql:
-                    print(f"[DEBUG] Using adapted SQL from example")
-                    return adapted_sql
+                # Adaptar o SQL para a pergunta atual (por exemplo, ajustar o número de dias)
+                sql = self.adapt_sql_from_similar_question(question, similar_question)
 
-            # Se não encontramos um exemplo similar, usar o método da classe pai
-            print(f"[DEBUG] No similar example found, using parent method")
-            return super().generate_sql(question, allow_llm_to_see_data, **kwargs)
+                # Retornar o SQL adaptado
+                return sql
+
+            # 2. Se não encontramos perguntas similares, seguir o fluxo padrão do Vanna.ai
+            # Obter DDL relacionados
+            ddl_list = self.get_related_ddl(question)
+            print(f"[DEBUG] Found {len(ddl_list)} related DDL statements")
+
+            # 3. Obter documentação relacionada
+            doc_list = self.get_related_documentation(question)
+            print(f"[DEBUG] Found {len(doc_list)} related documentation items")
+
+            # 4. Gerar o prompt SQL
+            prompt = self.get_sql_prompt(
+                initial_prompt=None,
+                question=question,
+                question_sql_list=similar_questions,
+                ddl_list=ddl_list,
+                doc_list=doc_list,
+                **kwargs
+            )
+
+            # Estimar tokens do prompt
+            model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
+            prompt_tokens = sum(self.estimate_tokens(msg["content"], model) for msg in prompt if "content" in msg)
+            print(f"[DEBUG] Generated prompt with {len(prompt)} messages ({prompt_tokens} tokens estimados)")
+
+            # 5. Enviar o prompt para o LLM
+            response = self.submit_prompt(prompt, temperature=0.1, **kwargs)
+
+            # Estimar tokens da resposta
+            response_tokens = self.estimate_tokens(response, model)
+            print(f"[DEBUG] Received response from LLM ({response_tokens} tokens estimados)")
+
+            # Extrair SQL da resposta
+            sql = self.extract_sql(response, question=question)
+            print(f"[DEBUG] Extracted SQL from response")
+
+            return sql
         except Exception as e:
             print(f"Error in generate_sql: {e}")
             import traceback
