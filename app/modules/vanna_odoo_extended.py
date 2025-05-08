@@ -247,50 +247,107 @@ class VannaOdooExtended(VannaOdooNumeric):
 
                 total_tables = len(tables_to_train)
                 trained_count = 0
+                total_relationships = 0
 
                 print(f"Starting training on relationships for {total_tables} priority tables...")
 
+                # Primeiro, vamos coletar todos os relacionamentos diretos
+                direct_relationships = []
                 for table in tables_to_train:
                     # Get relationships for the table
                     relationships_df = self.get_table_relationships(table)
                     if relationships_df is not None and not relationships_df.empty:
-                        try:
-                            # Create documentation string for relationships
-                            doc = f"Table {table} has the following relationships:\n"
+                        for _, row in relationships_df.iterrows():
+                            direct_relationships.append({
+                                "source_table": table,
+                                "source_column": row['column_name'],
+                                "target_table": row['foreign_table_name'],
+                                "target_column": row['foreign_column_name']
+                            })
+
+                print(f"Found {len(direct_relationships)} direct relationships")
+
+                # Agora, vamos coletar relacionamentos inversos (tabelas que referenciam as tabelas prioritárias)
+                inverse_relationships = []
+                for table in available_tables:
+                    # Verificar apenas tabelas que não são prioritárias para evitar duplicação
+                    if table not in tables_to_train:
+                        relationships_df = self.get_table_relationships(table)
+                        if relationships_df is not None and not relationships_df.empty:
                             for _, row in relationships_df.iterrows():
-                                doc += f"- Column {row['column_name']} references {row['foreign_table_name']}.{row['foreign_column_name']}\n"
+                                # Se a tabela referenciada é uma tabela prioritária, adicionar como relacionamento inverso
+                                if row['foreign_table_name'] in tables_to_train:
+                                    inverse_relationships.append({
+                                        "source_table": table,
+                                        "source_column": row['column_name'],
+                                        "target_table": row['foreign_table_name'],
+                                        "target_column": row['foreign_column_name']
+                                    })
 
-                            # Train Vanna on the relationships
-                            result = self.train(documentation=doc)
-                            print(f"Trained on relationships for table: {table}, result: {result}")
+                print(f"Found {len(inverse_relationships)} inverse relationships")
 
-                            # Add directly to collection for better persistence
-                            if hasattr(self, "collection") and self.collection:
-                                content = doc
-                                import hashlib
-                                content_hash = hashlib.md5(content.encode()).hexdigest()
-                                doc_id = f"rel-{content_hash}"
+                # Combinar todos os relacionamentos
+                all_relationships = direct_relationships + inverse_relationships
+                print(f"Total of {len(all_relationships)} relationships found")
 
-                                # Add directly to collection without embeddings for better text-based search
-                                try:
-                                    # Add without embedding
-                                    self.collection.add(
-                                        documents=[content],
-                                        metadatas=[{"type": "relationship", "table": table}],
-                                        ids=[doc_id],
-                                    )
-                                    print(f"Added relationship document without embedding, ID: {doc_id}")
-                                except Exception as e:
-                                    print(f"Error adding relationship without embedding: {e}")
-                                    import traceback
-                                    traceback.print_exc()
+                # Agrupar relacionamentos por tabela de origem
+                table_relationships = {}
+                for rel in all_relationships:
+                    source_table = rel["source_table"]
+                    if source_table not in table_relationships:
+                        table_relationships[source_table] = []
+                    table_relationships[source_table].append(rel)
 
-                                print(f"Added relationship document directly with ID: {doc_id}")
-                                trained_count += 1
-                        except Exception as e:
-                            print(f"Error training on relationships for table {table}: {e}")
+                # Treinar em cada grupo de relacionamentos
+                for table, relationships in table_relationships.items():
+                    try:
+                        # Create documentation string for relationships
+                        doc = f"Table {table} has the following relationships:\n"
+                        for rel in relationships:
+                            doc += f"- Column {rel['source_column']} references {rel['target_table']}.{rel['target_column']}\n"
 
-                print(f"Trained on relationships for {trained_count} tables")
+                        # Adicionar também relacionamentos inversos (tabelas que referenciam esta tabela)
+                        inverse_refs = [r for r in all_relationships if r["target_table"] == table]
+                        if inverse_refs:
+                            doc += f"\nTable {table} is referenced by:\n"
+                            for rel in inverse_refs:
+                                doc += f"- Table {rel['source_table']}.{rel['source_column']} references {table}.{rel['target_column']}\n"
+
+                        # Train Vanna on the relationships
+                        result = self.train(documentation=doc)
+                        print(f"Trained on relationships for table: {table}, result: {result}")
+                        total_relationships += len(relationships) + len(inverse_refs)
+
+                        # Add directly to collection for better persistence
+                        if hasattr(self, "collection") and self.collection:
+                            content = doc
+                            import hashlib
+                            content_hash = hashlib.md5(content.encode()).hexdigest()
+                            doc_id = f"rel-{content_hash}"
+
+                            # Add directly to collection without embeddings for better text-based search
+                            try:
+                                # Add with metadata for better search
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[{
+                                        "type": "relationship",
+                                        "table": table,
+                                        "relationship_count": len(relationships) + len(inverse_refs)
+                                    }],
+                                    ids=[doc_id],
+                                )
+                                print(f"Added relationship document for table {table}, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding relationship document for table {table}: {e}")
+                                import traceback
+                                traceback.print_exc()
+
+                            trained_count += 1
+                    except Exception as e:
+                        print(f"Error training on relationships for table {table}: {e}")
+
+                print(f"Trained on relationships for {trained_count} tables, total of {total_relationships} relationships")
                 return trained_count > 0
         except Exception as e:
             print(f"Error in train_on_priority_relationships: {e}")
