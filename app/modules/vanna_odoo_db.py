@@ -18,7 +18,7 @@ from modules.vanna_odoo_core import VannaOdooCore
 class VannaOdooDB(VannaOdooCore):
     """
     Classe que implementa as funcionalidades relacionadas ao banco de dados PostgreSQL do Odoo.
-    
+
     Esta classe herda de VannaOdooCore e adiciona métodos para conexão com o banco de dados,
     execução de consultas SQL e manipulação de esquemas.
     """
@@ -26,13 +26,13 @@ class VannaOdooDB(VannaOdooCore):
     def __init__(self, config=None):
         """
         Inicializa a classe VannaOdooDB com configuração.
-        
+
         Args:
             config: Pode ser um objeto VannaConfig ou um dicionário de configuração
         """
         # Inicializar a classe pai
         super().__init__(config)
-        
+
         # Criar configuração do banco de dados
         self.db_config = DatabaseConfig(
             host=os.getenv("ODOO_DB_HOST", ""),
@@ -41,7 +41,7 @@ class VannaOdooDB(VannaOdooCore):
             user=os.getenv("ODOO_DB_USER", ""),
             password=os.getenv("ODOO_DB_PASSWORD", "")
         )
-        
+
         # Manter compatibilidade com código existente
         self.db_params = self.db_config.to_dict()
 
@@ -193,10 +193,72 @@ class VannaOdooDB(VannaOdooCore):
 
         return ddl
 
+    def validate_and_fix_sql(self, sql):
+        """
+        Valida e corrige problemas comuns em consultas SQL.
+
+        Args:
+            sql (str): A consulta SQL a ser validada e corrigida.
+
+        Returns:
+            str: A consulta SQL corrigida.
+        """
+        try:
+            import re
+            # Verificar se a consulta tem GROUP BY e HAVING
+            if "GROUP BY" in sql.upper() and "HAVING" in sql.upper():
+                print("[DEBUG] Validando consulta com GROUP BY e HAVING")
+
+                # Extrair a parte do GROUP BY
+                group_by_match = re.search(r'GROUP\s+BY\s+(.*?)(?:HAVING|ORDER\s+BY|LIMIT|$)', sql, re.IGNORECASE | re.DOTALL)
+                if group_by_match:
+                    group_by_columns = group_by_match.group(1).strip()
+                    print(f"[DEBUG] Colunas no GROUP BY: {group_by_columns}")
+
+                    # Extrair a parte do HAVING
+                    having_match = re.search(r'HAVING\s+(.*?)(?:ORDER\s+BY|LIMIT|$)', sql, re.IGNORECASE | re.DOTALL)
+                    if having_match:
+                        having_clause = having_match.group(1).strip()
+                        print(f"[DEBUG] Cláusula HAVING: {having_clause}")
+
+                        # Verificar se há colunas no HAVING que não estão no GROUP BY ou em funções de agregação
+                        # Procurar por padrões como "COALESCE(coluna, 0)" que não estão em funções de agregação
+                        coalesce_match = re.search(r'COALESCE\s*\(\s*([^,\s]+)\.([^,\s\)]+)', having_clause)
+                        if coalesce_match:
+                            table_alias = coalesce_match.group(1)
+                            column_name = coalesce_match.group(2)
+                            column_ref = f"{table_alias}.{column_name}"
+                            print(f"[DEBUG] Encontrada referência a coluna em COALESCE: {column_ref}")
+
+                            # Verificar se a coluna está no GROUP BY
+                            if column_ref not in group_by_columns:
+                                print(f"[DEBUG] Coluna {column_ref} não está no GROUP BY, corrigindo...")
+
+                                # Corrigir usando SUM ou outra função de agregação apropriada
+                                # Substituir COALESCE(coluna, 0) por COALESCE(SUM(coluna), 0)
+                                fixed_having = having_clause.replace(
+                                    f"COALESCE({column_ref}",
+                                    f"COALESCE(SUM({column_ref})"
+                                )
+
+                                # Substituir a cláusula HAVING na consulta original
+                                sql = sql.replace(having_clause, fixed_having)
+                                print(f"[DEBUG] SQL corrigido: {sql[:100]}...")
+
+            return sql
+        except Exception as e:
+            print(f"[DEBUG] Erro ao validar e corrigir SQL: {e}")
+            import traceback
+            traceback.print_exc()
+            return sql  # Retornar o SQL original em caso de erro
+
     def run_sql_query(self, sql):
         """
         Execute SQL query on the Odoo database using SQLAlchemy
         """
+        # Validar e corrigir a consulta SQL
+        sql = self.validate_and_fix_sql(sql)
+
         # Estimar tokens da consulta SQL
         model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
         sql_tokens = self.estimate_tokens(sql, model)
@@ -213,16 +275,16 @@ class VannaOdooDB(VannaOdooCore):
             with engine.connect() as conn:
                 # Usar text() para executar SQL literal
                 result = conn.execute(text(sql))
-                
+
                 # Fetch all results
                 rows = result.fetchall()
-                
+
                 # Get column names
                 columns = result.keys()
-                
+
                 # Create DataFrame
                 df = pd.DataFrame(rows, columns=columns)
-                
+
                 print(f"[DEBUG] Query executada com sucesso: {len(df)} linhas retornadas")
                 return df
         except Exception as e:
@@ -245,15 +307,15 @@ class VannaOdooDB(VannaOdooCore):
             cursor.execute(
                 """
                 SELECT
-                    tc.table_schema, 
-                    tc.constraint_name, 
-                    tc.table_name, 
-                    kcu.column_name, 
+                    tc.table_schema,
+                    tc.constraint_name,
+                    tc.table_name,
+                    kcu.column_name,
                     ccu.table_schema AS foreign_table_schema,
                     ccu.table_name AS foreign_table_name,
-                    ccu.column_name AS foreign_column_name 
-                FROM 
-                    information_schema.table_constraints AS tc 
+                    ccu.column_name AS foreign_column_name
+                FROM
+                    information_schema.table_constraints AS tc
                     JOIN information_schema.key_column_usage AS kcu
                       ON tc.constraint_name = kcu.constraint_name
                       AND tc.table_schema = kcu.table_schema

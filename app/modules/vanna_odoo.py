@@ -234,13 +234,24 @@ class VannaOdoo(VannaOdooTraining):
 
                 # Normalizar a pergunta para comparação
                 normalized_question = question.lower().strip().rstrip('?')
+                print(f"[DEBUG] Normalized question: '{normalized_question}'")
 
                 # Procurar por correspondência exata ou muito próxima
                 for pair in example_pairs:
                     pair_question = pair.get("question", "").lower().strip().rstrip('?')
+                    print(f"[DEBUG] Checking against example: '{pair_question}'")
+
                     # Verificar se as perguntas são idênticas ou muito similares
-                    if normalized_question == pair_question or normalized_question in pair_question or pair_question in normalized_question:
-                        print(f"[DEBUG] Found exact match in example_pairs: {pair['question']}")
+                    exact_match = normalized_question == pair_question
+                    contains_match = normalized_question in pair_question or pair_question in normalized_question
+
+                    if exact_match:
+                        print(f"[DEBUG] Found EXACT match in example_pairs: {pair['question']}")
+                        print(f"[DEBUG] SQL from example: {pair['sql'][:100]}...")
+                        return [pair]
+                    elif contains_match:
+                        print(f"[DEBUG] Found SIMILAR match in example_pairs: {pair['question']}")
+                        print(f"[DEBUG] SQL from example: {pair['sql'][:100]}...")
                         return [pair]
 
                 print("[DEBUG] No exact match found in example_pairs")
