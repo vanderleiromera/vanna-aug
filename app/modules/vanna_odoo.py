@@ -195,37 +195,58 @@ class VannaOdoo(VannaOdooTraining):
                 days = int(days_match.group(1))
                 print(f"[DEBUG] Detectado {days} dias na pergunta original")
 
-                # Verificar se a consulta contém parâmetros que podem ser adaptados
-                # Procurar por diferentes padrões de intervalo de dias
-                patterns = [
-                    r"INTERVAL\s+'30\s+days'",
-                    r"INTERVAL\s+\'30\s+days\'",
-                    r"NOW\(\)\s*-\s*INTERVAL\s+'30\s+days'",
-                    r"CURRENT_DATE\s*-\s*INTERVAL\s+'30\s+days'",
-                    r"INTERVAL\s+'30 days'",
-                    r"NOW\(\)\s*-\s*INTERVAL\s+'30 days'",  # Padrão específico do exemplo
-                    r"INTERVAL '30 days'"  # Padrão mais simples sem espaços extras
-                ]
+                # Implementação direta e simples para substituir o padrão específico
+                # Isso garante que a substituição seja feita corretamente
+                if days != 30:  # Só substituir se o número de dias for diferente de 30
+                    # Substituir todos os padrões conhecidos
+                    replacements = [
+                        ("NOW() - INTERVAL '30 days'", f"NOW() - INTERVAL '{days} days'"),
+                        ("CURRENT_DATE - INTERVAL '30 days'", f"CURRENT_DATE - INTERVAL '{days} days'"),
+                        ("INTERVAL '30 days'", f"INTERVAL '{days} days'"),
+                        ("INTERVAL '30 days'", f"INTERVAL '{days} days'"),
+                        ("'30 days'", f"'{days} days'")  # Padrão mais genérico
+                    ]
 
-                # Adicionar uma verificação manual para o padrão específico do exemplo
-                if "NOW() - INTERVAL '30 days'" in sql:
-                    print(f"[DEBUG] Encontrado padrão específico: NOW() - INTERVAL '30 days'")
-                    sql = sql.replace("NOW() - INTERVAL '30 days'", f"NOW() - INTERVAL '{days} days'")
+                    original_sql = sql
+                    for old_pattern, new_pattern in replacements:
+                        if old_pattern in sql:
+                            print(f"[DEBUG] Substituindo '{old_pattern}' por '{new_pattern}'")
+                            sql = sql.replace(old_pattern, new_pattern)
 
-                original_sql = sql
-                for pattern in patterns:
-                    # Procurar o padrão na consulta
-                    matches = re.findall(pattern, sql, re.IGNORECASE)
-                    for match in matches:
-                        # Substituir o número de dias na consulta
-                        replacement = match.replace("'30 days'", f"'{days} days'")
-                        sql = sql.replace(match, replacement)
+                    # Verificar se houve alteração
+                    if sql != original_sql:
+                        print(f"[DEBUG] Substituído dias no SQL para {days}")
+                    else:
+                        print(f"[DEBUG] Não foi possível substituir dias no SQL usando substituição direta")
 
-                # Verificar se houve alteração
-                if sql != original_sql:
-                    print(f"[DEBUG] Substituído dias no SQL para {days}")
+                        # Se a substituição direta falhar, tentar com expressões regulares
+                        print(f"[DEBUG] Tentando substituição com expressões regulares")
+                        patterns = [
+                            r"INTERVAL\s+'30\s+days'",
+                            r"INTERVAL\s+\'30\s+days\'",
+                            r"NOW\(\)\s*-\s*INTERVAL\s+'30\s+days'",
+                            r"CURRENT_DATE\s*-\s*INTERVAL\s+'30\s+days'",
+                            r"INTERVAL\s+'30 days'",
+                            r"NOW\(\)\s*-\s*INTERVAL\s+'30 days'",
+                            r"INTERVAL '30 days'"
+                        ]
+
+                        for pattern in patterns:
+                            # Procurar o padrão na consulta
+                            matches = re.findall(pattern, sql, re.IGNORECASE)
+                            for match in matches:
+                                # Substituir o número de dias na consulta
+                                replacement = match.replace("'30 days'", f"'{days} days'")
+                                replacement = replacement.replace("'30 days'", f"'{days} days'")  # Garantir que todas as ocorrências sejam substituídas
+                                sql = sql.replace(match, replacement)
+
+                        # Verificar novamente se houve alteração
+                        if sql != original_sql:
+                            print(f"[DEBUG] Substituído dias no SQL para {days} usando expressões regulares")
+                        else:
+                            print(f"[DEBUG] Não foi possível substituir dias no SQL mesmo com expressões regulares")
                 else:
-                    print(f"[DEBUG] Não foi possível substituir dias no SQL")
+                    print(f"[DEBUG] Número de dias é 30, não é necessário substituir")
 
             print(f"[DEBUG] SQL adaptado:\n{sql}")
             return sql
