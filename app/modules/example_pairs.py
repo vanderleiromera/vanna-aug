@@ -192,16 +192,15 @@ JOIN
 JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
 LEFT JOIN
-    stock_quant sq ON pp.id = sq.product_id AND sq.location_id IN (SELECT id FROM stock_location WHERE usage = 'internal')
+    stock_quant sq ON pp.id = sq.product_id AND sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)
 JOIN
     sale_order so ON sol.order_id = so.id
 WHERE
-    so.date_order >= CURRENT_DATE - INTERVAL '30 days'  -- Filtrando para os últimos 30 dias
-    AND so.state IN ('sale', 'done')  -- Apenas pedidos confirmados ou concluídos
+    so.date_order >= NOW() - INTERVAL '30 days'  -- Filtrando para os últimos 30 dias
 GROUP BY
     pt.id, pt.name, pt.default_code
-HAVING
-    SUM(sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) <= 0;
+HAVING SUM
+    (sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) = 0;
 """,
         },
         {
