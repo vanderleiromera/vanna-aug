@@ -362,6 +362,29 @@ ORDER BY
 """,
         },
         {
+            "question": "Quais são os 10 produtos mais vendidos em valor?",
+            "sql": """
+SELECT
+    pt.name AS nome_produto,
+    SUM(sol.price_subtotal) AS total_vendas
+FROM
+    sale_order_line sol
+JOIN
+    product_product pp ON sol.product_id = pp.id
+JOIN
+    product_template pt ON pp.product_tmpl_id = pt.id
+JOIN
+    sale_order so ON sol.order_id = so.id
+WHERE
+    so.state IN ('sale', 'done')
+GROUP BY
+    pt.name
+ORDER BY
+    total_vendas DESC
+LIMIT 10;
+""",
+        },
+        {
             "question": "Qual o total de vendas do produto de código 222 em valor e quantidade no mês 06/2024?",
             "sql": """
 SELECT

@@ -88,6 +88,31 @@ class VannaOdoo(VannaOdooTraining):
         try:
             print(f"[DEBUG] Processing question: {question}")
 
+            # Verificar se a pergunta é sobre produtos mais vendidos em valor
+            if "produtos mais vendidos" in question.lower() and "valor" in question.lower():
+                print(f"[DEBUG] Detected question about top selling products by value")
+
+                # Buscar o exemplo específico para produtos mais vendidos em valor
+                from modules.example_pairs import get_example_pairs
+                for pair in get_example_pairs():
+                    if "10 produtos mais vendidos em valor" in pair.get("question", "").lower():
+                        print(f"[DEBUG] Found exact example for top selling products by value")
+                        # Extrair o número de produtos solicitados
+                        import re
+                        limit_match = re.search(r"(\d+)\s+produtos", question.lower())
+                        limit = 10  # Valor padrão
+                        if limit_match:
+                            limit = int(limit_match.group(1))
+                            print(f"[DEBUG] Detected limit of {limit} products")
+
+                        # Adaptar o SQL para o limite solicitado
+                        sql = pair.get("sql", "")
+                        if limit != 10:
+                            sql = sql.replace("LIMIT 10", f"LIMIT {limit}")
+                            print(f"[DEBUG] Adapted SQL with limit {limit}")
+
+                        return sql
+
             # Primeiro, verificar se temos um exemplo similar em example_pairs
             # Isso é mais eficiente do que gerar SQL do zero
             similar_questions = self.get_similar_questions(question)
