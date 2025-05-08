@@ -92,6 +92,43 @@ class VannaOdoo(VannaOdooTraining):
         try:
             print(f"[DEBUG] Processing question: {question}")
 
+            # Verificar se é a pergunta específica sobre produtos sem estoque
+            if "produtos foram vendidos nos últimos" in question.lower() and "não têm estoque" in question.lower():
+                print(f"[DEBUG] Detectada pergunta específica sobre produtos sem estoque")
+
+                # Extrair o número de dias da pergunta atual
+                days_match = re.search(r"(\d+)\s+dias", question.lower())
+                if days_match:
+                    days = int(days_match.group(1))
+                    print(f"[DEBUG] Detectado {days} dias na pergunta específica")
+
+                    # Criar uma nova consulta SQL com o número de dias correto
+                    # Esta é uma abordagem mais segura do que tentar substituir o padrão
+                    sql = f"""
+SELECT
+    pt.name AS produto,
+    SUM(sol.product_uom_qty) AS total_vendido,
+    COALESCE(SUM(sq.quantity), 0) AS estoque
+FROM
+    sale_order_line sol
+JOIN
+    product_product pp ON sol.product_id = pp.id
+JOIN
+    product_template pt ON pp.product_tmpl_id = pt.id
+LEFT JOIN
+    stock_quant sq ON pp.id = sq.product_id AND sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)
+JOIN
+    sale_order so ON sol.order_id = so.id
+WHERE
+    so.date_order >= NOW() - INTERVAL '{days} days'  -- Filtrando para os últimos {days} dias
+GROUP BY
+    pt.id, pt.name, pt.default_code
+HAVING SUM
+    (sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) = 0;
+"""
+                    print(f"[DEBUG] Criada nova consulta SQL com {days} dias diretamente no generate_sql")
+                    return sql
+
             # 1. Obter perguntas similares
             similar_questions = self.get_similar_questions(question)
             print(f"[DEBUG] Found {len(similar_questions)} similar questions")
