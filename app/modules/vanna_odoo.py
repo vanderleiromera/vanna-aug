@@ -202,8 +202,15 @@ class VannaOdoo(VannaOdooTraining):
                     r"INTERVAL\s+\'30\s+days\'",
                     r"NOW\(\)\s*-\s*INTERVAL\s+'30\s+days'",
                     r"CURRENT_DATE\s*-\s*INTERVAL\s+'30\s+days'",
-                    r"INTERVAL\s+'30 days'"
+                    r"INTERVAL\s+'30 days'",
+                    r"NOW\(\)\s*-\s*INTERVAL\s+'30 days'",  # Padrão específico do exemplo
+                    r"INTERVAL '30 days'"  # Padrão mais simples sem espaços extras
                 ]
+
+                # Adicionar uma verificação manual para o padrão específico do exemplo
+                if "NOW() - INTERVAL '30 days'" in sql:
+                    print(f"[DEBUG] Encontrado padrão específico: NOW() - INTERVAL '30 days'")
+                    sql = sql.replace("NOW() - INTERVAL '30 days'", f"NOW() - INTERVAL '{days} days'")
 
                 original_sql = sql
                 for pattern in patterns:
