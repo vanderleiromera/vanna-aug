@@ -223,6 +223,30 @@ class VannaOdoo(VannaOdooTraining):
             else:
                 print("[DEBUG] ChromaDB collection not available. Using fallback.")
 
+            # Primeiro, vamos tentar encontrar uma correspondência exata em example_pairs
+            # Isso garante que perguntas exatas ou muito similares sejam encontradas primeiro
+            try:
+                from modules.example_pairs import get_example_pairs, get_similar_question_sql
+
+                # Get example pairs
+                example_pairs = get_example_pairs()
+                print(f"[DEBUG] Checking {len(example_pairs)} example pairs for exact match")
+
+                # Normalizar a pergunta para comparação
+                normalized_question = question.lower().strip().rstrip('?')
+
+                # Procurar por correspondência exata ou muito próxima
+                for pair in example_pairs:
+                    pair_question = pair.get("question", "").lower().strip().rstrip('?')
+                    # Verificar se as perguntas são idênticas ou muito similares
+                    if normalized_question == pair_question or normalized_question in pair_question or pair_question in normalized_question:
+                        print(f"[DEBUG] Found exact match in example_pairs: {pair['question']}")
+                        return [pair]
+
+                print("[DEBUG] No exact match found in example_pairs")
+            except Exception as e:
+                print(f"[DEBUG] Error checking example_pairs for exact match: {e}")
+
             # Use the parent method to get similar questions
             similar_questions = []
             if chromadb_working:
@@ -313,12 +337,6 @@ class VannaOdoo(VannaOdooTraining):
             # If we don't have similar questions, try to get them from example_pairs
             print("[DEBUG] No similar questions found in ChromaDB. Using fallback to example_pairs.")
             try:
-                from modules.example_pairs import get_example_pairs, get_similar_question_sql
-
-                # Get example pairs
-                example_pairs = get_example_pairs()
-                print(f"[DEBUG] Found {len(example_pairs)} example pairs")
-
                 # Get similar question
                 similar_question = get_similar_question_sql(question, example_pairs)
 
