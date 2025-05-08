@@ -501,29 +501,67 @@ class VannaOdooExtended(VannaOdooNumeric):
                     doc_types[doc_type] += 1
 
                 # Analisar documentos de relacionamento
-                relationship_docs = [m for m in all_docs["metadatas"] if m.get("type") == "relationship"]
+                relationship_docs = []
+                relationship_indices = []
+
+                # Encontrar índices de documentos de relacionamento
+                for i, metadata in enumerate(all_docs["metadatas"]):
+                    if metadata.get("type") == "relationship":
+                        relationship_docs.append(metadata)
+                        relationship_indices.append(i)
+
                 relationship_tables = {}
                 total_relationships = 0
 
-                for i, metadata in enumerate(relationship_docs):
+                # Analisar cada documento de relacionamento
+                for i, idx in enumerate(relationship_indices):
+                    metadata = all_docs["metadatas"][idx]
                     table = metadata.get("table", "unknown")
-                    rel_count = metadata.get("relationship_count", 0)
-                    total_relationships += rel_count
 
-                    if table not in relationship_tables:
-                        relationship_tables[table] = {
-                            "count": 0,
-                            "relationships": 0
-                        }
+                    # Obter o conteúdo do documento
+                    if "documents" in all_docs and len(all_docs["documents"]) > idx:
+                        doc_content = all_docs["documents"][idx]
 
-                    relationship_tables[table]["count"] += 1
-                    relationship_tables[table]["relationships"] += rel_count
+                        # Contar relacionamentos no conteúdo do documento
+                        # Cada linha que começa com "- Column" ou "- Table" é um relacionamento
+                        rel_count = 0
+                        for line in doc_content.split("\n"):
+                            if line.strip().startswith("- Column") or line.strip().startswith("- Table"):
+                                rel_count += 1
 
-                    # Mostrar alguns exemplos de documentos de relacionamento
-                    if i < 5 and "documents" in all_docs and len(all_docs["documents"]) > i:
-                        doc_content = all_docs["documents"][i]
-                        print(f"[DEBUG] Exemplo de documento de relacionamento para tabela {table}:")
-                        print(f"{doc_content[:200]}...")
+                        # Atualizar contagem total
+                        total_relationships += rel_count
+
+                        # Inicializar entrada para a tabela se não existir
+                        if table not in relationship_tables:
+                            relationship_tables[table] = {
+                                "count": 0,
+                                "relationships": 0
+                            }
+
+                        # Atualizar contagens para a tabela
+                        relationship_tables[table]["count"] += 1
+                        relationship_tables[table]["relationships"] += rel_count
+
+                        # Mostrar alguns exemplos de documentos de relacionamento
+                        if i < 5:
+                            print(f"[DEBUG] Exemplo de documento de relacionamento para tabela {table} ({rel_count} relacionamentos):")
+                            print(f"{doc_content[:200]}...")
+                    else:
+                        # Se não conseguirmos obter o conteúdo, usar o valor do metadado (que pode ser 0)
+                        rel_count = metadata.get("relationship_count", 0)
+                        total_relationships += rel_count
+
+                        # Inicializar entrada para a tabela se não existir
+                        if table not in relationship_tables:
+                            relationship_tables[table] = {
+                                "count": 0,
+                                "relationships": 0
+                            }
+
+                        # Atualizar contagens para a tabela
+                        relationship_tables[table]["count"] += 1
+                        relationship_tables[table]["relationships"] += rel_count
 
                 # Analisar documentos de pares pergunta-SQL
                 pair_docs = [m for m in all_docs["metadatas"] if m.get("type") == "pair"]
