@@ -71,6 +71,45 @@ class VannaOdoo(VannaOdooTraining):
         # Execute the query
         return self.run_sql_query(sql)
 
+    def generate_sql(self, question, allow_llm_to_see_data=False, **kwargs):
+        """
+        Generate SQL from a natural language question
+
+        Esta implementação sobrescreve o método da classe pai para priorizar o uso de exemplos.
+
+        Args:
+            question (str): The question to generate SQL for
+            allow_llm_to_see_data (bool, optional): Whether to allow the LLM to see data. Defaults to False.
+            **kwargs: Additional arguments
+
+        Returns:
+            str: The generated SQL
+        """
+        try:
+            print(f"[DEBUG] Processing question: {question}")
+
+            # Primeiro, verificar se temos um exemplo similar em example_pairs
+            # Isso é mais eficiente do que gerar SQL do zero
+            similar_questions = self.get_similar_questions(question)
+            if similar_questions and len(similar_questions) > 0:
+                print(f"[DEBUG] Found similar question in example_pairs")
+                similar_question = similar_questions[0]
+
+                # Adaptar o SQL do exemplo para a pergunta atual
+                adapted_sql = self.adapt_sql_from_similar_question(question, similar_question)
+                if adapted_sql:
+                    print(f"[DEBUG] Using adapted SQL from example")
+                    return adapted_sql
+
+            # Se não encontramos um exemplo similar, usar o método da classe pai
+            print(f"[DEBUG] No similar example found, using parent method")
+            return super().generate_sql(question, allow_llm_to_see_data, **kwargs)
+        except Exception as e:
+            print(f"Error in generate_sql: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def ask(self, question, allow_llm_to_see_data=False):
         """
         Generate SQL from a natural language question with improved handling for Portuguese
@@ -93,33 +132,8 @@ class VannaOdoo(VannaOdooTraining):
             if sql:
                 return self.run_sql(sql, question=question)
             else:
-                # If we couldn't generate SQL, try to find a similar question
-                similar_questions = self.get_similar_questions(question)
-                if similar_questions:
-                    print(f"[DEBUG] Found {len(similar_questions)} similar questions")
-
-                    # Usar a primeira pergunta similar
-                    similar_question = similar_questions[0]
-                    similar_question_tokens = self.estimate_tokens(similar_question['question'], model)
-                    print(
-                        f"[DEBUG] Using similar question: '{similar_question['question']}' ({similar_question_tokens} tokens estimados)"
-                    )
-
-                    # Adapt the SQL from the similar question
-                    adapted_sql = self.adapt_sql_from_similar_question(
-                        question, similar_question
-                    )
-
-                    # Estimar tokens da SQL adaptada
-                    if adapted_sql:
-                        adapted_sql_tokens = self.estimate_tokens(adapted_sql, model)
-                        print(f"[DEBUG] SQL adaptado ({adapted_sql_tokens} tokens estimados)")
-                        print(f"[DEBUG] Adaptando SQL para os valores da pergunta")
-
-                    return adapted_sql, question
-                else:
-                    print("[DEBUG] No similar questions found")
-                    return None
+                print("[DEBUG] No SQL generated")
+                return None
         except Exception as e:
             print(f"Error in ask: {e}")
             import traceback
