@@ -456,6 +456,108 @@ class VannaOdooExtended(VannaOdooNumeric):
             traceback.print_exc()
             return {"status": "error", "message": f"Erro ao resetar ChromaDB: {e}"}
 
+    def analyze_chromadb_content(self):
+        """
+        Analisa o conteúdo do ChromaDB em detalhes, mostrando estatísticas sobre os tipos de documentos.
+
+        Returns:
+            dict: Estatísticas detalhadas sobre o conteúdo do ChromaDB
+        """
+        try:
+            # Verificar se temos acesso à coleção ChromaDB
+            if not hasattr(self, "collection") or self.collection is None:
+                # Tentar obter a coleção
+                try:
+                    self.collection = self.get_collection()
+                    print("[DEBUG] Coleção ChromaDB obtida com sucesso")
+                except Exception as e:
+                    print(f"[DEBUG] Erro ao obter coleção ChromaDB: {e}")
+                    return {"status": "error", "message": f"Erro ao obter coleção ChromaDB: {e}"}
+
+            # Obter a contagem total de documentos
+            try:
+                total_count = self.collection.count()
+                print(f"[DEBUG] Total de documentos no ChromaDB: {total_count}")
+            except Exception as e:
+                print(f"[DEBUG] Erro ao contar documentos: {e}")
+                return {"status": "error", "message": f"Erro ao contar documentos: {e}"}
+
+            # Obter todos os documentos com seus metadados
+            try:
+                all_docs = self.collection.get(limit=1000)  # Limite alto para pegar todos
+                if not all_docs or "metadatas" not in all_docs or not all_docs["metadatas"]:
+                    return {
+                        "status": "warning",
+                        "message": "Não foi possível obter metadados dos documentos",
+                        "count": total_count
+                    }
+
+                # Analisar os tipos de documentos
+                doc_types = {}
+                for metadata in all_docs["metadatas"]:
+                    doc_type = metadata.get("type", "unknown")
+                    if doc_type not in doc_types:
+                        doc_types[doc_type] = 0
+                    doc_types[doc_type] += 1
+
+                # Analisar documentos de relacionamento
+                relationship_docs = [m for m in all_docs["metadatas"] if m.get("type") == "relationship"]
+                relationship_tables = {}
+                total_relationships = 0
+
+                for i, metadata in enumerate(relationship_docs):
+                    table = metadata.get("table", "unknown")
+                    rel_count = metadata.get("relationship_count", 0)
+                    total_relationships += rel_count
+
+                    if table not in relationship_tables:
+                        relationship_tables[table] = {
+                            "count": 0,
+                            "relationships": 0
+                        }
+
+                    relationship_tables[table]["count"] += 1
+                    relationship_tables[table]["relationships"] += rel_count
+
+                    # Mostrar alguns exemplos de documentos de relacionamento
+                    if i < 5 and "documents" in all_docs and len(all_docs["documents"]) > i:
+                        doc_content = all_docs["documents"][i]
+                        print(f"[DEBUG] Exemplo de documento de relacionamento para tabela {table}:")
+                        print(f"{doc_content[:200]}...")
+
+                # Analisar documentos de pares pergunta-SQL
+                pair_docs = [m for m in all_docs["metadatas"] if m.get("type") == "pair"]
+
+                # Preparar resultado
+                result = {
+                    "status": "success",
+                    "message": f"Análise do ChromaDB concluída. Total: {total_count} documentos.",
+                    "count": total_count,
+                    "document_types": doc_types,
+                    "relationship_stats": {
+                        "tables": len(relationship_tables),
+                        "documents": len(relationship_docs),
+                        "total_relationships": total_relationships,
+                        "details": relationship_tables
+                    },
+                    "pair_stats": {
+                        "count": len(pair_docs)
+                    }
+                }
+
+                return result
+            except Exception as e:
+                print(f"[DEBUG] Erro ao analisar documentos: {e}")
+                import traceback
+                traceback.print_exc()
+                return {"status": "error", "message": f"Erro ao analisar documentos: {e}"}
+
+        except Exception as e:
+            print(f"[DEBUG] Erro ao analisar ChromaDB: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"status": "error", "message": f"Erro ao analisar ChromaDB: {e}"}
+
     def check_chromadb(self):
         """
         Verifica o estado do ChromaDB e força a recarga dos dados.
