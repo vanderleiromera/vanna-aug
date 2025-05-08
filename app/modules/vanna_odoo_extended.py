@@ -533,6 +533,74 @@ class VannaOdooExtended(VannaOdooNumeric):
             traceback.print_exc()
             return {"status": "error", "message": f"Erro ao verificar ChromaDB: {e}"}
 
+    def train_on_example_pair(self, question, sql):
+        """
+        Treina o modelo com um par de pergunta e SQL.
+        Este método é usado para treinar o modelo com exemplos pré-definidos.
+
+        Args:
+            question (str): A pergunta em linguagem natural
+            sql (str): A consulta SQL correspondente
+
+        Returns:
+            bool: True se o treinamento foi bem-sucedido, False caso contrário
+        """
+        try:
+            print(f"[DEBUG] Treinando com par de exemplo: {question}")
+
+            # Verificar se temos acesso à coleção ChromaDB
+            if not hasattr(self, "collection") or self.collection is None:
+                # Tentar obter a coleção
+                try:
+                    self.collection = self.get_collection()
+                    print("[DEBUG] Coleção ChromaDB obtida com sucesso")
+                except Exception as e:
+                    print(f"[DEBUG] Erro ao obter coleção ChromaDB: {e}")
+                    return False
+
+            # Criar o conteúdo do documento
+            content = f"Question: {question}\nSQL: {sql}"
+
+            # Gerar um ID único para o documento
+            import hashlib
+            content_hash = hashlib.md5(content.encode()).hexdigest()
+            doc_id = f"pair-{content_hash}"
+
+            # Adicionar o documento à coleção
+            try:
+                # Adicionar com metadados para facilitar a busca
+                self.collection.add(
+                    documents=[content],
+                    metadatas=[{"type": "pair", "question": question}],
+                    ids=[doc_id]
+                )
+                print(f"[DEBUG] Documento adicionado com sucesso, ID: {doc_id}")
+
+                # Verificar se o documento foi adicionado
+                try:
+                    doc = self.collection.get(ids=[doc_id])
+                    if doc and "documents" in doc and len(doc["documents"]) > 0:
+                        print(f"[DEBUG] Documento verificado: {doc['documents'][0][:50]}...")
+                        return True
+                    else:
+                        print("[DEBUG] Documento não encontrado após adição")
+                        return False
+                except Exception as e:
+                    print(f"[DEBUG] Erro ao verificar documento: {e}")
+                    # Continuar mesmo se não conseguirmos verificar
+            except Exception as e:
+                print(f"[DEBUG] Erro ao adicionar documento: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
+
+            return True
+        except Exception as e:
+            print(f"[DEBUG] Erro em train_on_example_pair: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def get_collection(self):
         """
         Retorna a coleção ChromaDB atual. Se a coleção não existir, tenta criá-la.
