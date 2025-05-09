@@ -9,6 +9,19 @@ import requests
 import streamlit as st
 from dotenv import load_dotenv
 
+
+# Função para definir a pergunta atual
+def set_question(question):
+    """Define a pergunta atual e marca para processamento."""
+    if "current_question" not in st.session_state:
+        st.session_state.current_question = ""
+    if "should_process" not in st.session_state:
+        st.session_state.should_process = False
+
+    st.session_state.current_question = question
+    st.session_state.should_process = True
+
+
 # Configurar o Streamlit
 st.set_page_config(
     page_title="Assistente de Banco de Dados Odoo com Vanna AI",
@@ -489,25 +502,92 @@ Faça perguntas sobre seu banco de dados Odoo em linguagem natural e obtenha con
 )
 
 # Add example queries section
-with st.expander("Exemplos de Consultas"):
-    st.markdown(
-        """
-    ### Exemplos de Perguntas
-    - Mostre os 10 principais clientes por vendas
-    - Liste as vendas de 2024, mês a mês, por valor total
-    - Quais são os 10 produtos mais vendidos? em valor!
-    - Mostre o nivel de estoque de 50 produtos, mas vendidos em valor de 2024
-    - Quais produtos tem 'caixa' no nome?
-    - Quais produtos têm 'porcelanato' no nome, quantidade em estoque e preço de venda?
-    - Quais produtos foram vendidos nos últimos 30 dias, mas não têm estoque em mãos?
-    - Sugestão de Compra para os proximos 30 dias, dos 50 produtos mais vendidos!!!
-    """
-    )
+with st.expander("Exemplos de Consultas", expanded=False):
+    # Criar duas colunas para os exemplos
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### Exemplos de Perguntas")
+
+        # Lista de exemplos de perguntas
+        example_questions = [
+            "Mostre os 10 principais clientes por vendas",
+            "Liste as vendas de 2024, mês a mês, por valor total",
+            "Quais são os 10 produtos mais vendidos? em valor!",
+            "Mostre o nivel de estoque de 50 produtos, mas vendidos em valor de 2024",
+            "Quais produtos tem 'caixa' no nome?",
+            "Quais produtos têm 'porcelanato' no nome, quantidade em estoque e preço de venda?",
+            "Quais produtos foram vendidos nos últimos 30 dias, mas não têm estoque em mãos?",
+            "Sugestão de Compra para os proximos 30 dias, dos 50 produtos mais vendidos!!!",
+        ]
+
+        # Criar botões para cada exemplo
+        for i, question in enumerate(example_questions):
+            # Criar um ID único para cada botão
+            button_id = f"example_{i}"
+
+            # Criar um botão que parece um link
+            if st.button(f"🔍 {question}", key=button_id):
+                # Definir a pergunta como a nova pergunta do usuário
+                set_question(question)
+                # Recarregar a página para processar a nova pergunta
+                st.rerun()
+
+    with col2:
+        st.markdown("### Perguntas Dinâmicas")
+
+        # Verificar se temos perguntas dinâmicas
+        if hasattr(vn, "generate_questions"):
+            try:
+                # Gerar perguntas dinâmicas
+                with st.spinner("Gerando perguntas dinâmicas..."):
+                    dynamic_questions = vn.generate_questions()
+
+                # Filtrar perguntas vazias
+                dynamic_questions = [q.strip() for q in dynamic_questions if q.strip()]
+
+                if dynamic_questions:
+                    # Mostrar apenas as 5 primeiras perguntas
+                    for i, question in enumerate(dynamic_questions[:5]):
+                        # Criar um ID único para cada botão
+                        button_id = f"dynamic_{i}"
+
+                        # Criar um botão que parece um link
+                        if st.button(f"🔍 {question}", key=button_id):
+                            # Definir a pergunta como a nova pergunta do usuário
+                            set_question(question)
+                            # Recarregar a página para processar a nova pergunta
+                            st.rerun()
+                else:
+                    st.info(
+                        "Nenhuma pergunta dinâmica disponível. Treine o modelo com mais exemplos."
+                    )
+            except Exception as e:
+                st.error(f"Erro ao gerar perguntas dinâmicas: {str(e)}")
+        else:
+            st.info(
+                "A geração de perguntas dinâmicas não está disponível nesta versão do Vanna.ai."
+            )
 
 # User input
+# Inicializar as variáveis de sessão se não existirem
+if "current_question" not in st.session_state:
+    st.session_state.current_question = ""
+if "should_process" not in st.session_state:
+    st.session_state.should_process = False
+
+# Verificar se temos uma pergunta para processar de um botão
+if st.session_state.should_process:
+    # Desativar o processamento para a próxima renderização
+    st.session_state.should_process = False
+
+# Campo de texto para a pergunta
 user_question = st.text_input(
     "Faça uma pergunta sobre seu banco de dados Odoo:",
+    value=st.session_state.current_question,
+    key="question_input",
     placeholder="Ex: Liste as vendas de 2024, mês a mês, por valor total",
+    on_change=lambda: set_question(st.session_state.question_input),
 )
 
 if user_question:
@@ -693,21 +773,73 @@ if user_question:
                     help="Baixar resultados em formato JSON",
                 )
 
-            # Add option to generate summary
-            if st.button("Gerar Resumo dos Dados"):
-                with st.spinner("Gerando resumo..."):
-                    # Generate summary
-                    summary = vn.generate_summary(results)
+            # Criar colunas para os botões de resumo e perguntas de acompanhamento
+            col_summary, col_followup = st.columns(2)
 
-                    if summary.startswith("Error:"):
-                        st.error(summary)
-                        if "not allowed to see data" in summary:
-                            st.info(
-                                "Para permitir que o LLM veja os dados, ative a opção 'Permitir que o LLM veja os dados' na barra lateral e reinicie a aplicação."
-                            )
-                    else:
-                        st.subheader("Resumo dos Dados")
-                        st.write(summary)
+            # Botão para gerar resumo
+            with col_summary:
+                if st.button("📊 Gerar Resumo dos Dados"):
+                    with st.spinner("Gerando resumo..."):
+                        # Generate summary
+                        summary = vn.generate_summary(results)
+
+                        if summary.startswith("Error:"):
+                            st.error(summary)
+                            if "not allowed to see data" in summary:
+                                st.info(
+                                    "Para permitir que o LLM veja os dados, ative a opção 'Permitir que o LLM veja os dados' na barra lateral e reinicie a aplicação."
+                                )
+                        else:
+                            st.subheader("Resumo dos Dados")
+                            st.write(summary)
+
+            # Botão para gerar perguntas de acompanhamento
+            with col_followup:
+                if st.button("❓ Gerar Perguntas Relacionadas"):
+                    with st.spinner("Gerando perguntas relacionadas..."):
+                        try:
+                            # Verificar se o método generate_followup_questions existe
+                            if hasattr(vn, "generate_followup_questions"):
+                                # Gerar perguntas de acompanhamento
+                                followup_questions = vn.generate_followup_questions(
+                                    question=user_question,
+                                    sql=sql,
+                                    df=results,
+                                    n_questions=5,
+                                )
+
+                                # Filtrar perguntas vazias
+                                followup_questions = [
+                                    q.strip() for q in followup_questions if q.strip()
+                                ]
+
+                                if followup_questions:
+                                    st.subheader("Perguntas Relacionadas")
+
+                                    # Criar botões para cada pergunta
+                                    for i, question in enumerate(followup_questions):
+                                        # Criar um ID único para cada botão
+                                        button_id = f"followup_{i}"
+
+                                        # Criar um botão que parece um link
+                                        if st.button(f"🔍 {question}", key=button_id):
+                                            # Definir a pergunta como a nova pergunta do usuário
+                                            set_question(question)
+                                            # Recarregar a página para processar a nova pergunta
+                                            st.rerun()
+                                else:
+                                    st.info(
+                                        "Não foi possível gerar perguntas relacionadas."
+                                    )
+                            else:
+                                st.error(
+                                    "O método generate_followup_questions não está disponível nesta versão do Vanna.ai."
+                                )
+                        except Exception as e:
+                            st.error(f"Erro ao gerar perguntas relacionadas: {e}")
+                            import traceback
+
+                            st.code(traceback.format_exc())
 
             # Avaliar a qualidade do SQL para treinamento
             from modules.sql_evaluator import evaluate_sql_quality
