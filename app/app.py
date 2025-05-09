@@ -9,19 +9,6 @@ import requests
 import streamlit as st
 from dotenv import load_dotenv
 
-
-# Função para definir a pergunta atual
-def set_question(question):
-    """Define a pergunta atual e marca para processamento."""
-    if "current_question" not in st.session_state:
-        st.session_state.current_question = ""
-    if "should_process" not in st.session_state:
-        st.session_state.should_process = False
-
-    st.session_state.current_question = question
-    st.session_state.should_process = True
-
-
 # Configurar o Streamlit
 st.set_page_config(
     page_title="Assistente de Banco de Dados Odoo com Vanna AI",
@@ -526,12 +513,9 @@ with st.expander("Exemplos de Consultas", expanded=False):
             # Criar um ID único para cada botão
             button_id = f"example_{i}"
 
-            # Criar um botão que parece um link
-            if st.button(f"🔍 {question}", key=button_id):
-                # Definir a pergunta como a nova pergunta do usuário
-                set_question(question)
-                # Recarregar a página para processar a nova pergunta
-                st.rerun()
+            # Criar um link para a pergunta
+            encoded_question = question.replace(" ", "%20")
+            st.markdown(f"[🔍 {question}](/?question={encoded_question})")
 
     with col2:
         st.markdown("### Perguntas Dinâmicas")
@@ -552,12 +536,8 @@ with st.expander("Exemplos de Consultas", expanded=False):
                         # Criar um ID único para cada botão
                         button_id = f"dynamic_{i}"
 
-                        # Criar um botão que parece um link
-                        if st.button(f"🔍 {question}", key=button_id):
-                            # Definir a pergunta como a nova pergunta do usuário
-                            set_question(question)
-                            # Recarregar a página para processar a nova pergunta
-                            st.rerun()
+                        # Criar um link para a pergunta
+                        st.markdown(f"[🔍 {question}](/?question={encoded_question})")
                 else:
                     st.info(
                         "Nenhuma pergunta dinâmica disponível. Treine o modelo com mais exemplos."
@@ -570,27 +550,45 @@ with st.expander("Exemplos de Consultas", expanded=False):
             )
 
 # User input
-# Inicializar as variáveis de sessão se não existirem
-if "current_question" not in st.session_state:
-    st.session_state.current_question = ""
-if "should_process" not in st.session_state:
-    st.session_state.should_process = False
+# Obter parâmetros da URL
+query_params = st.query_params
 
-# Verificar se temos uma pergunta para processar de um botão
-if st.session_state.should_process:
-    # Desativar o processamento para a próxima renderização
-    st.session_state.should_process = False
+# Verificar se temos uma pergunta na URL
+initial_value = ""
+if "question" in query_params:
+    initial_value = query_params["question"]
+    print(f"[DEBUG] Pergunta obtida da URL: '{initial_value}'")
 
 # Campo de texto para a pergunta
 user_question = st.text_input(
     "Faça uma pergunta sobre seu banco de dados Odoo:",
-    value=st.session_state.current_question,
+    value=initial_value,
     key="question_input",
     placeholder="Ex: Liste as vendas de 2024, mês a mês, por valor total",
-    on_change=lambda: set_question(st.session_state.question_input),
 )
 
 if user_question:
+    # Verificar se é uma nova pergunta (diferente da última processada)
+    if (
+        "last_processed_question" not in st.session_state
+        or st.session_state.last_processed_question != user_question
+    ):
+        # Verificar se a pergunta veio da URL (parâmetro de consulta)
+        from_url = (
+            "question" in query_params and query_params["question"] == user_question
+        )
+
+        # Limpar perguntas relacionadas anteriores se estamos processando uma nova pergunta
+        # que não veio de um link de pergunta relacionada
+        if not from_url and "followup_questions" in st.session_state:
+            print(
+                f"[DEBUG] Nova pergunta digitada, limpando perguntas relacionadas anteriores"
+            )
+            del st.session_state.followup_questions
+
+        # Armazenar a pergunta atual como a última processada
+        st.session_state.last_processed_question = user_question
+
     # Generate SQL from the question
     with st.spinner("Gerando SQL..."):
         # Add debug information
@@ -728,6 +726,12 @@ if user_question:
             # Use run_sql instead of run_sql_query to pass the original question
             results = vn.run_sql(sql, question=original_question)
 
+            # Armazenar os resultados, SQL e pergunta original na sessão para uso posterior
+            # Isso garante que as perguntas relacionadas possam acessar esses dados
+            st.session_state.last_results = results
+            st.session_state.last_sql = sql
+            st.session_state.last_original_question = original_question
+
         if results is not None and not results.empty:
             # Display results
             st.subheader("Resultados da Consulta")
@@ -813,18 +817,56 @@ if user_question:
                             st.subheader("Resumo dos Dados")
                             st.write(summary)
 
-            # Botão para gerar perguntas de acompanhamento
+            # Botão para gerar perguntas relacionadas
             with col_followup:
-                if st.button("❓ Gerar Perguntas Relacionadas"):
+                # Botão para gerar perguntas relacionadas
+                if st.button(
+                    "❓ Gerar Perguntas Relacionadas", key="btn_generate_followup"
+                ):
+                    # Armazenar os dados atuais na sessão para que possam ser usados para gerar perguntas relacionadas
+                    st.session_state.current_query = {
+                        "question": user_question,
+                        "sql": sql,
+                        "results": results.to_dict() if results is not None else None,
+                    }
+
+                    # Definir flag para gerar perguntas relacionadas
+                    st.session_state.should_generate_followup = True
+
+                    # Recarregar a página para gerar as perguntas relacionadas
+                    st.rerun()
+
+                # Verificar se devemos gerar perguntas relacionadas
+                if (
+                    "should_generate_followup" in st.session_state
+                    and st.session_state.should_generate_followup
+                ):
+                    # Limpar a flag
+                    st.session_state.should_generate_followup = False
+
+                    # Recuperar os dados da consulta atual
+                    current_query = st.session_state.current_query
+                    question_to_use = current_query["question"]
+                    sql_to_use = current_query["sql"]
+
+                    # Converter o dicionário de resultados de volta para DataFrame
+                    if current_query["results"] is not None:
+                        df_to_use = pd.DataFrame.from_dict(current_query["results"])
+                    else:
+                        df_to_use = None
+
                     with st.spinner("Gerando perguntas relacionadas..."):
                         try:
                             # Verificar se o método generate_followup_questions existe
-                            if hasattr(vn, "generate_followup_questions"):
+                            if (
+                                hasattr(vn, "generate_followup_questions")
+                                and df_to_use is not None
+                            ):
                                 # Gerar perguntas de acompanhamento
                                 followup_questions = vn.generate_followup_questions(
-                                    question=user_question,
-                                    sql=sql,
-                                    df=results,
+                                    question=question_to_use,
+                                    sql=sql_to_use,
+                                    df=df_to_use,
                                     n_questions=5,
                                 )
 
@@ -834,32 +876,47 @@ if user_question:
                                 ]
 
                                 if followup_questions:
+                                    # Armazenar as perguntas na sessão
+                                    st.session_state.followup_questions = (
+                                        followup_questions
+                                    )
+
+                                    # Exibir as perguntas
                                     st.subheader("Perguntas Relacionadas")
 
-                                    # Criar botões para cada pergunta
+                                    # Criar links para cada pergunta
                                     for i, question in enumerate(followup_questions):
-                                        # Criar um ID único para cada botão
-                                        button_id = f"followup_{i}"
-
-                                        # Criar um botão que parece um link
-                                        if st.button(f"🔍 {question}", key=button_id):
-                                            # Definir a pergunta como a nova pergunta do usuário
-                                            set_question(question)
-                                            # Recarregar a página para processar a nova pergunta
-                                            st.rerun()
+                                        # Criar um link para a pergunta
+                                        encoded_question = question.replace(" ", "%20")
+                                        st.markdown(
+                                            f"[🔍 {question}](/?question={encoded_question})"
+                                        )
                                 else:
                                     st.info(
                                         "Não foi possível gerar perguntas relacionadas."
                                     )
                             else:
                                 st.error(
-                                    "O método generate_followup_questions não está disponível nesta versão do Vanna.ai."
+                                    "O método generate_followup_questions não está disponível ou não há resultados para gerar perguntas."
                                 )
                         except Exception as e:
                             st.error(f"Erro ao gerar perguntas relacionadas: {e}")
                             import traceback
 
                             st.code(traceback.format_exc())
+
+                # Exibir perguntas relacionadas se existirem na sessão
+                elif (
+                    "followup_questions" in st.session_state
+                    and st.session_state.followup_questions
+                ):
+                    # Exibir as perguntas relacionadas
+                    st.subheader("Perguntas Relacionadas")
+
+                    # Criar links para cada pergunta
+                    for i, question in enumerate(st.session_state.followup_questions):
+                        # Criar um link para a pergunta
+                        st.markdown(f"[🔍 {question}](/?question={encoded_question})")
 
             # Avaliar a qualidade do SQL para treinamento
             from modules.sql_evaluator import evaluate_sql_quality
