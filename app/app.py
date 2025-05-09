@@ -236,13 +236,17 @@ if col5.button("📚 5. Exemplos"):
                     try:
                         # Usar o método train_on_example_pair que não chama ask()
                         # Isso evita o erro de DataFrame ambíguo
-                        result = vn.train_on_example_pair(example["question"], example["sql"])
+                        result = vn.train_on_example_pair(
+                            example["question"], example["sql"]
+                        )
                         if result:
                             success_count += 1
                     except Exception as ex:
                         st.warning(f"Erro no exemplo {i+1}: {ex}")
 
-                st.success(f"✅ {success_count}/{len(example_pairs)} exemplos treinados!")
+                st.success(
+                    f"✅ {success_count}/{len(example_pairs)} exemplos treinados!"
+                )
 
                 # Verify training was successful
                 try:
@@ -275,9 +279,13 @@ if col6.button("🔄 6. Plano"):
                     if "tables" in plan:
                         st.info(f"- Tabelas: {len(plan['tables'])} tabelas")
                     if "relationships" in plan:
-                        st.info(f"- Relacionamentos: {'Sim' if plan['relationships'] else 'Não'}")
+                        st.info(
+                            f"- Relacionamentos: {'Sim' if plan['relationships'] else 'Não'}"
+                        )
                     if "example_pairs" in plan:
-                        st.info(f"- Exemplos: {'Sim' if plan['example_pairs'] else 'Não'}")
+                        st.info(
+                            f"- Exemplos: {'Sim' if plan['example_pairs'] else 'Não'}"
+                        )
 
                     with st.spinner("Executando plano..."):
                         try:
@@ -289,22 +297,30 @@ if col6.button("🔄 6. Plano"):
                                 # Mostrar resultados
                                 st.info("Resultados:")
                                 if "tables_trained" in result:
-                                    st.info(f"- Tabelas treinadas: {result['tables_trained']}")
+                                    st.info(
+                                        f"- Tabelas treinadas: {result['tables_trained']}"
+                                    )
                                 if "relationships_trained" in result:
-                                    st.info(f"- Relacionamentos treinados: {result['relationships_trained']}")
+                                    st.info(
+                                        f"- Relacionamentos treinados: {result['relationships_trained']}"
+                                    )
                                 if "example_pairs_trained" in result:
-                                    st.info(f"- Exemplos treinados: {result['example_pairs_trained']}")
+                                    st.info(
+                                        f"- Exemplos treinados: {result['example_pairs_trained']}"
+                                    )
                             else:
                                 st.error("❌ Falha na execução")
                         except Exception as e:
                             st.error(f"❌ Erro: {e}")
                             import traceback
+
                             st.code(traceback.format_exc())
                 else:
                     st.error("❌ Falha ao gerar plano")
             except Exception as e:
                 st.error(f"❌ Erro: {e}")
                 import traceback
+
                 st.code(traceback.format_exc())
 
 # Adicionar botões de gerenciamento em colunas
@@ -339,7 +355,9 @@ if col7.button("🗑️ Resetar Dados"):
                             st.success("✅ Dados resetados usando método alternativo!")
                         else:
                             st.error("❌ Método reset_training não encontrado.")
-                            st.info("Reinicie a aplicação para criar uma nova coleção vazia.")
+                            st.info(
+                                "Reinicie a aplicação para criar uma nova coleção vazia."
+                            )
             # Verificar se o método reset_training existe
             elif hasattr(vn, "reset_training"):
                 with st.spinner("Resetando dados..."):
@@ -351,6 +369,7 @@ if col7.button("🗑️ Resetar Dados"):
         except Exception as e:
             st.error(f"❌ Erro ao resetar dados: {e}")
             import traceback
+
             st.code(traceback.format_exc())
 
 # Botão para gerenciar dados de treinamento
@@ -363,54 +382,6 @@ if col8.button("📋 Gerenciar"):
         st.markdown("[Acessar http://localhost:8502](http://localhost:8502)")
         st.caption("Execute o comando acima em um terminal separado")
 
-# Seção de treinamento manual
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔍 Treinamento Manual")
-
-# Campos para treinamento manual em formato mais compacto
-manual_question = st.sidebar.text_area(
-    "Pergunta",
-    key="manual_question",
-    placeholder="Digite a pergunta em linguagem natural...",
-    height=80,
-)
-manual_sql = st.sidebar.text_area(
-    "SQL",
-    key="manual_sql",
-    placeholder="Digite a consulta SQL correspondente...",
-    height=120,
-)
-
-# Botão para treinar com o exemplo manual
-if st.sidebar.button("➕ Adicionar Exemplo"):
-    with st.sidebar:
-        # Validar entradas
-        if not manual_question.strip():
-            st.error("❌ Digite uma pergunta.")
-        elif not manual_sql.strip():
-            st.error("❌ Digite uma consulta SQL.")
-        else:
-            # Treinar com o exemplo manual
-            with st.spinner("Treinando..."):
-                try:
-                    result = vn.train(question=manual_question, sql=manual_sql)
-                    if result:
-                        st.success("✅ Exemplo treinado!")
-
-                        # Limpar os campos
-                        st.session_state.manual_question = ""
-                        st.session_state.manual_sql = ""
-
-                        # Verificar se o treinamento foi bem-sucedido
-                        training_data = vn.get_training_data()
-                        if training_data and len(training_data) > 0:
-                            st.success(f"✅ Total: {len(training_data)} exemplos")
-                        else:
-                            st.warning("⚠️ Nenhum dado encontrado")
-                    else:
-                        st.error("❌ Falha ao treinar.")
-                except Exception as e:
-                    st.error(f"❌ Erro: {e}")
 
 # Status de conexão com o banco de dados
 st.sidebar.markdown("---")
@@ -424,6 +395,90 @@ try:
         st.sidebar.error("❌ Falha na conexão")
 except Exception as e:
     st.sidebar.error(f"❌ Erro: {str(e)[:50]}...")
+
+# Seção de diagnóstico do ChromaDB
+st.sidebar.markdown("---")
+st.sidebar.subheader("📊 Diagnóstico do ChromaDB")
+
+# Botão para verificar o conteúdo do ChromaDB
+if st.sidebar.button("Analisar Conteúdo do ChromaDB", key="btn_analyze_chromadb"):
+    with st.sidebar:
+        with st.spinner("Analisando conteúdo do ChromaDB..."):
+            try:
+                # Verificar se o método analyze_chromadb_content existe
+                if hasattr(vn, "analyze_chromadb_content"):
+                    # Chamar o método analyze_chromadb_content
+                    result = vn.analyze_chromadb_content()
+
+                    # Verificar o resultado
+                    if result["status"] == "success":
+                        st.success(
+                            f"✅ ChromaDB está funcionando! Total: {result['count']} documentos."
+                        )
+
+                        # Mostrar estatísticas por tipo de documento
+                        st.subheader("Tipos de Documentos")
+                        doc_types = result.get("document_types", {})
+                        for doc_type, count in doc_types.items():
+                            if doc_type == "pair":
+                                st.info(f"📝 Pares Pergunta-SQL: {count}")
+                            elif doc_type == "ddl":
+                                st.info(f"🗄️ Definições de Tabelas (DDL): {count}")
+                            elif doc_type == "relationship":
+                                st.info(f"🔗 Documentos de Relacionamentos: {count}")
+                            elif doc_type == "documentation":
+                                st.info(f"📚 Documentação: {count}")
+                            else:
+                                st.info(f"📄 Outros ({doc_type}): {count}")
+
+                        # Mostrar estatísticas de relacionamentos
+                        rel_stats = result.get("relationship_stats", {})
+                        if rel_stats:
+                            st.subheader("Estatísticas de Relacionamentos")
+                            st.info(
+                                f"🗄️ Tabelas com relacionamentos: {rel_stats.get('tables', 0)}"
+                            )
+                            st.info(
+                                f"📄 Documentos de relacionamentos: {rel_stats.get('documents', 0)}"
+                            )
+                            st.info(
+                                f"🔗 Total de relacionamentos: {rel_stats.get('total_relationships', 0)}"
+                            )
+
+                            # Mostrar detalhes das tabelas com mais relacionamentos
+                            details = rel_stats.get("details", {})
+                            if details:
+                                with st.expander("Detalhes por Tabela"):
+                                    # Ordenar tabelas por número de relacionamentos (decrescente)
+                                    sorted_tables = sorted(
+                                        details.items(),
+                                        key=lambda x: x[1]["relationships"],
+                                        reverse=True,
+                                    )
+
+                                    # Mostrar as 10 primeiras tabelas
+                                    for table, stats in sorted_tables[:10]:
+                                        st.write(
+                                            f"**{table}**: {stats['relationships']} relacionamentos em {stats['count']} documentos"
+                                        )
+
+                        # Mostrar estatísticas de pares pergunta-SQL
+                        pair_stats = result.get("pair_stats", {})
+                        if pair_stats:
+                            st.subheader("Estatísticas de Pares Pergunta-SQL")
+                            st.info(f"📝 Total de pares: {pair_stats.get('count', 0)}")
+
+                    elif result["status"] == "warning":
+                        st.warning(f"⚠️ {result['message']}")
+                    else:
+                        st.error(f"❌ {result['message']}")
+                else:
+                    st.error("❌ Método analyze_chromadb_content não encontrado.")
+            except Exception as e:
+                st.error(f"❌ Erro ao analisar ChromaDB: {e}")
+                import traceback
+
+                st.code(traceback.format_exc())
 
 # Main content
 st.title("🤖 Assistente de Banco de Dados Odoo com Vanna AI")
@@ -482,9 +537,6 @@ if user_question:
                 st.error(
                     "Falha ao gerar SQL. O modelo não retornou nenhuma consulta SQL."
                 )
-                st.info(
-                    "Tente treinar o modelo com exemplos específicos usando a seção 'Treinamento Manual' na barra lateral."
-                )
 
                 # Tentar novamente usando get_similar_question_sql
                 st.warning(
@@ -511,9 +563,6 @@ if user_question:
                     sql = None
         except Exception as e:
             st.error(f"Erro ao gerar SQL: {e}")
-            st.info(
-                "Tente treinar o modelo com exemplos específicos usando a seção 'Treinamento Manual' na barra lateral."
-            )
             sql = None
 
     if sql:
@@ -543,80 +592,34 @@ if user_question:
             else:
                 st.success("Nenhum problema crítico encontrado!")
 
-        # Adicionar botões de diagnóstico simplificados
-        with col_diag.expander("Diagnóstico", expanded=False):
-            col1, col2, col3 = st.columns(3)
+        # Mostrar avisos e sugestões de melhoria
+        if evaluation["warnings"] or evaluation["suggestions"]:
+            with st.expander("Avisos e Sugestões", expanded=False):
+                # Mostrar avisos
+                if evaluation["warnings"]:
+                    st.warning("Avisos:")
+                    for warning in evaluation["warnings"]:
+                        st.write(f"- {warning}")
 
-            with col1:
-                if st.button("Verificar Tabela product_template"):
-                    with st.spinner("Verificando tabela product_template..."):
-                        try:
-                            diagnostico = vn.check_product_template_table()
-                            st.code(diagnostico)
-                        except Exception as e:
-                            st.error(f"Erro ao verificar tabela: {e}")
-                            import traceback
-                            st.code(traceback.format_exc())
+                # Mostrar sugestões
+                if evaluation["suggestions"]:
+                    st.info("Sugestões de Melhoria:")
+                    for suggestion in evaluation["suggestions"]:
+                        st.write(f"- {suggestion}")
 
-            with col2:
-                if st.button("Verificar Exemplos de Treinamento"):
-                    with st.spinner("Verificando exemplos de treinamento..."):
-                        try:
-                            diagnostico = vn.check_training_examples()
-                            st.code(diagnostico)
-                        except Exception as e:
-                            st.error(f"Erro ao verificar exemplos: {e}")
-                            import traceback
-                            st.code(traceback.format_exc())
-
-            with col3:
-                if st.button("Verificar ChromaDB"):
-                    with st.spinner("Verificando ChromaDB..."):
-                        try:
-                            # Verificar se o método check_chromadb existe
-                            if hasattr(vn, "check_chromadb"):
-                                # Chamar o método check_chromadb
-                                result = vn.check_chromadb()
-
-                                # Verificar o resultado
-                                if result["status"] == "success":
-                                    st.success(f"✅ ChromaDB está funcionando! Coleção tem {result['count']} documentos.")
-                                elif result["status"] == "warning":
-                                    st.warning(f"⚠️ {result['message']}")
-                                else:
-                                    st.error(f"❌ {result['message']}")
-                            else:
-                                st.error("❌ Método check_chromadb não encontrado.")
-                        except Exception as e:
-                            st.error(f"❌ Erro ao verificar ChromaDB: {e}")
-                            import traceback
-                            st.code(traceback.format_exc())
-
-            # Mostrar avisos
-            if evaluation["warnings"]:
-                st.warning("Avisos:")
-                for warning in evaluation["warnings"]:
-                    st.write(f"- {warning}")
-
-            # Mostrar sugestões
-            if evaluation["suggestions"]:
-                st.info("Sugestões de Melhoria:")
-                for suggestion in evaluation["suggestions"]:
-                    st.write(f"- {suggestion}")
-
-            # Mostrar recomendação
-            if evaluation["score"] < 60:
-                st.error(
-                    "⚠️ Esta consulta tem problemas de qualidade. Considere não adicioná-la ao treinamento."
-                )
-            elif evaluation["score"] < 80:
-                st.warning(
-                    "⚠️ Esta consulta tem alguns problemas. Verifique os resultados antes de adicioná-la ao treinamento."
-                )
-            else:
-                st.success(
-                    "✅ Esta consulta parece ter boa qualidade e pode ser adicionada ao treinamento."
-                )
+        # Mostrar recomendação sobre qualidade da consulta
+        if evaluation["score"] < 60:
+            st.error(
+                "⚠️ Esta consulta tem problemas de qualidade. Considere não adicioná-la ao treinamento."
+            )
+        elif evaluation["score"] < 80:
+            st.warning(
+                "⚠️ Esta consulta tem alguns problemas. Verifique os resultados antes de adicioná-la ao treinamento."
+            )
+        else:
+            st.success(
+                "✅ Esta consulta parece ter boa qualidade e pode ser adicionada ao treinamento."
+            )
 
         # Execute the SQL query
         with st.spinner("Executando consulta..."):
@@ -790,9 +793,6 @@ if user_question:
                 with col_train2:
                     if st.button("❌ Não Adicionar", key="skip_training"):
                         st.info("Esta consulta não será adicionada ao treinamento.")
-                        st.write(
-                            "Você pode modificar a consulta SQL manualmente e depois adicioná-la usando a seção 'Treinamento Manual' na barra lateral."
-                        )
 
             # Seção de visualização avançada
             st.subheader("📊 Visualizações")
