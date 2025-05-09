@@ -75,11 +75,12 @@ class VannaOdoo(VannaOdooTraining):
         """
         Generate SQL from a natural language question
 
-        Esta implementação segue o fluxo correto do Vanna.ai:
-        1. Obter perguntas similares com get_similar_questions()
+        Esta implementação segue o fluxo correto do Vanna.ai conforme a documentação:
+        1. Obter perguntas similares com get_similar_question_sql()
         2. Obter DDL relacionados com get_related_ddl()
         3. Obter documentação relacionada com get_related_documentation()
-        4. Usar o SQL do exemplo diretamente, sem gerar um novo
+        4. Gerar o prompt SQL com get_sql_prompt()
+        5. Enviar o prompt para o LLM com submit_prompt()
 
         Args:
             question (str): The question to generate SQL for
@@ -92,92 +93,47 @@ class VannaOdoo(VannaOdooTraining):
         try:
             print(f"[DEBUG] Processing question: {question}")
 
-            # Verificar se é a pergunta específica sobre produtos sem estoque
-            if "produtos foram vendidos nos últimos" in question.lower() and "não têm estoque" in question.lower():
-                print(f"[DEBUG] Detectada pergunta específica sobre produtos sem estoque")
+            # 1. Obter perguntas similares com get_similar_question_sql()
+            question_sql_list = self.get_similar_question_sql(question, **kwargs)
+            print(f"[DEBUG] Found {len(question_sql_list)} similar questions")
 
-                # Extrair o número de dias da pergunta atual
-                days_match = re.search(r"(\d+)\s+dias", question.lower())
-                if days_match:
-                    days = int(days_match.group(1))
-                    print(f"[DEBUG] Detectado {days} dias na pergunta específica")
-
-                    # Criar uma nova consulta SQL com o número de dias correto
-                    # Esta é uma abordagem mais segura do que tentar substituir o padrão
-                    sql = f"""
-SELECT
-    pt.name AS produto,
-    SUM(sol.product_uom_qty) AS total_vendido,
-    COALESCE(SUM(sq.quantity), 0) AS estoque
-FROM
-    sale_order_line sol
-JOIN
-    product_product pp ON sol.product_id = pp.id
-JOIN
-    product_template pt ON pp.product_tmpl_id = pt.id
-LEFT JOIN
-    stock_quant sq ON pp.id = sq.product_id AND sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)
-JOIN
-    sale_order so ON sol.order_id = so.id
-WHERE
-    so.date_order >= NOW() - INTERVAL '{days} days'  -- Filtrando para os últimos {days} dias
-GROUP BY
-    pt.id, pt.name, pt.default_code
-HAVING SUM
-    (sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) = 0;
-"""
-                    print(f"[DEBUG] Criada nova consulta SQL com {days} dias diretamente no generate_sql")
-                    return sql
-
-            # 1. Obter perguntas similares
-            similar_questions = self.get_similar_questions(question)
-            print(f"[DEBUG] Found {len(similar_questions)} similar questions")
-
-            # Se encontramos perguntas similares, usar o SQL do exemplo diretamente
-            if similar_questions and len(similar_questions) > 0:
-                similar_question = similar_questions[0]
-                print(f"[DEBUG] Using SQL from similar question: {similar_question.get('question', '')}")
-
-                # Adaptar o SQL para a pergunta atual (por exemplo, ajustar o número de dias)
-                sql = self.adapt_sql_from_similar_question(question, similar_question)
-
-                # Retornar o SQL adaptado
-                return sql
-
-            # 2. Se não encontramos perguntas similares, seguir o fluxo padrão do Vanna.ai
-            # Obter DDL relacionados
-            ddl_list = self.get_related_ddl(question)
+            # 2. Obter DDL relacionados com get_related_ddl()
+            ddl_list = self.get_related_ddl(question, **kwargs)
             print(f"[DEBUG] Found {len(ddl_list)} related DDL statements")
 
-            # 3. Obter documentação relacionada
-            doc_list = self.get_related_documentation(question)
+            # 3. Obter documentação relacionada com get_related_documentation()
+            doc_list = self.get_related_documentation(question, **kwargs)
             print(f"[DEBUG] Found {len(doc_list)} related documentation items")
 
-            # 4. Gerar o prompt SQL
+            # 4. Gerar o prompt SQL com get_sql_prompt()
+            initial_prompt = None
+            if hasattr(self, "config") and self.config is not None:
+                initial_prompt = self.config.get("initial_prompt", None)
+
             prompt = self.get_sql_prompt(
-                initial_prompt=None,
+                initial_prompt=initial_prompt,
                 question=question,
-                question_sql_list=similar_questions,
+                question_sql_list=question_sql_list,
                 ddl_list=ddl_list,
                 doc_list=doc_list,
                 **kwargs
             )
+            print(f"[DEBUG] Generated SQL prompt with {len(prompt)} messages")
 
-            # Estimar tokens do prompt
-            model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
-            prompt_tokens = sum(self.estimate_tokens(msg["content"], model) for msg in prompt if "content" in msg)
-            print(f"[DEBUG] Generated prompt with {len(prompt)} messages ({prompt_tokens} tokens estimados)")
-
-            # 5. Enviar o prompt para o LLM
-            response = self.submit_prompt(prompt, temperature=0.1, **kwargs)
-
-            # Estimar tokens da resposta
-            response_tokens = self.estimate_tokens(response, model)
-            print(f"[DEBUG] Received response from LLM ({response_tokens} tokens estimados)")
+            # 5. Enviar o prompt para o LLM com submit_prompt()
+            llm_response = self.submit_prompt(prompt, **kwargs)
+            print(f"[DEBUG] Received response from LLM")
 
             # Extrair SQL da resposta
-            sql = self.extract_sql(response, question=question)
+            sql = self.extract_sql(llm_response)
             print(f"[DEBUG] Extracted SQL from response")
+
+            # Se encontramos perguntas similares e o SQL é muito genérico, adaptar o SQL
+            if question_sql_list and len(question_sql_list) > 0 and "INTERVAL" in sql:
+                similar_question = question_sql_list[0]
+                print(f"[DEBUG] Adapting SQL from similar question: {similar_question.get('question', '')}")
+                sql = self.adapt_sql_from_similar_question(question, similar_question)
+                print(f"[DEBUG] Adapted SQL: {sql}")
 
             return sql
         except Exception as e:
@@ -189,6 +145,10 @@ HAVING SUM
     def ask(self, question, allow_llm_to_see_data=False):
         """
         Generate SQL from a natural language question with improved handling for Portuguese
+
+        Esta implementação segue o fluxo recomendado pela documentação do Vanna.ai:
+        1. Gerar SQL com generate_sql()
+        2. Executar o SQL com run_sql()
         """
         try:
             # Estimar tokens da pergunta
@@ -196,15 +156,16 @@ HAVING SUM
             question_tokens = self.estimate_tokens(question, model)
             print(f"[DEBUG] Pergunta: '{question}' ({question_tokens} tokens estimados)")
 
-            # Use the generate_sql method to generate SQL
-            sql = self.generate_sql(question, allow_llm_to_see_data=False)
+            # 1. Gerar SQL com generate_sql()
+            sql = self.generate_sql(question, allow_llm_to_see_data=allow_llm_to_see_data)
 
             # Estimar tokens da resposta SQL
             if sql:
                 sql_tokens = self.estimate_tokens(sql, model)
                 print(f"[DEBUG] SQL gerado pelo método generate_sql ({sql_tokens} tokens estimados)")
+                print(f"[DEBUG] SQL final: {sql}")
 
-            # Execute the SQL with the original question for context
+            # 2. Executar o SQL com run_sql()
             if sql:
                 return self.run_sql(sql, question=question)
             else:
@@ -213,121 +174,143 @@ HAVING SUM
         except Exception as e:
             print(f"Error in ask: {e}")
             import traceback
-
             traceback.print_exc()
             return None
 
     def adapt_sql_from_similar_question(self, question, similar_question):
         """
         Adapta a consulta SQL de uma pergunta similar para a pergunta atual
+
+        Esta implementação é baseada no código original que funcionava corretamente
         """
         try:
-            # Obter a consulta SQL da pergunta similar
-            sql = similar_question["sql"]
+            # Extrair a consulta SQL da pergunta similar
+            sql = similar_question.get("sql", "")
+            if not sql:
+                print("[DEBUG] No SQL found in similar question")
+                return None
+
             print(f"[DEBUG] SQL original:\n{sql}")
 
-            # Verificar se é a pergunta específica sobre produtos sem estoque
-            if "produtos foram vendidos nos últimos" in question.lower() and "não têm estoque" in question.lower():
-                print(f"[DEBUG] Detectada pergunta específica sobre produtos sem estoque")
+            # Adaptar a consulta SQL com base na pergunta original
+            adapted_sql = sql
 
-                # Extrair o número de dias da pergunta atual
+            # Verificar se é uma consulta sobre produtos vendidos nos últimos dias
+            if "últimos" in question.lower() and "dias" in question.lower():
+                # Extrair o número de dias
+                import re
                 days_match = re.search(r"(\d+)\s+dias", question.lower())
                 if days_match:
                     days = int(days_match.group(1))
-                    print(f"[DEBUG] Detectado {days} dias na pergunta original")
+                    print(f"[DEBUG] Detected {days} days in original question")
 
-                    # Criar uma nova consulta SQL com o número de dias correto
-                    # Esta é uma abordagem mais segura do que tentar substituir o padrão
-                    new_sql = f"""
-SELECT
-    pt.name AS produto,
-    SUM(sol.product_uom_qty) AS total_vendido,
-    COALESCE(SUM(sq.quantity), 0) AS estoque
-FROM
-    sale_order_line sol
-JOIN
-    product_product pp ON sol.product_id = pp.id
-JOIN
-    product_template pt ON pp.product_tmpl_id = pt.id
-LEFT JOIN
-    stock_quant sq ON pp.id = sq.product_id AND sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)
-JOIN
-    sale_order so ON sol.order_id = so.id
-WHERE
-    so.date_order >= NOW() - INTERVAL '{days} days'  -- Filtrando para os últimos {days} dias
-GROUP BY
-    pt.id, pt.name, pt.default_code
-HAVING SUM
-    (sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) = 0;
-"""
-                    print(f"[DEBUG] Criada nova consulta SQL com {days} dias")
-                    return new_sql
+                    # Substituir o número de dias na consulta SQL
+                    if "INTERVAL '30 days'" in sql:
+                        adapted_sql = sql.replace("INTERVAL '30 days'", f"INTERVAL '{days} days'")
+                        print(f"[DEBUG] Substituído INTERVAL '30 days' por INTERVAL '{days} days'")
+                    elif "INTERVAL '7 days'" in sql:
+                        adapted_sql = sql.replace("INTERVAL '7 days'", f"INTERVAL '{days} days'")
+                        print(f"[DEBUG] Substituído INTERVAL '7 days' por INTERVAL '{days} days'")
+                    elif "INTERVAL '1 month'" in sql:
+                        adapted_sql = sql.replace("INTERVAL '1 month'", f"INTERVAL '{days} days'")
+                        print(f"[DEBUG] Substituído INTERVAL '1 month' por INTERVAL '{days} days'")
 
-            # Para outras perguntas, tentar a abordagem normal de substituição
-            # Extrair o número de dias da pergunta atual
-            days_match = re.search(r"(\d+)\s+dias", question.lower())
-            if days_match:
-                days = int(days_match.group(1))
-                print(f"[DEBUG] Detectado {days} dias na pergunta original")
+                    # Substituir comentários
+                    if "últimos 30 dias" in adapted_sql:
+                        adapted_sql = adapted_sql.replace("últimos 30 dias", f"últimos {days} dias")
+                        print(f"[DEBUG] Substituído comentário 'últimos 30 dias' por 'últimos {days} dias'")
+                    elif "últimos 7 dias" in adapted_sql:
+                        adapted_sql = adapted_sql.replace("últimos 7 dias", f"últimos {days} dias")
+                        print(f"[DEBUG] Substituído comentário 'últimos 7 dias' por 'últimos {days} dias'")
 
-                # Implementação direta e simples para substituir o padrão específico
-                # Isso garante que a substituição seja feita corretamente
-                if days != 30:  # Só substituir se o número de dias for diferente de 30
-                    # Substituir todos os padrões conhecidos
-                    replacements = [
-                        ("NOW() - INTERVAL '30 days'", f"NOW() - INTERVAL '{days} days'"),
-                        ("CURRENT_DATE - INTERVAL '30 days'", f"CURRENT_DATE - INTERVAL '{days} days'"),
-                        ("INTERVAL '30 days'", f"INTERVAL '{days} days'"),
-                        ("INTERVAL '30 days'", f"INTERVAL '{days} days'"),
-                        ("'30 days'", f"'{days} days'")  # Padrão mais genérico
-                    ]
+                    # Verificar se é uma consulta de sugestão de compra
+                    if "sugestao de compra" in question.lower() or "sugestão de compra" in question.lower():
+                        print(f"[DEBUG] Detected purchase suggestion query, adapting for {days} days")
 
-                    original_sql = sql
-                    for old_pattern, new_pattern in replacements:
-                        if old_pattern in sql:
-                            print(f"[DEBUG] Substituindo '{old_pattern}' por '{new_pattern}'")
-                            sql = sql.replace(old_pattern, new_pattern)
+                        # Usar regex para substituir todas as ocorrências de "* 30" relacionadas a dias
+                        import re
 
-                    # Verificar se houve alteração
-                    if sql != original_sql:
-                        print(f"[DEBUG] Substituído dias no SQL para {days}")
-                    else:
-                        print(f"[DEBUG] Não foi possível substituir dias no SQL usando substituição direta")
-
-                        # Se a substituição direta falhar, tentar com expressões regulares
-                        print(f"[DEBUG] Tentando substituição com expressões regulares")
+                        # Substituir padrões específicos primeiro
                         patterns = [
-                            r"INTERVAL\s+'30\s+days'",
-                            r"INTERVAL\s+\'30\s+days\'",
-                            r"NOW\(\)\s*-\s*INTERVAL\s+'30\s+days'",
-                            r"CURRENT_DATE\s*-\s*INTERVAL\s+'30\s+days'",
-                            r"INTERVAL\s+'30 days'",
-                            r"NOW\(\)\s*-\s*INTERVAL\s+'30 days'",
-                            r"INTERVAL '30 days'"
+                            # Padrão para "* 30," - exemplo: (vendas.quantidade_total / 365) * 30,
+                            (r"\* 30,", f"* {days},"),
+                            # Padrão para "* 30)" - exemplo: (vendas.quantidade_total / 365) * 30)
+                            (r"\* 30\)", f"* {days})"),
+                            # Padrão para "* 30 " - exemplo: (vendas.quantidade_total / 365) * 30 AS
+                            (r"\* 30 ", f"* {days} "),
+                            # Padrão para consumo_projetado_30dias
+                            (r"consumo_projetado_30dias", f"consumo_projetado_{days}dias"),
+                            # Padrão para comentário
+                            (r"-- Consumo projetado \(30 dias\)", f"-- Consumo projetado ({days} dias)"),
+                            # Padrão genérico para capturar outras ocorrências
+                            (r"\(vendas\.quantidade_total / 365\) \* 30", f"(vendas.quantidade_total / 365) * {days}"),
+                            # Padrão mais genérico para capturar qualquer ocorrência de "* 30" em expressões
+                            (r"(\/ 365\)) \* 30", f"$1 * {days}"),
+                            # Padrão extremamente genérico para capturar qualquer ocorrência de "* 30" em qualquer contexto
+                            (r"quantidade_total / 365\) \* 30", f"quantidade_total / 365) * {days}")
                         ]
 
-                        for pattern in patterns:
-                            # Procurar o padrão na consulta
-                            matches = re.findall(pattern, sql, re.IGNORECASE)
-                            for match in matches:
-                                # Substituir o número de dias na consulta
-                                replacement = match.replace("'30 days'", f"'{days} days'")
-                                replacement = replacement.replace("'30 days'", f"'{days} days'")  # Garantir que todas as ocorrências sejam substituídas
-                                sql = sql.replace(match, replacement)
+                        # Adicionar um log para depuração
+                        print(f"[DEBUG] Adaptando SQL para sugestão de compra com {days} dias")
 
-                        # Verificar novamente se houve alteração
-                        if sql != original_sql:
-                            print(f"[DEBUG] Substituído dias no SQL para {days} usando expressões regulares")
-                        else:
-                            print(f"[DEBUG] Não foi possível substituir dias no SQL mesmo com expressões regulares")
-                else:
-                    print(f"[DEBUG] Número de dias é 30, não é necessário substituir")
+                        # Aplicar todas as substituições
+                        for pattern, replacement in patterns:
+                            adapted_sql = re.sub(pattern, replacement, adapted_sql)
 
-            print(f"[DEBUG] SQL adaptado:\n{sql}")
-            return sql
+                        # Abordagem alternativa: substituir diretamente todas as ocorrências de "* 30"
+                        # que estejam relacionadas ao cálculo de dias
+                        if "vendas.quantidade_total / 365" in adapted_sql:
+                            # Encontrar todas as ocorrências de "* 30" após "/ 365"
+                            adapted_sql = re.sub(
+                                r"(quantidade_total / 365)(\s*)\* 30",
+                                f"\\1\\2* {days}",
+                                adapted_sql
+                            )
+
+                        print(f"[DEBUG] SQL adaptado para {days} dias")
+
+            # Verificar se é uma consulta sobre produtos vendidos em um ano específico
+            year_match = re.search(r"\b(\d{4})\b", question)
+            if year_match:
+                year = int(year_match.group(1))
+                print(f"[DEBUG] Detected year {year} in original question")
+
+                # Substituir o ano na consulta SQL
+                for existing_year in ["2024", "2025", "2023"]:
+                    if f"EXTRACT(YEAR FROM so.date_order) = {existing_year}" in adapted_sql:
+                        adapted_sql = adapted_sql.replace(
+                            f"EXTRACT(YEAR FROM so.date_order) = {existing_year}",
+                            f"EXTRACT(YEAR FROM so.date_order) = {year}"
+                        )
+                        print(f"[DEBUG] Substituído ano {existing_year} por {year}")
+
+            # Verificar se é uma consulta sobre um número específico de produtos
+            num_match = re.search(r"(\d+)\s+produtos", question.lower())
+            if num_match:
+                num_products = int(num_match.group(1))
+                print(f"[DEBUG] Detected {num_products} products in original question")
+
+                # Substituir o número de produtos na consulta SQL
+                for existing_limit in ["LIMIT 10", "LIMIT 20", "LIMIT 50"]:
+                    if existing_limit in adapted_sql:
+                        adapted_sql = adapted_sql.replace(
+                            existing_limit,
+                            f"LIMIT {num_products}"
+                        )
+                        print(f"[DEBUG] Substituído {existing_limit} por LIMIT {num_products}")
+
+            # Verificar se a consulta SQL foi adaptada
+            if adapted_sql != sql:
+                print(f"[DEBUG] SQL adaptado com sucesso:\n{adapted_sql}")
+            else:
+                print("[DEBUG] Nenhuma adaptação foi necessária para o SQL")
+
+            return adapted_sql
         except Exception as e:
             print(f"[DEBUG] Erro ao adaptar SQL: {e}")
-            return None
+            import traceback
+            traceback.print_exc()
+            return similar_question.get("sql", "")  # Retornar o SQL original em caso de erro
 
     def generate_summary(self, data, prompt=None):
         """
@@ -379,9 +362,11 @@ HAVING SUM
             traceback.print_exc()
             return f"Error generating summary: {str(e)}"
 
-    def get_similar_questions(self, question, **kwargs):
+    def get_similar_question_sql(self, question, **kwargs):
         """
-        Get similar questions from the training data
+        Get similar questions and their corresponding SQL statements
+
+        Esta função segue a interface recomendada pela documentação do Vanna.ai
         """
         try:
             # Verificar se o ChromaDB está funcionando corretamente

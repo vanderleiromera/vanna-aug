@@ -163,13 +163,105 @@ class VannaOdooExtended(VannaOdooNumeric):
 
         return adapted_sql
 
-    def ask(self, question):
+    def adapt_interval_days(self, sql, days):
+        """
+        Adapta o SQL para usar o número correto de dias no INTERVAL
+
+        Args:
+            sql (str): O SQL a ser adaptado
+            days (int): O número de dias a ser usado
+
+        Returns:
+            str: O SQL adaptado
+        """
+        if not sql or not days:
+            return sql
+
+        print(f"[DEBUG] Adaptando SQL para usar {days} dias")
+        print(f"[DEBUG] SQL original:\n{sql}")
+
+        # Extrair o número de dias atual do SQL
+        import re
+        current_days = None
+        interval_match = re.search(r"INTERVAL\s+'(\d+)\s+days'", sql)
+        if interval_match:
+            current_days = int(interval_match.group(1))
+            print(f"[DEBUG] Detectado INTERVAL '{current_days} days' no SQL original")
+
+        # Se o número de dias atual for igual ao número de dias desejado, não precisamos fazer nada
+        if current_days == days:
+            print(f"[DEBUG] O SQL já usa INTERVAL '{days} days', não é necessário adaptar")
+            return sql
+
+        # Guardar o SQL original para comparação
+        original_sql = sql
+
+        # Substituir diretamente o padrão de intervalo de tempo
+        if current_days and f"INTERVAL '{current_days} days'" in sql:
+            sql = sql.replace(f"INTERVAL '{current_days} days'", f"INTERVAL '{days} days'")
+            print(f"[DEBUG] Substituído INTERVAL '{current_days} days' por INTERVAL '{days} days'")
+
+        # Substituir comentários específicos
+        if current_days and f"últimos {current_days} dias" in sql:
+            sql = sql.replace(f"últimos {current_days} dias", f"últimos {days} dias")
+            print(f"[DEBUG] Substituído comentário 'últimos {current_days} dias' por 'últimos {days} dias'")
+
+        # Se as substituições diretas não funcionaram, tentar com expressões regulares
+        if sql == original_sql:
+            print(f"[DEBUG] Substituições diretas não funcionaram, tentando com expressões regulares")
+
+            # Padrões para INTERVAL
+            interval_patterns = [
+                (r"INTERVAL\s+'(\d+)\s+days'", f"INTERVAL '{days} days'"),
+                (r"NOW\(\)\s*-\s*INTERVAL\s+'(\d+)\s+days'", f"NOW() - INTERVAL '{days} days'"),
+                (r"CURRENT_DATE\s*-\s*INTERVAL\s+'(\d+)\s+days'", f"CURRENT_DATE - INTERVAL '{days} days'"),
+                (r"date_order\s*>=\s*NOW\(\)\s*-\s*INTERVAL\s+'(\d+)\s+days'", f"date_order >= NOW() - INTERVAL '{days} days'"),
+                (r"date_order\s*>=\s*CURRENT_DATE\s*-\s*INTERVAL\s+'(\d+)\s+days'", f"date_order >= CURRENT_DATE - INTERVAL '{days} days'")
+            ]
+
+            # Aplicar padrões de INTERVAL
+            for pattern, replacement in interval_patterns:
+                new_sql = re.sub(pattern, replacement, sql, flags=re.IGNORECASE)
+                if new_sql != sql:
+                    print(f"[DEBUG] Substituído padrão '{pattern}' por '{replacement}'")
+                    sql = new_sql
+
+            # Padrões para comentários
+            comment_patterns = [
+                (r"--\s*Filtrando\s+para\s+os\s+últimos\s+(\d+)\s+dias", f"-- Filtrando para os últimos {days} dias"),
+                (r"últimos\s+(\d+)\s+dias", f"últimos {days} dias"),
+                (r"Filtrando\s+para\s+os\s+últimos\s+(\d+)\s+dias", f"Filtrando para os últimos {days} dias")
+            ]
+
+            # Aplicar padrões de comentários
+            for pattern, replacement in comment_patterns:
+                new_sql = re.sub(pattern, replacement, sql, flags=re.IGNORECASE)
+                if new_sql != sql:
+                    print(f"[DEBUG] Substituído padrão de comentário '{pattern}' por '{replacement}'")
+                    sql = new_sql
+
+        # Verificar se houve alguma alteração
+        if sql == original_sql:
+            print(f"[DEBUG] ALERTA: Nenhuma substituição foi realizada no SQL!")
+        else:
+            print(f"[DEBUG] SQL foi adaptado com sucesso para {days} dias")
+
+        print(f"[DEBUG] SQL adaptado:\n{sql}")
+        return sql
+
+    def ask(self, question, allow_llm_to_see_data=False):
         """
         Gera uma consulta SQL a partir de uma pergunta, usando o método generate_sql da classe pai
         e adaptando o SQL para os valores específicos da pergunta.
 
+        Esta implementação segue o fluxo recomendado pela documentação do Vanna.ai:
+        1. Gerar SQL com generate_sql()
+        2. Adaptar o SQL para os valores específicos da pergunta
+        3. Executar o SQL com run_sql()
+
         Args:
             question (str): A pergunta do usuário
+            allow_llm_to_see_data (bool, optional): Whether to allow the LLM to see data. Defaults to False.
 
         Returns:
             str: A consulta SQL gerada
@@ -178,13 +270,23 @@ class VannaOdooExtended(VannaOdooNumeric):
         normalized_question, values = self.normalize_question(question)
         print(f"[DEBUG] Pergunta normalizada: {normalized_question}")
         print(f"[DEBUG] Valores extraídos: {values}")
+        print(f"[DEBUG] Pergunta original: '{question}'")
+
+        # Extrair o número de dias da pergunta original
+        import re
+        days_match = re.search(r"últimos\s+(\d+)\s+dias", question.lower())
+        days = None
+        if days_match:
+            days = int(days_match.group(1))
+            print(f"[DEBUG] Detectado {days} dias na pergunta original")
 
         # Usa o método generate_sql da classe pai para gerar o SQL
         # Isso garante que todos os tipos de dados (question pairs, DDL, documentação) sejam considerados
-        sql = super().generate_sql(normalized_question, allow_llm_to_see_data=False)
+        sql = super().generate_sql(question, allow_llm_to_see_data=allow_llm_to_see_data)
 
         if sql:
             print(f"[DEBUG] SQL gerado pelo método generate_sql")
+            print(f"[DEBUG] SQL antes da adaptação:\n{sql}")
 
             # Adapta o SQL para os valores específicos da pergunta do usuário
             if values:
@@ -193,15 +295,19 @@ class VannaOdooExtended(VannaOdooNumeric):
 
                 # Se o SQL foi adaptado, usa o SQL adaptado
                 if adapted_sql != sql:
-                    print(f"[DEBUG] SQL adaptado com sucesso")
-                    return adapted_sql
+                    print(f"[DEBUG] SQL adaptado com sucesso para valores")
+                    sql = adapted_sql
 
-            # Se não foi possível adaptar o SQL, usa o SQL original
+            # Adaptar o SQL para o número correto de dias
+            if days and "INTERVAL" in sql:
+                sql = self.adapt_interval_days(sql, days)
+
+            print(f"[DEBUG] SQL final:\n{sql}")
             return sql
 
         # Se não foi possível gerar SQL, usa o método ask da classe pai
         print(f"[DEBUG] Não foi possível gerar SQL, usando método ask da classe pai")
-        return super().ask(question)
+        return super().ask(question, allow_llm_to_see_data=allow_llm_to_see_data)
 
     def get_model_info(self):
         """
@@ -798,6 +904,85 @@ class VannaOdooExtended(VannaOdooNumeric):
             traceback.print_exc()
             return False
 
+    def validate_sql(self, sql):
+        """
+        Valida a consulta SQL antes de executá-la
+
+        Args:
+            sql (str): A consulta SQL a ser validada
+
+        Returns:
+            bool: True se a consulta for válida, False caso contrário
+        """
+        if not sql:
+            print("[DEBUG] SQL vazio")
+            return False
+
+        # Verificar se a consulta contém palavras-chave básicas do SQL
+        if not any(keyword in sql.upper() for keyword in ["SELECT", "FROM"]):
+            print("[DEBUG] SQL inválido: não contém SELECT ou FROM")
+            return False
+
+        # Verificar se a consulta contém comandos perigosos
+        dangerous_commands = ["DROP", "DELETE", "TRUNCATE", "ALTER", "UPDATE", "INSERT", "CREATE", "GRANT", "REVOKE"]
+        if any(command in sql.upper() for command in dangerous_commands):
+            print(f"[DEBUG] SQL contém comandos perigosos: {[cmd for cmd in dangerous_commands if cmd in sql.upper()]}")
+            # Não bloquear a execução, apenas alertar
+
+        return True
+
+    def run_sql_query(self, sql, question=None):
+        """
+        Executa uma consulta SQL no banco de dados Odoo
+
+        Args:
+            sql (str): A consulta SQL a ser executada
+            question (str, optional): A pergunta original que gerou o SQL
+
+        Returns:
+            pd.DataFrame: O resultado da consulta
+        """
+        try:
+            # Verificar se a pergunta contém um número de dias
+            if question:
+                import re
+                days_match = re.search(r"últimos\s+(\d+)\s+dias", question.lower())
+                if days_match and "INTERVAL" in sql:
+                    days = int(days_match.group(1))
+                    print(f"[DEBUG] Detectado {days} dias na pergunta original em run_sql_query")
+
+                    # Adaptar o SQL para o número correto de dias
+                    sql = self.adapt_interval_days(sql, days)
+
+            # Validar a consulta SQL antes de executar
+            self.validate_sql(sql)
+
+            # Obter a engine SQLAlchemy
+            engine = self.get_sqlalchemy_engine()
+            if not engine:
+                print("[DEBUG] Erro ao criar engine SQLAlchemy")
+                return None
+
+            # Importar text para executar consultas SQL literais
+            from sqlalchemy import text
+
+            # Executar a consulta
+            print(f"[DEBUG] Executando SQL ({self.estimate_tokens(sql)} tokens estimados)")
+            df = pd.read_sql_query(text(sql), engine)
+
+            # Verificar se o DataFrame está vazio
+            if df.empty:
+                print("[DEBUG] A consulta foi executada com sucesso, mas não retornou resultados")
+            else:
+                print(f"[DEBUG] Query executada com sucesso: {len(df)} linhas retornadas")
+
+            return df
+        except Exception as e:
+            print(f"[DEBUG] Erro ao executar consulta SQL: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def get_collection(self):
         """
         Retorna a coleção ChromaDB atual. Se a coleção não existir, tenta criá-la.
@@ -890,7 +1075,7 @@ class VannaOdooExtended(VannaOdooNumeric):
             return None
 
     def ask_with_results(
-        self, question, print_results=True, auto_train=False, debug=True
+        self, question, print_results=True, auto_train=False, debug=True, allow_llm_to_see_data=False
     ):
         """
         Ask a question and get a response with results
@@ -898,8 +1083,9 @@ class VannaOdooExtended(VannaOdooNumeric):
         Args:
             question (str): The question to ask
             print_results (bool, optional): Whether to print results. Defaults to True.
-            auto_train (bool, optional): Whether to auto-train on the question and SQL. Defaults to True.
+            auto_train (bool, optional): Whether to auto-train on the question and SQL. Defaults to False.
             debug (bool, optional): Se True, imprime informações de depuração. Defaults to True.
+            allow_llm_to_see_data (bool, optional): Whether to allow the LLM to see data. Defaults to False.
 
         Returns:
             tuple: (sql, df, fig) - The SQL query, results DataFrame, and Plotly figure
@@ -917,7 +1103,7 @@ class VannaOdooExtended(VannaOdooNumeric):
                     print(f"Pergunta normalizada: {normalized_question}")
 
             # Generate SQL (a classe VannaOdooNumeric já lida com valores numéricos)
-            sql = self.ask(question)
+            sql = self.ask(question, allow_llm_to_see_data=allow_llm_to_see_data)
 
             if debug:
                 print(f"SQL Gerado:\n{sql}")
@@ -926,7 +1112,7 @@ class VannaOdooExtended(VannaOdooNumeric):
             df = None
             if sql:
                 try:
-                    df = self.run_sql_query(sql)
+                    df = self.run_sql_query(sql, question=question)
                     if df is not None and not df.empty:
                         if print_results:
                             print("\nResultados:")
@@ -941,7 +1127,8 @@ class VannaOdooExtended(VannaOdooNumeric):
             if df is not None and not df.empty:
                 try:
                     plotly_code = self.generate_plotly_code(
-                        question=question, sql=sql, df_metadata=str(df.dtypes)
+                        question=question, sql=sql, df_metadata=str(df.dtypes),
+                        allow_llm_to_see_data=allow_llm_to_see_data
                     )
                     if plotly_code:
                         fig = self.get_plotly_figure(plotly_code=plotly_code, df=df)
