@@ -363,85 +363,6 @@ if col8.button("📋 Gerenciar"):
         st.markdown("[Acessar http://localhost:8502](http://localhost:8502)")
         st.caption("Execute o comando acima em um terminal separado")
 
-# Adicionar botão para analisar o conteúdo do ChromaDB
-col9, col10 = st.sidebar.columns(2)
-if col9.button("🔍 Analisar ChromaDB"):
-    with st.sidebar:
-        try:
-            # Verificar se o método analyze_chromadb_content existe
-            if hasattr(vn, "analyze_chromadb_content"):
-                with st.spinner("Analisando conteúdo do ChromaDB..."):
-                    # Chamar o método analyze_chromadb_content
-                    result = vn.analyze_chromadb_content()
-
-                    # Verificar o resultado
-                    if result["status"] == "success":
-                        st.success(f"✅ {result['message']}")
-
-                        # Mostrar estatísticas por tipo de documento
-                        if "document_types" in result:
-                            st.subheader("Tipos de Documentos")
-                            for doc_type, count in result["document_types"].items():
-                                st.info(f"- {doc_type}: {count} documentos")
-
-                        # Mostrar estatísticas de relacionamentos
-                        if "relationship_stats" in result:
-                            rel_stats = result["relationship_stats"]
-                            st.subheader("Estatísticas de Relacionamentos")
-                            st.info(f"- Tabelas com relacionamentos: {rel_stats['tables']}")
-                            st.info(f"- Documentos de relacionamento: {rel_stats['documents']}")
-                            st.info(f"- Total de relacionamentos: {rel_stats['total_relationships']}")
-
-                            # Mostrar detalhes das tabelas com mais relacionamentos
-                            if "details" in rel_stats and rel_stats["details"]:
-                                st.subheader("Top 5 Tabelas com Mais Relacionamentos")
-                                # Ordenar tabelas por número de relacionamentos
-                                sorted_tables = sorted(
-                                    rel_stats["details"].items(),
-                                    key=lambda x: x[1]["relationships"],
-                                    reverse=True
-                                )
-                                for i, (table, stats) in enumerate(sorted_tables[:5]):
-                                    st.info(f"- {table}: {stats['relationships']} relacionamentos")
-
-                        # Mostrar estatísticas de pares pergunta-SQL
-                        if "pair_stats" in result:
-                            st.subheader("Pares Pergunta-SQL")
-                            st.info(f"- Total: {result['pair_stats']['count']} pares")
-                    else:
-                        st.error(f"❌ {result['message']}")
-            else:
-                st.error("❌ Método analyze_chromadb_content não encontrado.")
-                st.info("Atualize o código para incluir o método de análise.")
-        except Exception as e:
-            st.error(f"❌ Erro ao analisar ChromaDB: {e}")
-            import traceback
-            st.code(traceback.format_exc())
-
-# Botão para verificar o estado do ChromaDB
-if col10.button("✅ Verificar ChromaDB"):
-    with st.sidebar:
-        try:
-            # Verificar se o método check_chromadb existe
-            if hasattr(vn, "check_chromadb"):
-                with st.spinner("Verificando ChromaDB..."):
-                    # Chamar o método check_chromadb
-                    result = vn.check_chromadb()
-
-                    # Verificar o resultado
-                    if result["status"] == "success":
-                        st.success(f"✅ ChromaDB está funcionando! Coleção tem {result['count']} documentos.")
-                    elif result["status"] == "warning":
-                        st.warning(f"⚠️ {result['message']}")
-                    else:
-                        st.error(f"❌ {result['message']}")
-            else:
-                st.error("❌ Método check_chromadb não encontrado.")
-        except Exception as e:
-            st.error(f"❌ Erro ao verificar ChromaDB: {e}")
-            import traceback
-            st.code(traceback.format_exc())
-
 # Seção de treinamento manual
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Treinamento Manual")
@@ -622,7 +543,7 @@ if user_question:
             else:
                 st.success("Nenhum problema crítico encontrado!")
 
-        # Adicionar botões de diagnóstico
+        # Adicionar botões de diagnóstico simplificados
         with col_diag.expander("Diagnóstico", expanded=False):
             col1, col2 = st.columns(2)
 
@@ -635,7 +556,6 @@ if user_question:
                         except Exception as e:
                             st.error(f"Erro ao verificar tabela: {e}")
                             import traceback
-
                             st.code(traceback.format_exc())
 
             with col2:
@@ -646,118 +566,6 @@ if user_question:
                             st.code(diagnostico)
                         except Exception as e:
                             st.error(f"Erro ao verificar exemplos: {e}")
-                            import traceback
-
-                            st.code(traceback.format_exc())
-
-            # Adicionar botão para diagnóstico do ChromaDB
-            col3, col4 = st.columns(2)
-            with col3:
-                if st.button("Verificar ChromaDB"):
-                    with st.spinner("Verificando ChromaDB..."):
-                        try:
-                            # Verificar se o ChromaDB está funcionando corretamente
-                            if hasattr(vn, "collection") and vn.collection:
-                                try:
-                                    # Verificar se a coleção tem documentos
-                                    count = vn.collection.count()
-                                    st.success(f"✅ ChromaDB está funcionando! Coleção tem {count} documentos.")
-
-                                    # Mostrar alguns documentos da coleção
-                                    if count > 0:
-                                        try:
-                                            # Obter alguns documentos da coleção
-                                            docs = vn.collection.get(limit=5)
-                                            st.info("Exemplos de documentos na coleção:")
-                                            for i, doc in enumerate(docs["documents"][:5]):
-                                                st.code(f"Documento {i+1}:\n{doc[:200]}...")
-                                        except Exception as e:
-                                            st.warning(f"Não foi possível obter documentos: {e}")
-                                    else:
-                                        st.warning("⚠️ A coleção está vazia. Treine o modelo primeiro.")
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao verificar coleção: {e}")
-                            else:
-                                st.error("❌ ChromaDB não está disponível. A coleção não foi inicializada.")
-
-                            # Verificar o diretório de persistência
-                            persist_dir = vn.chroma_persist_directory if hasattr(vn, "chroma_persist_directory") else "/app/data/chromadb"
-                            st.info(f"Diretório de persistência: {persist_dir}")
-
-                            # Verificar se o diretório existe
-                            import os
-                            if os.path.exists(persist_dir):
-                                st.success(f"✅ Diretório de persistência existe!")
-
-                                # Listar arquivos no diretório
-                                files = os.listdir(persist_dir)
-                                st.info(f"Arquivos no diretório ({len(files)}):")
-                                for file in files:
-                                    st.code(file)
-                            else:
-                                st.error(f"❌ Diretório de persistência não existe!")
-                        except Exception as e:
-                            st.error(f"❌ Erro ao verificar ChromaDB: {e}")
-                            import traceback
-                            st.code(traceback.format_exc())
-
-            with col4:
-                if st.button("🔄 Recarregar ChromaDB"):
-                    with st.spinner("Recarregando ChromaDB..."):
-                        try:
-                            # Verificar se o método check_chromadb existe
-                            if hasattr(vn, "check_chromadb"):
-                                # Chamar o método check_chromadb
-                                result = vn.check_chromadb()
-
-                                # Verificar o resultado
-                                if result["status"] == "success":
-                                    st.success(f"✅ {result['message']}")
-
-                                    # Mostrar informações adicionais
-                                    st.info(f"Documentos encontrados: {result['count']}")
-
-                                    # Sugerir próximos passos
-                                    st.info("Agora você pode fazer perguntas usando os dados treinados.")
-                                elif result["status"] == "warning":
-                                    st.warning(f"⚠️ {result['message']}")
-
-                                    # Sugerir próximos passos
-                                    st.info("Treine o modelo primeiro usando os botões de treinamento acima.")
-                                else:
-                                    st.error(f"❌ {result['message']}")
-
-                                    # Sugerir próximos passos
-                                    st.info("Verifique os logs para mais informações.")
-                            else:
-                                st.error("❌ Método check_chromadb não encontrado.")
-
-                                # Tentar uma abordagem alternativa
-                                st.info("Tentando abordagem alternativa...")
-
-                                # Reinicializar o ChromaDB
-                                try:
-                                    # Verificar se o método _init_chromadb existe
-                                    if hasattr(vn, "_init_chromadb"):
-                                        # Chamar o método _init_chromadb
-                                        vn._init_chromadb()
-
-                                        # Verificar se a coleção foi inicializada
-                                        if hasattr(vn, "collection") and vn.collection:
-                                            try:
-                                                # Verificar se a coleção tem documentos
-                                                count = vn.collection.count()
-                                                st.success(f"✅ ChromaDB reinicializado! Coleção tem {count} documentos.")
-                                            except Exception as e:
-                                                st.error(f"❌ Erro ao verificar coleção: {e}")
-                                        else:
-                                            st.error("❌ ChromaDB não foi inicializado corretamente.")
-                                    else:
-                                        st.error("❌ Método _init_chromadb não encontrado.")
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao reinicializar ChromaDB: {e}")
-                        except Exception as e:
-                            st.error(f"❌ Erro ao recarregar ChromaDB: {e}")
                             import traceback
                             st.code(traceback.format_exc())
 
@@ -1160,10 +968,6 @@ if user_question:
                             # Prioridade 1: Série temporal (se temos datas e medidas)
                             if date_cols and (measure_cols or numeric_cols):
                                 # Verificar se há uma tendência temporal clara
-                                date_col = date_cols[0]
-                                measure_col = (
-                                    measure_cols[0] if measure_cols else numeric_cols[0]
-                                )
 
                                 # Ordenar por data e verificar se há pelo menos 3 pontos
                                 if len(df) >= 3:

@@ -72,6 +72,10 @@ O fluxo de processamento de perguntas agora segue a documentação oficial do Va
 - [Documentação do Vanna.ai - get_similar_question_sql](https://vanna.ai/docs/base/#vanna.base.base.VannaBase.get_similar_question_sql)
 - [Documentação do Vanna.ai - generate_sql](https://vanna.ai/docs/base/#vanna.base.base.VannaBase.generate_sql)
 
+## Remoção do Fallback
+
+O fallback para example_pairs foi completamente removido do código. Agora, o sistema usa exclusivamente o ChromaDB para encontrar perguntas similares. Se o ChromaDB não encontrar resultados, o sistema retornará uma lista vazia e o LLM terá que gerar uma consulta SQL do zero.
+
 ## Conclusão
 
 Estas alterações garantem que o sistema siga o fluxo recomendado pela documentação do Vanna.ai, o que deve melhorar a geração de consultas SQL e a adaptação de intervalos de tempo.
@@ -93,7 +97,14 @@ Estas alterações garantem que o sistema siga o fluxo recomendado pela document
    - Corrigimos a adaptação dos comentários no SQL para refletir o número correto de dias (por exemplo, "Filtrando para os últimos 30 dias" -> "Filtrando para os últimos 60 dias")
    - Adicionamos o método `validate_sql()` para validar a consulta SQL antes de executá-la
 
-3. **Fluxo incorreto de processamento de perguntas**:
+3. **Problemas com o fallback para example_pairs**:
+   - Identificamos que, ao reiniciar o Docker, às vezes a primeira pergunta não consultava o ChromaDB e ia direto para o fallback
+   - Removemos completamente o fallback para example_pairs do código
+   - Modificamos o método `get_similar_question_sql()` em `vanna_odoo.py` para tentar inicializar o ChromaDB se não estiver disponível
+   - Adicionamos código para forçar o uso do ChromaDB mesmo quando a coleção está vazia
+   - Adicionamos mais logs para facilitar a depuração do processo de inicialização do ChromaDB
+
+4. **Fluxo incorreto de processamento de perguntas**:
    - Corrigimos o fluxo de processamento de perguntas para seguir a documentação oficial do Vanna.ai
    - Garantimos que todos os métodos necessários sejam chamados na ordem correta
    - Documentamos o fluxo completo para referência futura

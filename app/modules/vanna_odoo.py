@@ -371,6 +371,28 @@ class VannaOdoo(VannaOdooTraining):
         try:
             # Verificar se o ChromaDB está funcionando corretamente
             chromadb_working = False
+
+            # Tentar inicializar o ChromaDB se não estiver disponível
+            if not hasattr(self, "collection") or self.collection is None:
+                print("[DEBUG] ChromaDB collection not initialized. Trying to initialize...")
+                try:
+                    # Verificar se temos o método check_chromadb (disponível em VannaOdooExtended)
+                    if hasattr(self, "check_chromadb"):
+                        print("[DEBUG] Calling check_chromadb to initialize ChromaDB...")
+                        result = self.check_chromadb()
+                        print(f"[DEBUG] check_chromadb result: {result}")
+
+                    # Verificar se temos o método get_collection
+                    if hasattr(self, "get_collection"):
+                        print("[DEBUG] Calling get_collection to initialize ChromaDB...")
+                        self.collection = self.get_collection()
+                        print("[DEBUG] ChromaDB collection initialized successfully")
+                except Exception as e:
+                    print(f"[DEBUG] Error initializing ChromaDB: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+            # Verificar se a coleção está disponível e tem documentos
             if hasattr(self, "collection") and self.collection:
                 try:
                     # Verificar se a coleção tem documentos
@@ -381,16 +403,18 @@ class VannaOdoo(VannaOdooTraining):
                     if count > 0:
                         chromadb_working = True
                     else:
-                        print("[DEBUG] ChromaDB collection is empty. Using fallback.")
+                        print("[DEBUG] ChromaDB collection is empty. Will try to use it anyway.")
+                        # Mesmo com a coleção vazia, vamos tentar usar o ChromaDB
+                        chromadb_working = True
                 except Exception as e:
                     print(f"[DEBUG] Error checking ChromaDB collection: {e}")
             else:
-                print("[DEBUG] ChromaDB collection not available. Using fallback.")
+                print("[DEBUG] ChromaDB collection not available after initialization attempt.")
 
             # Primeiro, vamos tentar encontrar uma correspondência exata em example_pairs
             # Isso garante que perguntas exatas ou muito similares sejam encontradas primeiro
             try:
-                from modules.example_pairs import get_example_pairs, get_similar_question_sql
+                from modules.example_pairs import get_example_pairs
 
                 # Get example pairs
                 example_pairs = get_example_pairs()
@@ -527,26 +551,8 @@ class VannaOdoo(VannaOdooTraining):
                 print(f"[DEBUG] Using {len(similar_questions)} similar questions from ChromaDB")
                 return similar_questions
 
-            # If we don't have similar questions, try to get them from example_pairs
-            print("[DEBUG] No similar questions found in ChromaDB. Using fallback to example_pairs.")
-            try:
-                # Get similar question
-                similar_question = get_similar_question_sql(question, example_pairs)
+            print("[DEBUG] No similar questions found in ChromaDB. Returning empty list.")
 
-                # If we have a similar question, return it
-                if similar_question:
-                    print(f"[DEBUG] Found similar question in example_pairs: {similar_question['question']}")
-                    return [similar_question]
-                else:
-                    print("[DEBUG] No similar question found in example_pairs")
-
-            except Exception as e:
-                print(f"[DEBUG] Error getting similar questions from example_pairs: {e}")
-                import traceback
-                traceback.print_exc()
-
-            # If we still don't have similar questions, return empty list
-            print("[DEBUG] No similar questions found. Returning empty list.")
             return []
         except Exception as e:
             print(f"[DEBUG] Error in get_similar_questions: {e}")
