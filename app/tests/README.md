@@ -55,6 +55,17 @@ Para executar os testes, use o script `run_tests.sh` na raiz do projeto:
 - Testes para busca de perguntas similares
 - Testes para execução de consultas
 
+### Testes do Fluxo de Processamento de Perguntas (`test_vanna_flow.py`)
+- Testes para o fluxo completo recomendado pela documentação do Vanna.ai
+- Testes para cada etapa do fluxo:
+  - `get_similar_question_sql()`
+  - `get_related_ddl()`
+  - `get_related_documentation()`
+  - `get_sql_prompt()`
+  - `submit_prompt()`
+  - `generate_sql()`
+- Testes para validar a integração entre as etapas
+
 ### Testes da Interface Streamlit (`test_streamlit_interface.py`)
 - Testes para a interface principal
 - Testes para a interface de treinamento

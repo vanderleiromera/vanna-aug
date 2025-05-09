@@ -39,11 +39,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov flake8 black ipython chromadb
+          pip install pytest pytest-cov flake8 black ipython chromadb unittest-xml-reporting
 
           # Criar diretórios de módulos vazios se necessário
           mkdir -p app/modules
           touch app/modules/__init__.py
+          mkdir -p app/tests
+          touch app/tests/__init__.py
 
           # Criar arquivos vazios para os módulos que podem não estar disponíveis
           # Isso evita erros de importação nos testes
@@ -52,6 +54,13 @@ jobs:
           fi
           if [ ! -f app/modules/vanna_odoo_extended.py ]; then
             echo "# Mock module for testing" > app/modules/vanna_odoo_extended.py
+          fi
+          if [ ! -f app/modules/example_pairs.py ]; then
+            echo "# Mock module for testing" > app/modules/example_pairs.py
+            echo "def get_example_pairs():" >> app/modules/example_pairs.py
+            echo "    return []" >> app/modules/example_pairs.py
+            echo "def get_similar_question_sql(question, example_pairs):" >> app/modules/example_pairs.py
+            echo "    return None" >> app/modules/example_pairs.py
           fi
 
       - name: Check and fix code issues
@@ -90,6 +99,16 @@ jobs:
           POSTGRES_DB: postgres
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CHROMA_PERSIST_DIRECTORY: /tmp/chromadb
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            test-reports/
+            coverage.xml
+          retention-days: 30
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5.0.0

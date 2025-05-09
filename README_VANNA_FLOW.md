@@ -95,9 +95,45 @@ O método `get_similar_question_sql()` foi aprimorado para:
 
 O fallback para example_pairs foi completamente removido do código. Agora, o sistema usa uma abordagem mais robusta que combina resultados de várias fontes para encontrar perguntas similares.
 
+## Testes do Fluxo de Processamento de Perguntas
+
+Para garantir que o fluxo de processamento de perguntas esteja funcionando corretamente, foram criados testes automatizados que validam cada etapa do fluxo:
+
+1. **Testes Unitários para Cada Etapa**:
+   - Teste para `get_similar_question_sql()`
+   - Teste para `get_related_ddl()`
+   - Teste para `get_related_documentation()`
+   - Teste para `get_sql_prompt()`
+   - Teste para `submit_prompt()`
+   - Teste para `generate_sql()`
+
+2. **Teste de Integração para o Fluxo Completo**:
+   - Teste que verifica se todas as etapas são chamadas na ordem correta
+   - Teste que verifica se o resultado final é o esperado
+
+### Executando os Testes
+
+Para executar os testes, use o script `run_tests.sh`:
+
+```bash
+cd app
+./run_tests.sh
+```
+
+Ou execute os testes manualmente:
+
+```bash
+# Executar todos os testes
+python -m unittest tests/test_vanna_flow.py
+
+# Executar um teste específico
+python -m unittest tests.test_vanna_flow.TestVannaFlow.test_get_similar_question_sql
+python -m unittest tests.test_vanna_flow.TestVannaFlow.test_full_flow
+```
+
 ## Conclusão
 
-Estas alterações garantem que o sistema siga o fluxo recomendado pela documentação do Vanna.ai, o que deve melhorar a geração de consultas SQL e a adaptação de intervalos de tempo.
+Estas alterações garantem que o sistema siga o fluxo recomendado pela documentação do Vanna.ai, o que deve melhorar a geração de consultas SQL e a adaptação de intervalos de tempo. Os testes automatizados ajudam a garantir que o fluxo continue funcionando corretamente após futuras alterações no código.
 
 ## Problemas Resolvidos
 
