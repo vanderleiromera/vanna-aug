@@ -3,10 +3,10 @@
 Script para executar todos os testes da aplicação.
 """
 
+import logging
 import os
 import sys
 import unittest
-import logging
 
 # Adicionar os diretórios necessários ao path para importar os módulos
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -14,6 +14,7 @@ sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêi
 
 # Configurar protobuf para usar implementação pura Python
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
 
 # Configurar o ambiente para testes
 def setup_test_environment():
@@ -31,25 +32,35 @@ def setup_test_environment():
 
     # Desativar logs específicos que são muito verbosos
     for logger_name in [
-        "chromadb", "openai", "httpx", "sqlalchemy",
-        "urllib3", "asyncio", "fsspec", "onnxruntime"
+        "chromadb",
+        "openai",
+        "httpx",
+        "sqlalchemy",
+        "urllib3",
+        "asyncio",
+        "fsspec",
+        "onnxruntime",
     ]:
         logging.getLogger(logger_name).setLevel(logging.ERROR)
 
     # Desativar warnings de depreciação
     import warnings
+
     warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-    print(f"Ambiente de teste configurado. Diretório ChromaDB: {os.environ['CHROMA_PERSIST_DIRECTORY']}")
+    print(
+        f"Ambiente de teste configurado. Diretório ChromaDB: {os.environ['CHROMA_PERSIST_DIRECTORY']}"
+    )
+
 
 # Configurar o ambiente de teste
 setup_test_environment()
 
 if __name__ == "__main__":
     # Imprimir cabeçalho
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print(" EXECUTANDO TESTES DA APLICAÇÃO VANNA AI ODOO ".center(80, "="))
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
     # Descobrir e executar todos os testes
     test_loader = unittest.TestLoader()
@@ -62,9 +73,13 @@ if __name__ == "__main__":
     result = test_runner.run(test_suite)
 
     # Imprimir resumo
-    print("\n" + "="*80)
-    print(f" RESUMO: {result.testsRun} testes executados, {len(result.failures)} falhas, {len(result.errors)} erros ".center(80, "="))
-    print("="*80 + "\n")
+    print("\n" + "=" * 80)
+    print(
+        f" RESUMO: {result.testsRun} testes executados, {len(result.failures)} falhas, {len(result.errors)} erros ".center(
+            80, "="
+        )
+    )
+    print("=" * 80 + "\n")
 
     # Sair com código de erro se algum teste falhar
     sys.exit(not result.wasSuccessful())

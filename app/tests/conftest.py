@@ -5,6 +5,7 @@ Este arquivo é automaticamente carregado pelo pytest.
 
 import os
 import sys
+
 import pandas as pd
 import pytest
 
@@ -28,9 +29,13 @@ test_config = setup_test_environment()
 
 # Verificar se os módulos Pydantic estão disponíveis
 try:
-    from app.modules.models import VannaConfig, DatabaseConfig, ProductData
     from app.modules.data_converter import dataframe_to_model_list
-    from app.tests.pydantic.fixtures import get_test_vanna_config, get_test_db_config, get_test_products
+    from app.modules.models import DatabaseConfig, ProductData, VannaConfig
+    from app.tests.pydantic.fixtures import (
+        get_test_db_config,
+        get_test_products,
+        get_test_vanna_config,
+    )
 
     PYDANTIC_AVAILABLE = True
 except ImportError as e:
