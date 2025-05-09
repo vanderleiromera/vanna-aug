@@ -77,8 +77,9 @@ class TestVannaFlow(unittest.TestCase):
         # Verificar se o método chamou a função query do ChromaDB
         self.mock_collection.query.assert_called()
 
-        # Imprimir o resultado para depuração
-        print(f"get_similar_question_sql result: {result}")
+        # Imprimir o resultado para depuração apenas se DEBUG estiver ativado
+        if os.environ.get("DEBUG", "false").lower() == "true":
+            print(f"get_similar_question_sql result: {result}")
 
     @patch("modules.vanna_odoo.VannaOdoo.get_related_ddl")
     def test_get_related_ddl(self, mock_get_related_ddl):
@@ -99,8 +100,9 @@ class TestVannaFlow(unittest.TestCase):
         for item in result:
             self.assertIsInstance(item, str)
 
-        # Imprimir o resultado para depuração
-        print(f"get_related_ddl result: {result}")
+        # Imprimir o resultado para depuração apenas se DEBUG estiver ativado
+        if os.environ.get("DEBUG", "false").lower() == "true":
+            print(f"get_related_ddl result: {result}")
 
     @patch("modules.vanna_odoo.VannaOdoo.get_related_documentation")
     def test_get_related_documentation(self, mock_get_related_documentation):
@@ -121,8 +123,9 @@ class TestVannaFlow(unittest.TestCase):
         for item in result:
             self.assertIsInstance(item, str)
 
-        # Imprimir o resultado para depuração
-        print(f"get_related_documentation result: {result}")
+        # Imprimir o resultado para depuração apenas se DEBUG estiver ativado
+        if os.environ.get("DEBUG", "false").lower() == "true":
+            print(f"get_related_documentation result: {result}")
 
     @patch("modules.vanna_odoo.VannaOdoo.get_sql_prompt")
     def test_get_sql_prompt(self, mock_get_sql_prompt):
@@ -152,8 +155,9 @@ class TestVannaFlow(unittest.TestCase):
             self.assertIn("role", item)
             self.assertIn("content", item)
 
-        # Imprimir o resultado para depuração
-        print(f"get_sql_prompt result: {result}")
+        # Imprimir o resultado para depuração apenas se DEBUG estiver ativado
+        if os.environ.get("DEBUG", "false").lower() == "true":
+            print(f"get_sql_prompt result: {result}")
 
     @patch("modules.vanna_odoo.VannaOdoo.submit_prompt")
     def test_submit_prompt(self, mock_submit_prompt):
@@ -196,8 +200,9 @@ class TestVannaFlow(unittest.TestCase):
         self.assertIsInstance(result, str)
         self.assertTrue(len(result) > 0)
 
-        # Imprimir o resultado para depuração
-        print(f"submit_prompt result: {result}")
+        # Imprimir o resultado para depuração apenas se DEBUG estiver ativado
+        if os.environ.get("DEBUG", "false").lower() == "true":
+            print(f"submit_prompt result: {result}")
 
     @patch("modules.vanna_odoo.VannaOdoo.generate_sql")
     def test_generate_sql(self, mock_generate_sql):
@@ -231,8 +236,9 @@ class TestVannaFlow(unittest.TestCase):
         # Verificar se o método retornou a SQL esperada
         self.assertEqual(result, expected_sql)
 
-        # Imprimir o resultado para depuração
-        print(f"generate_sql result: {result}")
+        # Imprimir o resultado para depuração apenas se DEBUG estiver ativado
+        if os.environ.get("DEBUG", "false").lower() == "true":
+            print(f"generate_sql result: {result}")
 
     @patch("modules.vanna_odoo.VannaOdoo.get_similar_question_sql")
     @patch("modules.vanna_odoo.VannaOdoo.get_related_ddl")
@@ -304,8 +310,9 @@ class TestVannaFlow(unittest.TestCase):
         # Verificar se o método retornou a SQL esperada
         self.assertEqual(result, expected_sql)
 
-        # Imprimir o resultado para depuração
-        print(f"full_flow result: {result}")
+        # Imprimir o resultado para depuração apenas se DEBUG estiver ativado
+        if os.environ.get("DEBUG", "false").lower() == "true":
+            print(f"full_flow result: {result}")
 
 
 if __name__ == "__main__":

@@ -18,6 +18,8 @@ Os testes estão organizados da seguinte forma:
 
 ## Executando os Testes
 
+### Usando o Script Básico
+
 Para executar os testes, use o script `run_tests.sh` na raiz do projeto:
 
 ```bash
@@ -29,6 +31,30 @@ Para executar os testes, use o script `run_tests.sh` na raiz do projeto:
 
 # Executar os testes legados
 ./run_tests.sh --legacy
+```
+
+### Usando o Script Avançado
+
+Para mais opções de execução, use o script `run_tests_with_options.sh`:
+
+```bash
+# Exibir ajuda
+./run_tests_with_options.sh --help
+
+# Executar todos os testes com saída verbosa
+./run_tests_with_options.sh --verbose
+
+# Executar um teste específico
+./run_tests_with_options.sh --specific test_basic.py
+
+# Executar um método de teste específico
+./run_tests_with_options.sh --specific test_basic.py --method TestBasicFunctionality.test_pandas_functionality
+
+# Executar os testes com cobertura de código
+./run_tests_with_options.sh --coverage
+
+# Executar os testes com saída de depuração
+./run_tests_with_options.sh --debug
 ```
 
 ## Testes Disponíveis
@@ -89,3 +115,39 @@ Para adicionar novos testes:
 - Corrija os testes que falham devido a mudanças na aplicação
 - Remova testes obsoletos ou mova-os para a pasta `legacy_tests`
 - Documente os testes com docstrings claras
+
+## Reduzindo a Verbosidade dos Logs
+
+Os testes foram configurados para reduzir a verbosidade dos logs durante a execução. Isso é feito através das seguintes técnicas:
+
+1. **Configuração de Logging**: O nível de log é configurado para `ERROR` durante os testes, o que reduz significativamente a quantidade de mensagens exibidas.
+
+2. **Variáveis de Ambiente**: As seguintes variáveis de ambiente são usadas para controlar a verbosidade:
+   - `TEST_MODE=true`: Indica que estamos em modo de teste
+   - `DEBUG=true`: Ativa a saída de depuração (desativada por padrão)
+   - `VERBOSE=true`: Ativa a saída verbosa (desativada por padrão)
+
+3. **Supressão de Logs Específicos**: Os logs de bibliotecas específicas são suprimidos:
+   - ChromaDB
+   - OpenAI
+   - httpx
+   - sqlalchemy
+   - urllib3
+   - asyncio
+   - fsspec
+   - onnxruntime
+
+4. **Prints Condicionais**: Os prints de depuração são condicionais e só são exibidos quando `DEBUG=true`.
+
+Para executar os testes com diferentes níveis de verbosidade, use as opções do script `run_tests_with_options.sh`:
+
+```bash
+# Executar com saída mínima
+./run_tests_with_options.sh --quiet
+
+# Executar com saída verbosa
+./run_tests_with_options.sh --verbose
+
+# Executar com saída de depuração
+./run_tests_with_options.sh --debug
+```

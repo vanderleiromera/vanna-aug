@@ -15,11 +15,16 @@ sys.path.append(
 )
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
-# Configurar variáveis de ambiente para testes
-os.environ["TESTING"] = "true"
+# Importar e configurar o ambiente de teste
+try:
+    # Tentar importar usando o caminho relativo
+    from test_config import setup_test_environment
+except ImportError:
+    # Tentar importar usando o caminho absoluto
+    from app.tests.test_config import setup_test_environment
 
-# Configurar protobuf para usar implementação pura Python
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+# Configurar o ambiente de teste
+test_config = setup_test_environment()
 
 # Verificar se os módulos Pydantic estão disponíveis
 try:
