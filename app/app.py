@@ -612,6 +612,26 @@ if user_question:
             # Log that we're processing the question
             st.info("Processando pergunta...")
 
+            # Verificar se o SQL é válido usando is_sql_valid
+            if sql and hasattr(vn, "is_sql_valid"):
+                is_valid = vn.is_sql_valid(sql)
+                if not is_valid:
+                    st.warning(
+                        "⚠️ O SQL gerado pode não ser válido. Tentando gerar SQL alternativo..."
+                    )
+                    try:
+                        # Usar o método generate_sql diretamente
+                        alternative_sql = vn.generate_sql(user_question)
+                        if alternative_sql and vn.is_sql_valid(alternative_sql):
+                            st.success("✅ Gerado SQL alternativo válido!")
+                            sql = alternative_sql
+                        else:
+                            st.error(
+                                "Não foi possível gerar um SQL alternativo válido."
+                            )
+                    except Exception as e:
+                        st.error(f"Erro ao gerar SQL alternativo: {e}")
+
             # Check if we got a valid SQL response
             if not sql:
                 st.error(

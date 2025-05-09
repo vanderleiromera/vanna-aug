@@ -182,6 +182,7 @@ class VannaOdooExtended(VannaOdooNumeric):
 
         # Extrair o número de dias atual do SQL
         import re
+
         current_days = None
         interval_match = re.search(r"INTERVAL\s+'(\d+)\s+days'", sql)
         if interval_match:
@@ -190,7 +191,9 @@ class VannaOdooExtended(VannaOdooNumeric):
 
         # Se o número de dias atual for igual ao número de dias desejado, não precisamos fazer nada
         if current_days == days:
-            print(f"[DEBUG] O SQL já usa INTERVAL '{days} days', não é necessário adaptar")
+            print(
+                f"[DEBUG] O SQL já usa INTERVAL '{days} days', não é necessário adaptar"
+            )
             return sql
 
         # Guardar o SQL original para comparação
@@ -198,25 +201,45 @@ class VannaOdooExtended(VannaOdooNumeric):
 
         # Substituir diretamente o padrão de intervalo de tempo
         if current_days and f"INTERVAL '{current_days} days'" in sql:
-            sql = sql.replace(f"INTERVAL '{current_days} days'", f"INTERVAL '{days} days'")
-            print(f"[DEBUG] Substituído INTERVAL '{current_days} days' por INTERVAL '{days} days'")
+            sql = sql.replace(
+                f"INTERVAL '{current_days} days'", f"INTERVAL '{days} days'"
+            )
+            print(
+                f"[DEBUG] Substituído INTERVAL '{current_days} days' por INTERVAL '{days} days'"
+            )
 
         # Substituir comentários específicos
         if current_days and f"últimos {current_days} dias" in sql:
             sql = sql.replace(f"últimos {current_days} dias", f"últimos {days} dias")
-            print(f"[DEBUG] Substituído comentário 'últimos {current_days} dias' por 'últimos {days} dias'")
+            print(
+                f"[DEBUG] Substituído comentário 'últimos {current_days} dias' por 'últimos {days} dias'"
+            )
 
         # Se as substituições diretas não funcionaram, tentar com expressões regulares
         if sql == original_sql:
-            print(f"[DEBUG] Substituições diretas não funcionaram, tentando com expressões regulares")
+            print(
+                f"[DEBUG] Substituições diretas não funcionaram, tentando com expressões regulares"
+            )
 
             # Padrões para INTERVAL
             interval_patterns = [
                 (r"INTERVAL\s+'(\d+)\s+days'", f"INTERVAL '{days} days'"),
-                (r"NOW\(\)\s*-\s*INTERVAL\s+'(\d+)\s+days'", f"NOW() - INTERVAL '{days} days'"),
-                (r"CURRENT_DATE\s*-\s*INTERVAL\s+'(\d+)\s+days'", f"CURRENT_DATE - INTERVAL '{days} days'"),
-                (r"date_order\s*>=\s*NOW\(\)\s*-\s*INTERVAL\s+'(\d+)\s+days'", f"date_order >= NOW() - INTERVAL '{days} days'"),
-                (r"date_order\s*>=\s*CURRENT_DATE\s*-\s*INTERVAL\s+'(\d+)\s+days'", f"date_order >= CURRENT_DATE - INTERVAL '{days} days'")
+                (
+                    r"NOW\(\)\s*-\s*INTERVAL\s+'(\d+)\s+days'",
+                    f"NOW() - INTERVAL '{days} days'",
+                ),
+                (
+                    r"CURRENT_DATE\s*-\s*INTERVAL\s+'(\d+)\s+days'",
+                    f"CURRENT_DATE - INTERVAL '{days} days'",
+                ),
+                (
+                    r"date_order\s*>=\s*NOW\(\)\s*-\s*INTERVAL\s+'(\d+)\s+days'",
+                    f"date_order >= NOW() - INTERVAL '{days} days'",
+                ),
+                (
+                    r"date_order\s*>=\s*CURRENT_DATE\s*-\s*INTERVAL\s+'(\d+)\s+days'",
+                    f"date_order >= CURRENT_DATE - INTERVAL '{days} days'",
+                ),
             ]
 
             # Aplicar padrões de INTERVAL
@@ -228,16 +251,24 @@ class VannaOdooExtended(VannaOdooNumeric):
 
             # Padrões para comentários
             comment_patterns = [
-                (r"--\s*Filtrando\s+para\s+os\s+últimos\s+(\d+)\s+dias", f"-- Filtrando para os últimos {days} dias"),
+                (
+                    r"--\s*Filtrando\s+para\s+os\s+últimos\s+(\d+)\s+dias",
+                    f"-- Filtrando para os últimos {days} dias",
+                ),
                 (r"últimos\s+(\d+)\s+dias", f"últimos {days} dias"),
-                (r"Filtrando\s+para\s+os\s+últimos\s+(\d+)\s+dias", f"Filtrando para os últimos {days} dias")
+                (
+                    r"Filtrando\s+para\s+os\s+últimos\s+(\d+)\s+dias",
+                    f"Filtrando para os últimos {days} dias",
+                ),
             ]
 
             # Aplicar padrões de comentários
             for pattern, replacement in comment_patterns:
                 new_sql = re.sub(pattern, replacement, sql, flags=re.IGNORECASE)
                 if new_sql != sql:
-                    print(f"[DEBUG] Substituído padrão de comentário '{pattern}' por '{replacement}'")
+                    print(
+                        f"[DEBUG] Substituído padrão de comentário '{pattern}' por '{replacement}'"
+                    )
                     sql = new_sql
 
         # Verificar se houve alguma alteração
@@ -248,6 +279,68 @@ class VannaOdooExtended(VannaOdooNumeric):
 
         print(f"[DEBUG] SQL adaptado:\n{sql}")
         return sql
+
+    def is_sql_valid(self, sql):
+        """
+        Verifica se a consulta SQL é válida.
+
+        Por padrão, verifica se a consulta é uma instrução SELECT.
+        Esta implementação segue a documentação do Vanna.ai:
+        https://vanna.ai/docs/base/#vanna.base.base.VannaBase.is_sql_valid
+
+        Args:
+            sql (str): A consulta SQL a ser verificada
+
+        Returns:
+            bool: True se a consulta SQL for válida, False caso contrário
+        """
+        if not sql:
+            return False
+
+        # Importar sqlparse para analisar a consulta SQL
+        import sqlparse
+
+        # Analisar a consulta SQL
+        parsed = sqlparse.parse(sql)
+
+        # Verificar se a consulta é uma instrução SELECT válida
+        for statement in parsed:
+            if statement.get_type() == "SELECT":
+                # Verificar se é um SELECT válido (com FROM ou pelo menos uma coluna)
+                tokens = list(statement.flatten())
+                token_values = [t.value.upper() for t in tokens]
+
+                # Verificar se é apenas "SELECT" ou "SELECT;"
+                if len(token_values) <= 2 and all(
+                    t in ["SELECT", "SELECT;", ";"] for t in token_values
+                ):
+                    return False
+
+                # Se tem FROM, é válido
+                if "FROM" in token_values:
+                    return True
+
+                # Se tem pelo menos um token após SELECT que não é ponto e vírgula, é válido
+                # (por exemplo, "SELECT 1" é válido)
+                select_index = token_values.index("SELECT")
+                if (
+                    select_index < len(token_values) - 1
+                    and token_values[select_index + 1] != ";"
+                ):
+                    return True
+
+                return False
+
+        # Se não for uma instrução SELECT, verificar se é uma consulta WITH
+        # que geralmente é usada para CTEs (Common Table Expressions)
+        if sql.strip().upper().startswith("WITH "):
+            # Verificar se é um WITH válido (com AS e SELECT)
+            if " AS " in sql.upper() and "SELECT" in sql.upper():
+                return True
+            return False
+
+        # Se não for SELECT nem WITH, não é uma consulta válida
+        return False
 
     def ask(self, question, allow_llm_to_see_data=False):
         """
@@ -274,6 +367,7 @@ class VannaOdooExtended(VannaOdooNumeric):
 
         # Extrair o número de dias da pergunta original
         import re
+
         days_match = re.search(r"últimos\s+(\d+)\s+dias", question.lower())
         days = None
         if days_match:
@@ -282,7 +376,9 @@ class VannaOdooExtended(VannaOdooNumeric):
 
         # Usa o método generate_sql da classe pai para gerar o SQL
         # Isso garante que todos os tipos de dados (question pairs, DDL, documentação) sejam considerados
-        sql = super().generate_sql(question, allow_llm_to_see_data=allow_llm_to_see_data)
+        sql = super().generate_sql(
+            question, allow_llm_to_see_data=allow_llm_to_see_data
+        )
 
         if sql:
             print(f"[DEBUG] SQL gerado pelo método generate_sql")
@@ -302,6 +398,16 @@ class VannaOdooExtended(VannaOdooNumeric):
             if days and "INTERVAL" in sql:
                 sql = self.adapt_interval_days(sql, days)
 
+            # Verificar se o SQL é válido
+            if not self.is_sql_valid(sql):
+                print(f"[DEBUG] SQL gerado não é válido: {sql}")
+                print(
+                    f"[DEBUG] Tentando gerar SQL novamente com o método ask da classe pai"
+                )
+                return super().ask(
+                    question, allow_llm_to_see_data=allow_llm_to_see_data
+                )
+
             print(f"[DEBUG] SQL final:\n{sql}")
             return sql
 
@@ -317,10 +423,24 @@ class VannaOdooExtended(VannaOdooNumeric):
             dict: Dicionário com informações do modelo
         """
         model_info = {
-            "model": self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4"),
-            "allow_llm_to_see_data": self.allow_llm_to_see_data if hasattr(self, "allow_llm_to_see_data") else False,
-            "chroma_persist_directory": self.chroma_persist_directory if hasattr(self, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"),
-            "max_tokens": self.vanna_config.max_tokens if hasattr(self, "vanna_config") else 14000,
+            "model": (
+                self.model
+                if hasattr(self, "model")
+                else os.getenv("OPENAI_MODEL", "gpt-4")
+            ),
+            "allow_llm_to_see_data": (
+                self.allow_llm_to_see_data
+                if hasattr(self, "allow_llm_to_see_data")
+                else False
+            ),
+            "chroma_persist_directory": (
+                self.chroma_persist_directory
+                if hasattr(self, "chroma_persist_directory")
+                else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+            ),
+            "max_tokens": (
+                self.vanna_config.max_tokens if hasattr(self, "vanna_config") else 14000
+            ),
         }
         return model_info
 
@@ -355,7 +475,9 @@ class VannaOdooExtended(VannaOdooNumeric):
                 trained_count = 0
                 total_relationships = 0
 
-                print(f"Starting training on relationships for {total_tables} priority tables...")
+                print(
+                    f"Starting training on relationships for {total_tables} priority tables..."
+                )
 
                 # Primeiro, vamos coletar todos os relacionamentos diretos
                 direct_relationships = []
@@ -364,12 +486,14 @@ class VannaOdooExtended(VannaOdooNumeric):
                     relationships_df = self.get_table_relationships(table)
                     if relationships_df is not None and not relationships_df.empty:
                         for _, row in relationships_df.iterrows():
-                            direct_relationships.append({
-                                "source_table": table,
-                                "source_column": row['column_name'],
-                                "target_table": row['foreign_table_name'],
-                                "target_column": row['foreign_column_name']
-                            })
+                            direct_relationships.append(
+                                {
+                                    "source_table": table,
+                                    "source_column": row["column_name"],
+                                    "target_table": row["foreign_table_name"],
+                                    "target_column": row["foreign_column_name"],
+                                }
+                            )
 
                 print(f"Found {len(direct_relationships)} direct relationships")
 
@@ -382,13 +506,15 @@ class VannaOdooExtended(VannaOdooNumeric):
                         if relationships_df is not None and not relationships_df.empty:
                             for _, row in relationships_df.iterrows():
                                 # Se a tabela referenciada é uma tabela prioritária, adicionar como relacionamento inverso
-                                if row['foreign_table_name'] in tables_to_train:
-                                    inverse_relationships.append({
-                                        "source_table": table,
-                                        "source_column": row['column_name'],
-                                        "target_table": row['foreign_table_name'],
-                                        "target_column": row['foreign_column_name']
-                                    })
+                                if row["foreign_table_name"] in tables_to_train:
+                                    inverse_relationships.append(
+                                        {
+                                            "source_table": table,
+                                            "source_column": row["column_name"],
+                                            "target_table": row["foreign_table_name"],
+                                            "target_column": row["foreign_column_name"],
+                                        }
+                                    )
 
                 print(f"Found {len(inverse_relationships)} inverse relationships")
 
@@ -413,7 +539,9 @@ class VannaOdooExtended(VannaOdooNumeric):
                             doc += f"- Column {rel['source_column']} references {rel['target_table']}.{rel['target_column']}\n"
 
                         # Adicionar também relacionamentos inversos (tabelas que referenciam esta tabela)
-                        inverse_refs = [r for r in all_relationships if r["target_table"] == table]
+                        inverse_refs = [
+                            r for r in all_relationships if r["target_table"] == table
+                        ]
                         if inverse_refs:
                             doc += f"\nTable {table} is referenced by:\n"
                             for rel in inverse_refs:
@@ -421,13 +549,16 @@ class VannaOdooExtended(VannaOdooNumeric):
 
                         # Train Vanna on the relationships
                         result = self.train(documentation=doc)
-                        print(f"Trained on relationships for table: {table}, result: {result}")
+                        print(
+                            f"Trained on relationships for table: {table}, result: {result}"
+                        )
                         total_relationships += len(relationships) + len(inverse_refs)
 
                         # Add directly to collection for better persistence
                         if hasattr(self, "collection") and self.collection:
                             content = doc
                             import hashlib
+
                             content_hash = hashlib.md5(content.encode()).hexdigest()
                             doc_id = f"rel-{content_hash}"
 
@@ -436,28 +567,39 @@ class VannaOdooExtended(VannaOdooNumeric):
                                 # Add with metadata for better search
                                 self.collection.add(
                                     documents=[content],
-                                    metadatas=[{
-                                        "type": "relationship",
-                                        "table": table,
-                                        "relationship_count": len(relationships) + len(inverse_refs)
-                                    }],
+                                    metadatas=[
+                                        {
+                                            "type": "relationship",
+                                            "table": table,
+                                            "relationship_count": len(relationships)
+                                            + len(inverse_refs),
+                                        }
+                                    ],
                                     ids=[doc_id],
                                 )
-                                print(f"Added relationship document for table {table}, ID: {doc_id}")
+                                print(
+                                    f"Added relationship document for table {table}, ID: {doc_id}"
+                                )
                             except Exception as e:
-                                print(f"Error adding relationship document for table {table}: {e}")
+                                print(
+                                    f"Error adding relationship document for table {table}: {e}"
+                                )
                                 import traceback
+
                                 traceback.print_exc()
 
                             trained_count += 1
                     except Exception as e:
                         print(f"Error training on relationships for table {table}: {e}")
 
-                print(f"Trained on relationships for {trained_count} tables, total of {total_relationships} relationships")
+                print(
+                    f"Trained on relationships for {trained_count} tables, total of {total_relationships} relationships"
+                )
                 return trained_count > 0
         except Exception as e:
             print(f"Error in train_on_priority_relationships: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
@@ -470,12 +612,17 @@ class VannaOdooExtended(VannaOdooNumeric):
         """
         try:
             import os
+
             import chromadb
             from chromadb.config import Settings
             from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
             # Obter o diretório de persistência
-            persist_dir = self.chroma_persist_directory if hasattr(self, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+            persist_dir = (
+                self.chroma_persist_directory
+                if hasattr(self, "chroma_persist_directory")
+                else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+            )
 
             # Verificar se o diretório existe
             if not os.path.exists(persist_dir):
@@ -500,12 +647,19 @@ class VannaOdooExtended(VannaOdooNumeric):
                     chroma_client = chromadb.PersistentClient(path=persist_dir)
                     print("Cliente ChromaDB inicializado com configurações padrão")
                 except Exception as e2:
-                    print(f"Erro ao inicializar cliente ChromaDB com configurações padrão: {e2}")
-                    return {"status": "error", "message": f"Erro ao inicializar cliente ChromaDB: {e2}"}
+                    print(
+                        f"Erro ao inicializar cliente ChromaDB com configurações padrão: {e2}"
+                    )
+                    return {
+                        "status": "error",
+                        "message": f"Erro ao inicializar cliente ChromaDB: {e2}",
+                    }
 
             # Listar coleções
             collections = chroma_client.list_collections()
-            print(f"Coleções encontradas ({len(collections)}): {[c.name for c in collections]}")
+            print(
+                f"Coleções encontradas ({len(collections)}): {[c.name for c in collections]}"
+            )
 
             # Verificar se a coleção 'vanna' existe
             vanna_collection_exists = False
@@ -522,7 +676,10 @@ class VannaOdooExtended(VannaOdooNumeric):
                     print("Coleção 'vanna' excluída com sucesso")
                 except Exception as e:
                     print(f"Erro ao excluir coleção 'vanna': {e}")
-                    return {"status": "error", "message": f"Erro ao excluir coleção: {e}"}
+                    return {
+                        "status": "error",
+                        "message": f"Erro ao excluir coleção: {e}",
+                    }
 
             # Criar uma nova coleção
             try:
@@ -530,7 +687,7 @@ class VannaOdooExtended(VannaOdooNumeric):
                 vanna_collection = chroma_client.create_collection(
                     name="vanna",
                     embedding_function=embedding_function,
-                    metadata={"description": "Vanna AI training data"}
+                    metadata={"description": "Vanna AI training data"},
                 )
                 print("Coleção 'vanna' criada com sucesso")
             except Exception as e:
@@ -553,12 +710,13 @@ class VannaOdooExtended(VannaOdooNumeric):
             return {
                 "status": "success",
                 "message": "ChromaDB resetado com sucesso. Coleção recriada.",
-                "count": 0
+                "count": 0,
             }
 
         except Exception as e:
             print(f"Erro ao resetar ChromaDB: {e}")
             import traceback
+
             traceback.print_exc()
             return {"status": "error", "message": f"Erro ao resetar ChromaDB: {e}"}
 
@@ -578,7 +736,10 @@ class VannaOdooExtended(VannaOdooNumeric):
                     print("[DEBUG] Coleção ChromaDB obtida com sucesso")
                 except Exception as e:
                     print(f"[DEBUG] Erro ao obter coleção ChromaDB: {e}")
-                    return {"status": "error", "message": f"Erro ao obter coleção ChromaDB: {e}"}
+                    return {
+                        "status": "error",
+                        "message": f"Erro ao obter coleção ChromaDB: {e}",
+                    }
 
             # Obter a contagem total de documentos
             try:
@@ -590,12 +751,18 @@ class VannaOdooExtended(VannaOdooNumeric):
 
             # Obter todos os documentos com seus metadados
             try:
-                all_docs = self.collection.get(limit=1000)  # Limite alto para pegar todos
-                if not all_docs or "metadatas" not in all_docs or not all_docs["metadatas"]:
+                all_docs = self.collection.get(
+                    limit=1000
+                )  # Limite alto para pegar todos
+                if (
+                    not all_docs
+                    or "metadatas" not in all_docs
+                    or not all_docs["metadatas"]
+                ):
                     return {
                         "status": "warning",
                         "message": "Não foi possível obter metadados dos documentos",
-                        "count": total_count
+                        "count": total_count,
                     }
 
                 # Analisar os tipos de documentos
@@ -632,7 +799,9 @@ class VannaOdooExtended(VannaOdooNumeric):
                         # Cada linha que começa com "- Column" ou "- Table" é um relacionamento
                         rel_count = 0
                         for line in doc_content.split("\n"):
-                            if line.strip().startswith("- Column") or line.strip().startswith("- Table"):
+                            if line.strip().startswith(
+                                "- Column"
+                            ) or line.strip().startswith("- Table"):
                                 rel_count += 1
 
                         # Atualizar contagem total
@@ -642,7 +811,7 @@ class VannaOdooExtended(VannaOdooNumeric):
                         if table not in relationship_tables:
                             relationship_tables[table] = {
                                 "count": 0,
-                                "relationships": 0
+                                "relationships": 0,
                             }
 
                         # Atualizar contagens para a tabela
@@ -651,7 +820,9 @@ class VannaOdooExtended(VannaOdooNumeric):
 
                         # Mostrar alguns exemplos de documentos de relacionamento
                         if i < 5:
-                            print(f"[DEBUG] Exemplo de documento de relacionamento para tabela {table} ({rel_count} relacionamentos):")
+                            print(
+                                f"[DEBUG] Exemplo de documento de relacionamento para tabela {table} ({rel_count} relacionamentos):"
+                            )
                             print(f"{doc_content[:200]}...")
                     else:
                         # Se não conseguirmos obter o conteúdo, usar o valor do metadado (que pode ser 0)
@@ -662,7 +833,7 @@ class VannaOdooExtended(VannaOdooNumeric):
                         if table not in relationship_tables:
                             relationship_tables[table] = {
                                 "count": 0,
-                                "relationships": 0
+                                "relationships": 0,
                             }
 
                         # Atualizar contagens para a tabela
@@ -670,7 +841,9 @@ class VannaOdooExtended(VannaOdooNumeric):
                         relationship_tables[table]["relationships"] += rel_count
 
                 # Analisar documentos de pares pergunta-SQL
-                pair_docs = [m for m in all_docs["metadatas"] if m.get("type") == "pair"]
+                pair_docs = [
+                    m for m in all_docs["metadatas"] if m.get("type") == "pair"
+                ]
 
                 # Preparar resultado
                 result = {
@@ -682,23 +855,26 @@ class VannaOdooExtended(VannaOdooNumeric):
                         "tables": len(relationship_tables),
                         "documents": len(relationship_docs),
                         "total_relationships": total_relationships,
-                        "details": relationship_tables
+                        "details": relationship_tables,
                     },
-                    "pair_stats": {
-                        "count": len(pair_docs)
-                    }
+                    "pair_stats": {"count": len(pair_docs)},
                 }
 
                 return result
             except Exception as e:
                 print(f"[DEBUG] Erro ao analisar documentos: {e}")
                 import traceback
+
                 traceback.print_exc()
-                return {"status": "error", "message": f"Erro ao analisar documentos: {e}"}
+                return {
+                    "status": "error",
+                    "message": f"Erro ao analisar documentos: {e}",
+                }
 
         except Exception as e:
             print(f"[DEBUG] Erro ao analisar ChromaDB: {e}")
             import traceback
+
             traceback.print_exc()
             return {"status": "error", "message": f"Erro ao analisar ChromaDB: {e}"}
 
@@ -711,12 +887,17 @@ class VannaOdooExtended(VannaOdooNumeric):
         """
         try:
             import os
+
             import chromadb
             from chromadb.config import Settings
             from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
             # Obter o diretório de persistência
-            persist_dir = self.chroma_persist_directory if hasattr(self, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+            persist_dir = (
+                self.chroma_persist_directory
+                if hasattr(self, "chroma_persist_directory")
+                else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+            )
 
             # Verificar se o diretório existe
             if not os.path.exists(persist_dir):
@@ -745,15 +926,22 @@ class VannaOdooExtended(VannaOdooNumeric):
                     chroma_client = chromadb.PersistentClient(path=persist_dir)
                     print("Cliente ChromaDB inicializado com configurações padrão")
                 except Exception as e2:
-                    print(f"Erro ao inicializar cliente ChromaDB com configurações padrão: {e2}")
-                    return {"status": "error", "message": f"Erro ao inicializar cliente ChromaDB: {e2}"}
+                    print(
+                        f"Erro ao inicializar cliente ChromaDB com configurações padrão: {e2}"
+                    )
+                    return {
+                        "status": "error",
+                        "message": f"Erro ao inicializar cliente ChromaDB: {e2}",
+                    }
 
             # Usar função de embedding padrão
             embedding_function = DefaultEmbeddingFunction()
 
             # Listar coleções
             collections = chroma_client.list_collections()
-            print(f"Coleções encontradas ({len(collections)}): {[c.name for c in collections]}")
+            print(
+                f"Coleções encontradas ({len(collections)}): {[c.name for c in collections]}"
+            )
 
             # Verificar se a coleção 'vanna' existe
             vanna_collection = None
@@ -776,12 +964,15 @@ class VannaOdooExtended(VannaOdooNumeric):
                     vanna_collection = chroma_client.create_collection(
                         name="vanna",
                         embedding_function=embedding_function,
-                        metadata={"description": "Vanna AI training data"}
+                        metadata={"description": "Vanna AI training data"},
                     )
                     print("Coleção 'vanna' criada com sucesso")
                 except Exception as e:
                     print(f"Erro ao criar coleção 'vanna': {e}")
-                    return {"status": "error", "message": f"Erro ao criar coleção 'vanna': {e}"}
+                    return {
+                        "status": "error",
+                        "message": f"Erro ao criar coleção 'vanna': {e}",
+                    }
 
             # Verificar se a coleção tem documentos
             try:
@@ -818,21 +1009,25 @@ class VannaOdooExtended(VannaOdooNumeric):
                     return {
                         "status": "success",
                         "message": f"ChromaDB verificado com sucesso. Coleção tem {count} documentos.",
-                        "count": count
+                        "count": count,
                     }
                 else:
                     return {
                         "status": "warning",
                         "message": "Coleção está vazia. Treine o modelo primeiro.",
-                        "count": 0
+                        "count": 0,
                     }
             except Exception as e:
                 print(f"Erro ao verificar documentos: {e}")
-                return {"status": "error", "message": f"Erro ao verificar documentos: {e}"}
+                return {
+                    "status": "error",
+                    "message": f"Erro ao verificar documentos: {e}",
+                }
 
         except Exception as e:
             print(f"Erro ao verificar ChromaDB: {e}")
             import traceback
+
             traceback.print_exc()
             return {"status": "error", "message": f"Erro ao verificar ChromaDB: {e}"}
 
@@ -866,6 +1061,7 @@ class VannaOdooExtended(VannaOdooNumeric):
 
             # Gerar um ID único para o documento
             import hashlib
+
             content_hash = hashlib.md5(content.encode()).hexdigest()
             doc_id = f"pair-{content_hash}"
 
@@ -875,7 +1071,7 @@ class VannaOdooExtended(VannaOdooNumeric):
                 self.collection.add(
                     documents=[content],
                     metadatas=[{"type": "pair", "question": question}],
-                    ids=[doc_id]
+                    ids=[doc_id],
                 )
                 print(f"[DEBUG] Documento adicionado com sucesso, ID: {doc_id}")
 
@@ -883,7 +1079,9 @@ class VannaOdooExtended(VannaOdooNumeric):
                 try:
                     doc = self.collection.get(ids=[doc_id])
                     if doc and "documents" in doc and len(doc["documents"]) > 0:
-                        print(f"[DEBUG] Documento verificado: {doc['documents'][0][:50]}...")
+                        print(
+                            f"[DEBUG] Documento verificado: {doc['documents'][0][:50]}..."
+                        )
                         return True
                     else:
                         print("[DEBUG] Documento não encontrado após adição")
@@ -894,6 +1092,7 @@ class VannaOdooExtended(VannaOdooNumeric):
             except Exception as e:
                 print(f"[DEBUG] Erro ao adicionar documento: {e}")
                 import traceback
+
                 traceback.print_exc()
                 return False
 
@@ -901,6 +1100,7 @@ class VannaOdooExtended(VannaOdooNumeric):
         except Exception as e:
             print(f"[DEBUG] Erro em train_on_example_pair: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
@@ -924,9 +1124,21 @@ class VannaOdooExtended(VannaOdooNumeric):
             return False
 
         # Verificar se a consulta contém comandos perigosos
-        dangerous_commands = ["DROP", "DELETE", "TRUNCATE", "ALTER", "UPDATE", "INSERT", "CREATE", "GRANT", "REVOKE"]
+        dangerous_commands = [
+            "DROP",
+            "DELETE",
+            "TRUNCATE",
+            "ALTER",
+            "UPDATE",
+            "INSERT",
+            "CREATE",
+            "GRANT",
+            "REVOKE",
+        ]
         if any(command in sql.upper() for command in dangerous_commands):
-            print(f"[DEBUG] SQL contém comandos perigosos: {[cmd for cmd in dangerous_commands if cmd in sql.upper()]}")
+            print(
+                f"[DEBUG] SQL contém comandos perigosos: {[cmd for cmd in dangerous_commands if cmd in sql.upper()]}"
+            )
             # Não bloquear a execução, apenas alertar
 
         return True
@@ -946,10 +1158,13 @@ class VannaOdooExtended(VannaOdooNumeric):
             # Verificar se a pergunta contém um número de dias
             if question:
                 import re
+
                 days_match = re.search(r"últimos\s+(\d+)\s+dias", question.lower())
                 if days_match and "INTERVAL" in sql:
                     days = int(days_match.group(1))
-                    print(f"[DEBUG] Detectado {days} dias na pergunta original em run_sql_query")
+                    print(
+                        f"[DEBUG] Detectado {days} dias na pergunta original em run_sql_query"
+                    )
 
                     # Adaptar o SQL para o número correto de dias
                     sql = self.adapt_interval_days(sql, days)
@@ -967,19 +1182,26 @@ class VannaOdooExtended(VannaOdooNumeric):
             from sqlalchemy import text
 
             # Executar a consulta
-            print(f"[DEBUG] Executando SQL ({self.estimate_tokens(sql)} tokens estimados)")
+            print(
+                f"[DEBUG] Executando SQL ({self.estimate_tokens(sql)} tokens estimados)"
+            )
             df = pd.read_sql_query(text(sql), engine)
 
             # Verificar se o DataFrame está vazio
             if df.empty:
-                print("[DEBUG] A consulta foi executada com sucesso, mas não retornou resultados")
+                print(
+                    "[DEBUG] A consulta foi executada com sucesso, mas não retornou resultados"
+                )
             else:
-                print(f"[DEBUG] Query executada com sucesso: {len(df)} linhas retornadas")
+                print(
+                    f"[DEBUG] Query executada com sucesso: {len(df)} linhas retornadas"
+                )
 
             return df
         except Exception as e:
             print(f"[DEBUG] Erro ao executar consulta SQL: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
@@ -1043,11 +1265,17 @@ class VannaOdooExtended(VannaOdooNumeric):
                     # Implementar um método alternativo para resetar dados
                     # Por exemplo, limpar arquivos específicos no diretório de persistência
                     try:
-                        import shutil
                         import os
+                        import shutil
 
                         # Obter o diretório de persistência
-                        persist_dir = self.chroma_persist_directory if hasattr(self, "chroma_persist_directory") else os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+                        persist_dir = (
+                            self.chroma_persist_directory
+                            if hasattr(self, "chroma_persist_directory")
+                            else os.getenv(
+                                "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"
+                            )
+                        )
 
                         # Verificar se o diretório existe
                         if os.path.exists(persist_dir):
@@ -1071,11 +1299,17 @@ class VannaOdooExtended(VannaOdooNumeric):
         except Exception as e:
             print(f"Erro ao obter coleção ChromaDB: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
     def ask_with_results(
-        self, question, print_results=True, auto_train=False, debug=True, allow_llm_to_see_data=False
+        self,
+        question,
+        print_results=True,
+        auto_train=False,
+        debug=True,
+        allow_llm_to_see_data=False,
     ):
         """
         Ask a question and get a response with results
@@ -1127,8 +1361,10 @@ class VannaOdooExtended(VannaOdooNumeric):
             if df is not None and not df.empty:
                 try:
                     plotly_code = self.generate_plotly_code(
-                        question=question, sql=sql, df_metadata=str(df.dtypes),
-                        allow_llm_to_see_data=allow_llm_to_see_data
+                        question=question,
+                        sql=sql,
+                        df_metadata=str(df.dtypes),
+                        allow_llm_to_see_data=allow_llm_to_see_data,
                     )
                     if plotly_code:
                         fig = self.get_plotly_figure(plotly_code=plotly_code, df=df)
