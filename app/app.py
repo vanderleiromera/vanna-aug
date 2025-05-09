@@ -545,7 +545,7 @@ if user_question:
 
         # Adicionar botões de diagnóstico simplificados
         with col_diag.expander("Diagnóstico", expanded=False):
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
 
             with col1:
                 if st.button("Verificar Tabela product_template"):
@@ -566,6 +566,29 @@ if user_question:
                             st.code(diagnostico)
                         except Exception as e:
                             st.error(f"Erro ao verificar exemplos: {e}")
+                            import traceback
+                            st.code(traceback.format_exc())
+
+            with col3:
+                if st.button("Verificar ChromaDB"):
+                    with st.spinner("Verificando ChromaDB..."):
+                        try:
+                            # Verificar se o método check_chromadb existe
+                            if hasattr(vn, "check_chromadb"):
+                                # Chamar o método check_chromadb
+                                result = vn.check_chromadb()
+
+                                # Verificar o resultado
+                                if result["status"] == "success":
+                                    st.success(f"✅ ChromaDB está funcionando! Coleção tem {result['count']} documentos.")
+                                elif result["status"] == "warning":
+                                    st.warning(f"⚠️ {result['message']}")
+                                else:
+                                    st.error(f"❌ {result['message']}")
+                            else:
+                                st.error("❌ Método check_chromadb não encontrado.")
+                        except Exception as e:
+                            st.error(f"❌ Erro ao verificar ChromaDB: {e}")
                             import traceback
                             st.code(traceback.format_exc())
 

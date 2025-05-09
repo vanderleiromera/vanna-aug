@@ -411,14 +411,16 @@ class VannaOdoo(VannaOdooTraining):
             else:
                 print("[DEBUG] ChromaDB collection not available after initialization attempt.")
 
-            # Primeiro, vamos tentar encontrar uma correspondência exata em example_pairs
-            # Isso garante que perguntas exatas ou muito similares sejam encontradas primeiro
+            # Vamos coletar perguntas similares de todas as fontes disponíveis
+            similar_questions = []
+
+            # 1. Verificar correspondências em example_pairs
             try:
                 from modules.example_pairs import get_example_pairs
 
                 # Get example pairs
                 example_pairs = get_example_pairs()
-                print(f"[DEBUG] Checking {len(example_pairs)} example pairs for exact match")
+                print(f"[DEBUG] Checking {len(example_pairs)} example pairs for matches")
 
                 # Normalizar a pergunta para comparação
                 import re
@@ -430,13 +432,15 @@ class VannaOdoo(VannaOdooTraining):
                 normalized_question = re.sub(r'\s+', ' ', normalized_question)
                 print(f"[DEBUG] Normalized question: '{normalized_question}'")
 
-                # Procurar por correspondência exata ou muito próxima
+                # Lista para armazenar pares com pontuação de similaridade
+                example_pairs_matches = []
+
+                # Procurar por correspondências
                 for pair in example_pairs:
                     # Aplicar a mesma normalização ao exemplo
                     pair_question = pair.get("question", "").lower().strip().rstrip('?')
                     pair_question = re.sub(r'([a-z])\1{2,}', r'\1', pair_question)
                     pair_question = re.sub(r'\s+', ' ', pair_question)
-                    print(f"[DEBUG] Checking against example: '{pair_question}'")
 
                     # Calcular similaridade usando distância de Levenshtein
                     from difflib import SequenceMatcher
@@ -445,27 +449,36 @@ class VannaOdoo(VannaOdooTraining):
                     # Verificar se as perguntas são idênticas ou muito similares
                     exact_match = normalized_question == pair_question
                     contains_match = normalized_question in pair_question or pair_question in normalized_question
-                    similar_match = similarity > 0.85  # 85% de similaridade é um bom limiar
+                    similar_match = similarity > 0.7  # Reduzir o limiar para 70% para capturar mais correspondências
 
+                    # Adicionar pontuação de similaridade
+                    match_score = similarity
                     if exact_match:
+                        match_score = 1.0
                         print(f"[DEBUG] Found EXACT match in example_pairs: {pair['question']} (100% similarity)")
-                        print(f"[DEBUG] SQL from example: {pair['sql'][:100]}...")
-                        return [pair]
                     elif contains_match:
+                        match_score = 0.9
                         print(f"[DEBUG] Found CONTAINS match in example_pairs: {pair['question']} (substring match)")
-                        print(f"[DEBUG] SQL from example: {pair['sql'][:100]}...")
-                        return [pair]
                     elif similar_match:
                         print(f"[DEBUG] Found SIMILAR match in example_pairs: {pair['question']} ({similarity:.2%} similarity)")
-                        print(f"[DEBUG] SQL from example: {pair['sql'][:100]}...")
-                        return [pair]
 
-                print("[DEBUG] No exact match found in example_pairs")
+                    # Se a correspondência for boa o suficiente, adicionar à lista
+                    if match_score >= 0.7:
+                        example_pairs_matches.append((pair, match_score))
+
+                # Ordenar por pontuação de similaridade (do maior para o menor)
+                example_pairs_matches.sort(key=lambda x: x[1], reverse=True)
+
+                # Adicionar os melhores matches à lista de perguntas similares
+                for pair, score in example_pairs_matches[:3]:  # Pegar os 3 melhores matches
+                    similar_questions.append(pair)
+                    print(f"[DEBUG] Added example_pair match: {pair['question']} (score: {score:.2f})")
+
+                print(f"[DEBUG] Found {len(example_pairs_matches)} matches in example_pairs")
             except Exception as e:
-                print(f"[DEBUG] Error checking example_pairs for exact match: {e}")
+                print(f"[DEBUG] Error checking example_pairs for matches: {e}")
 
-            # Use the parent method to get similar questions
-            similar_questions = []
+            # 2. Usar o ChromaDB para obter mais perguntas similares
             if chromadb_working:
                 try:
                     # Forçar o uso do ChromaDB para obter perguntas similares
@@ -536,29 +549,112 @@ class VannaOdoo(VannaOdooTraining):
                         except Exception as e:
                             print(f"[DEBUG] Error querying ChromaDB collection: {e}")
 
-                    # Se não conseguimos extrair perguntas diretamente, tentar o método padrão
-                    if not similar_questions:
+                    # 3. Se não conseguimos extrair perguntas diretamente do ChromaDB, tentar o método padrão
+                    chromadb_questions_count = len(similar_questions)
+                    if chromadb_questions_count == 0:
                         print("[DEBUG] Trying parent method to get similar questions")
-                        similar_questions = super().get_similar_questions(question, **kwargs)
-                        print(f"[DEBUG] Found {len(similar_questions)} similar questions using parent method")
+                        parent_questions = super().get_similar_questions(question, **kwargs)
+                        print(f"[DEBUG] Found {len(parent_questions)} similar questions using parent method")
+
+                        # Adicionar perguntas do método padrão à lista
+                        for q in parent_questions:
+                            if q not in similar_questions:
+                                similar_questions.append(q)
+                                print(f"[DEBUG] Added question from parent method: {q.get('question', '')[:50]}...")
                 except Exception as e:
                     print(f"[DEBUG] Error getting similar questions from ChromaDB: {e}")
                     import traceback
                     traceback.print_exc()
 
-            # If we have similar questions, return them
+            # Resumo das perguntas similares encontradas
             if similar_questions:
-                print(f"[DEBUG] Using {len(similar_questions)} similar questions from ChromaDB")
+                print(f"[DEBUG] Total similar questions found: {len(similar_questions)}")
+                for i, q in enumerate(similar_questions):
+                    print(f"[DEBUG] Similar question {i+1}: {q.get('question', '')[:50]}...")
+
+                # Limitar a 5 perguntas similares para não sobrecarregar o prompt
+                if len(similar_questions) > 5:
+                    print(f"[DEBUG] Limiting to 5 most relevant similar questions")
+                    similar_questions = similar_questions[:5]
+
                 return similar_questions
-
-            print("[DEBUG] No similar questions found in ChromaDB. Returning empty list.")
-
-            return []
+            else:
+                print("[DEBUG] No similar questions found. Returning empty list.")
+                return []
         except Exception as e:
             print(f"[DEBUG] Error in get_similar_questions: {e}")
             import traceback
             traceback.print_exc()
             return []
+
+    def check_chromadb(self):
+        """
+        Verifica o status do ChromaDB e retorna informações sobre a coleção
+        """
+        try:
+            # Valor padrão caso nenhuma condição seja atendida
+            # (não deve acontecer, mas é uma boa prática)
+
+            # Verificar se o ChromaDB está inicializado
+            if not hasattr(self, "collection") or self.collection is None:
+                print("[DEBUG] ChromaDB collection not initialized. Trying to initialize...")
+                try:
+                    # Verificar se temos o método get_collection
+                    if hasattr(self, "get_collection"):
+                        print("[DEBUG] Calling get_collection to initialize ChromaDB...")
+                        self.collection = self.get_collection()
+                        print("[DEBUG] ChromaDB collection initialized successfully")
+                    else:
+                        return {
+                            "status": "error",
+                            "message": "Método get_collection não encontrado",
+                            "count": 0
+                        }
+                except Exception as e:
+                    return {
+                        "status": "error",
+                        "message": f"Erro ao inicializar ChromaDB: {e}",
+                        "count": 0
+                    }
+
+            # Verificar se a coleção está disponível e tem documentos
+            if hasattr(self, "collection") and self.collection:
+                try:
+                    # Verificar se a coleção tem documentos
+                    count = self.collection.count()
+                    print(f"[DEBUG] ChromaDB collection has {count} documents")
+
+                    # Se a coleção tem documentos, consideramos que o ChromaDB está funcionando
+                    if count > 0:
+                        return {
+                            "status": "success",
+                            "message": "ChromaDB está funcionando corretamente",
+                            "count": count
+                        }
+                    else:
+                        return {
+                            "status": "warning",
+                            "message": "ChromaDB está funcionando, mas a coleção está vazia",
+                            "count": 0
+                        }
+                except Exception as e:
+                    return {
+                        "status": "error",
+                        "message": f"Erro ao verificar coleção do ChromaDB: {e}",
+                        "count": 0
+                    }
+            else:
+                return {
+                    "status": "error",
+                    "message": "ChromaDB não está disponível após tentativa de inicialização",
+                    "count": 0
+                }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Erro ao verificar ChromaDB: {e}",
+                "count": 0
+            }
 
     def get_related_ddl(self, question, **kwargs):
         """

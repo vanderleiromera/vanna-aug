@@ -72,9 +72,28 @@ O fluxo de processamento de perguntas agora segue a documentação oficial do Va
 - [Documentação do Vanna.ai - get_similar_question_sql](https://vanna.ai/docs/base/#vanna.base.base.VannaBase.get_similar_question_sql)
 - [Documentação do Vanna.ai - generate_sql](https://vanna.ai/docs/base/#vanna.base.base.VannaBase.generate_sql)
 
-## Remoção do Fallback
+## Fluxo de Processamento de Perguntas
 
-O fallback para example_pairs foi completamente removido do código. Agora, o sistema usa exclusivamente o ChromaDB para encontrar perguntas similares. Se o ChromaDB não encontrar resultados, o sistema retornará uma lista vazia e o LLM terá que gerar uma consulta SQL do zero.
+O sistema agora segue rigorosamente o fluxo recomendado pela documentação do Vanna.ai para processar perguntas:
+
+1. **get_similar_question_sql()**: Busca perguntas similares em todas as fontes disponíveis (ChromaDB e example_pairs)
+2. **get_related_ddl()**: Obtém DDL relacionados à pergunta
+3. **get_related_documentation()**: Obtém documentação relacionada à pergunta
+4. **get_sql_prompt()**: Gera o prompt SQL com base nas informações coletadas
+5. **submit_prompt()**: Envia o prompt para o LLM gerar a consulta SQL
+
+### Melhorias no Método get_similar_question_sql()
+
+O método `get_similar_question_sql()` foi aprimorado para:
+
+1. Coletar perguntas similares de todas as fontes disponíveis (ChromaDB e example_pairs)
+2. Atribuir pontuações de similaridade para cada correspondência
+3. Ordenar as correspondências por pontuação de similaridade
+4. Retornar as melhores correspondências (limitado a 5 para não sobrecarregar o prompt)
+
+### Remoção do Fallback
+
+O fallback para example_pairs foi completamente removido do código. Agora, o sistema usa uma abordagem mais robusta que combina resultados de várias fontes para encontrar perguntas similares.
 
 ## Conclusão
 
@@ -97,12 +116,13 @@ Estas alterações garantem que o sistema siga o fluxo recomendado pela document
    - Corrigimos a adaptação dos comentários no SQL para refletir o número correto de dias (por exemplo, "Filtrando para os últimos 30 dias" -> "Filtrando para os últimos 60 dias")
    - Adicionamos o método `validate_sql()` para validar a consulta SQL antes de executá-la
 
-3. **Problemas com o fallback para example_pairs**:
-   - Identificamos que, ao reiniciar o Docker, às vezes a primeira pergunta não consultava o ChromaDB e ia direto para o fallback
-   - Removemos completamente o fallback para example_pairs do código
-   - Modificamos o método `get_similar_question_sql()` em `vanna_odoo.py` para tentar inicializar o ChromaDB se não estiver disponível
-   - Adicionamos código para forçar o uso do ChromaDB mesmo quando a coleção está vazia
-   - Adicionamos mais logs para facilitar a depuração do processo de inicialização do ChromaDB
+3. **Melhorias no fluxo de processamento de perguntas**:
+   - Identificamos que o sistema não estava seguindo rigorosamente o fluxo recomendado pela documentação do Vanna.ai
+   - Modificamos o método `get_similar_question_sql()` em `vanna_odoo.py` para coletar perguntas similares de todas as fontes disponíveis
+   - Implementamos um sistema de pontuação de similaridade para ordenar as correspondências
+   - Adicionamos um método `check_chromadb()` para verificar o status do ChromaDB
+   - Adicionamos um botão na interface para verificar o status do ChromaDB
+   - Adicionamos mais logs para facilitar a depuração do processo de geração de SQL
 
 4. **Fluxo incorreto de processamento de perguntas**:
    - Corrigimos o fluxo de processamento de perguntas para seguir a documentação oficial do Vanna.ai
