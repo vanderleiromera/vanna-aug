@@ -1,6 +1,7 @@
 """
 Module containing example question-SQL pairs for training.
 """
+
 import re
 from difflib import SequenceMatcher
 
@@ -21,7 +22,7 @@ def get_similar_question_sql(question, example_pairs):
 
     # Normalize the question (lowercase, remove punctuation)
     normalized_question = question.lower()
-    normalized_question = re.sub(r'[^\w\s]', '', normalized_question)
+    normalized_question = re.sub(r"[^\w\s]", "", normalized_question)
 
     best_match = None
     best_score = 0.0
@@ -32,7 +33,7 @@ def get_similar_question_sql(question, example_pairs):
 
         # Normalize the example question
         example_question = pair["question"].lower()
-        example_question = re.sub(r'[^\w\s]', '', example_question)
+        example_question = re.sub(r"[^\w\s]", "", example_question)
 
         # Calculate similarity score
         score = SequenceMatcher(None, normalized_question, example_question).ratio()
@@ -650,5 +651,5 @@ ORDER BY
     vendas.valor_total DESC
 LIMIT 50;
 """,
-        }
+        },
     ]

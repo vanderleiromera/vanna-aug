@@ -5,29 +5,32 @@ Este módulo fornece fixtures para testes, utilizando os modelos Pydantic
 para garantir a consistência e validação dos dados de teste.
 """
 
+import datetime
 import os
 import sys
-import datetime
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 # Adicionar os diretórios necessários ao path para importar os módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
 import pandas as pd
+
 from app.modules.models import (
-    VannaConfig,
+    AnomalyDetectionConfig,
+    AnomalyDetectionMethod,
     DatabaseConfig,
     ProductData,
+    PurchaseSuggestion,
     SaleOrder,
     SaleOrderLine,
-    PurchaseSuggestion,
-    AnomalyDetectionConfig,
-    AnomalyDetectionMethod
+    VannaConfig,
 )
 
-
 # ===== Fixtures de Configuração =====
+
 
 def get_test_vanna_config() -> VannaConfig:
     """
@@ -41,7 +44,7 @@ def get_test_vanna_config() -> VannaConfig:
         allow_llm_to_see_data=False,
         chroma_persist_directory="/tmp/test_chromadb",
         max_tokens=1000,
-        api_key="sk-test-key"
+        api_key="sk-test-key",
     )
 
 
@@ -57,7 +60,7 @@ def get_test_db_config() -> DatabaseConfig:
         port=5432,
         database="test_db",
         user="test_user",
-        password="test_password"
+        password="test_password",
     )
 
 
@@ -72,11 +75,12 @@ def get_test_anomaly_config() -> AnomalyDetectionConfig:
         method=AnomalyDetectionMethod.Z_SCORE,
         threshold=2.5,
         columns=["quantity", "price"],
-        sensitivity=1.2
+        sensitivity=1.2,
     )
 
 
 # ===== Fixtures de Dados =====
+
 
 def get_test_products(count: int = 10) -> List[ProductData]:
     """
@@ -98,13 +102,15 @@ def get_test_products(count: int = 10) -> List[ProductData]:
                 list_price=99.99 + i,
                 quantity_available=10.0 * i,
                 category_id=1 if i <= 5 else 2,
-                category_name="Eletrônicos" if i <= 5 else "Acessórios"
+                category_name="Eletrônicos" if i <= 5 else "Acessórios",
             )
         )
     return products
 
 
-def get_test_sale_orders(count: int = 5, products: List[ProductData] = None) -> List[SaleOrder]:
+def get_test_sale_orders(
+    count: int = 5, products: List[ProductData] = None
+) -> List[SaleOrder]:
     """
     Retorna uma lista de pedidos de venda de teste.
 
@@ -132,7 +138,7 @@ def get_test_sale_orders(count: int = 5, products: List[ProductData] = None) -> 
                     product_name=product.name,
                     product_uom_qty=qty,
                     price_unit=price_unit,
-                    price_total=qty * price_unit
+                    price_total=qty * price_unit,
                 )
             )
 
@@ -149,7 +155,7 @@ def get_test_sale_orders(count: int = 5, products: List[ProductData] = None) -> 
                 partner_id=i % 3 + 1,
                 partner_name=f"Cliente Teste {i % 3 + 1}",
                 order_lines=order_lines,
-                amount_total=amount_total
+                amount_total=amount_total,
             )
         )
 
@@ -183,13 +189,15 @@ def get_test_purchase_suggestions(count: int = 5) -> List[PurchaseSuggestion]:
                 sugestao_compra=15.0 * i if i % 2 == 0 else 20.0 * i,
                 ultimo_fornecedor=f"Fornecedor {i % 3 + 1}",
                 ultimo_preco_compra=80.0 + i,
-                valor_estimado_compra=(80.0 + i) * (15.0 * i if i % 2 == 0 else 20.0 * i)
+                valor_estimado_compra=(80.0 + i)
+                * (15.0 * i if i % 2 == 0 else 20.0 * i),
             )
         )
     return suggestions
 
 
 # ===== Conversão para DataFrames =====
+
 
 def products_to_dataframe(products: List[ProductData]) -> pd.DataFrame:
     """
@@ -218,13 +226,15 @@ def sale_orders_to_dataframe(orders: List[SaleOrder]) -> pd.DataFrame:
     order_dicts = []
     for order in orders:
         order_dict = order.model_dump()
-        order_dict.pop('order_lines')
+        order_dict.pop("order_lines")
         order_dicts.append(order_dict)
 
     return pd.DataFrame(order_dicts)
 
 
-def purchase_suggestions_to_dataframe(suggestions: List[PurchaseSuggestion]) -> pd.DataFrame:
+def purchase_suggestions_to_dataframe(
+    suggestions: List[PurchaseSuggestion],
+) -> pd.DataFrame:
     """
     Converte uma lista de sugestões de compra para DataFrame.
 
@@ -238,6 +248,7 @@ def purchase_suggestions_to_dataframe(suggestions: List[PurchaseSuggestion]) -> 
 
 
 # ===== Dados de Exemplo para Testes =====
+
 
 def get_example_sql_query() -> str:
     """

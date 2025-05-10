@@ -53,6 +53,17 @@ if __name__ == "__main__":
         )
     )
 
+    # Adicionar o teste de segurança de dados do LLM
+    try:
+        from test_llm_data_security import TestLLMDataSecurity
+
+        print("\nAdicionando teste de segurança de dados do LLM...")
+        test_suite.addTest(
+            unittest.TestLoader().loadTestsFromTestCase(TestLLMDataSecurity)
+        )
+    except (ImportError, TypeError) as e:
+        print(f"\nErro ao adicionar teste de segurança de dados do LLM: {e}")
+
     # Executar os testes
     test_runner = unittest.TextTestRunner(verbosity=2)
     result = test_runner.run(test_suite)

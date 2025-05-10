@@ -7,7 +7,7 @@ relacionadas ao treinamento do modelo Vanna AI com dados do Odoo.
 
 import hashlib
 import os
-from typing import Dict, List, Optional, Union, Any
+from typing import Any, Dict, List, Optional, Union
 
 from modules.vanna_odoo_sql import VannaOdooSQL
 
@@ -149,7 +149,9 @@ class VannaOdooTraining(VannaOdooSQL):
         total_tables = len(tables_to_train)
         trained_count = 0
 
-        print(f"Starting training on relationships for {total_tables} priority tables...")
+        print(
+            f"Starting training on relationships for {total_tables} priority tables..."
+        )
 
         for table in tables_to_train:
             # Get relationships for the table
@@ -163,7 +165,9 @@ class VannaOdooTraining(VannaOdooSQL):
 
                     # Train Vanna on the relationships
                     result = self.train(documentation=doc)
-                    print(f"Trained on relationships for table: {table}, result: {result}")
+                    print(
+                        f"Trained on relationships for table: {table}, result: {result}"
+                    )
 
                     # Add directly to collection for better persistence
                     if self.collection:
@@ -179,7 +183,9 @@ class VannaOdooTraining(VannaOdooSQL):
                                 metadatas=[{"type": "relationship", "table": table}],
                                 ids=[doc_id],
                             )
-                            print(f"Added relationship document without embedding, ID: {doc_id}")
+                            print(
+                                f"Added relationship document without embedding, ID: {doc_id}"
+                            )
                         except Exception as e:
                             print(f"Error adding relationship without embedding: {e}")
                             import traceback
@@ -228,6 +234,7 @@ class VannaOdooTraining(VannaOdooSQL):
                 except Exception as e:
                     print(f"Error adding pair without embedding: {e}")
                     import traceback
+
                     traceback.print_exc()
 
                 print(f"Added pair document directly with ID: {doc_id}")
@@ -237,6 +244,7 @@ class VannaOdooTraining(VannaOdooSQL):
         except Exception as e:
             print(f"Error training on pair: {question}, {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
@@ -257,7 +265,9 @@ class VannaOdooTraining(VannaOdooSQL):
                 if "question" in pair and "sql" in pair:
                     try:
                         # Use the new method that doesn't call ask()
-                        result = self.train_on_example_pair(pair["question"], pair["sql"])
+                        result = self.train_on_example_pair(
+                            pair["question"], pair["sql"]
+                        )
                         if result:
                             trained_count += 1
                     except Exception as e:

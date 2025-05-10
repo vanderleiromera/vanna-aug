@@ -11,37 +11,38 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 
-
 # ===== Modelos de Configuração =====
+
 
 class VannaConfig(BaseModel):
     """Configuração para o cliente Vanna.ai"""
 
     model: str = Field(
         default="gpt-4.1-nano",
-        description="Modelo OpenAI a ser utilizado para geração de SQL"
+        description="Modelo OpenAI a ser utilizado para geração de SQL",
     )
     allow_llm_to_see_data: bool = Field(
         default=False,
-        description="Se o LLM pode ver os dados retornados pelas consultas"
+        description="Se o LLM pode ver os dados retornados pelas consultas",
     )
     chroma_persist_directory: str = Field(
         default="/app/data/chromadb",
-        description="Diretório para persistência do ChromaDB"
+        description="Diretório para persistência do ChromaDB",
     )
     max_tokens: int = Field(
         default=14000,
         ge=1000,
         le=32000,
-        description="Número máximo de tokens para prompts"
+        description="Número máximo de tokens para prompts",
     )
     api_key: Optional[str] = Field(
         default=None,
-        description="Chave de API OpenAI (se não for fornecida, será usada a variável de ambiente)"
+        description="Chave de API OpenAI (se não for fornecida, será usada a variável de ambiente)",
     )
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True
         extra = "ignore"
         json_schema_extra = {
@@ -49,7 +50,7 @@ class VannaConfig(BaseModel):
                 "model": "gpt-4.1-nano",
                 "allow_llm_to_see_data": False,
                 "chroma_persist_directory": "/app/data/chromadb",
-                "max_tokens": 14000
+                "max_tokens": 14000,
             }
         }
 
@@ -65,6 +66,7 @@ class DatabaseConfig(BaseModel):
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True
         extra = "ignore"
         json_schema_extra = {
@@ -73,7 +75,7 @@ class DatabaseConfig(BaseModel):
                 "port": 5432,
                 "database": "prod",
                 "user": "odoo",
-                "password": "odoo"
+                "password": "odoo",
             }
         }
 
@@ -100,38 +102,37 @@ class AnomalyDetectionConfig(BaseModel):
 
     method: AnomalyDetectionMethod = Field(
         default=AnomalyDetectionMethod.Z_SCORE,
-        description="Método de detecção de anomalias"
+        description="Método de detecção de anomalias",
     )
     threshold: float = Field(
-        default=3.0,
-        ge=0.1,
-        description="Limiar para considerar um valor como anomalia"
+        default=3.0, ge=0.1, description="Limiar para considerar um valor como anomalia"
     )
     columns: List[str] = Field(
-        default_factory=list,
-        description="Colunas para aplicar a detecção de anomalias"
+        default_factory=list, description="Colunas para aplicar a detecção de anomalias"
     )
     sensitivity: float = Field(
         default=1.0,
         ge=0.1,
         le=10.0,
-        description="Sensibilidade da detecção (maior = mais sensível)"
+        description="Sensibilidade da detecção (maior = mais sensível)",
     )
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True
         json_schema_extra = {
             "example": {
                 "method": "z_score",
                 "threshold": 3.0,
                 "columns": ["quantity", "price_total"],
-                "sensitivity": 1.0
+                "sensitivity": 1.0,
             }
         }
 
 
 # ===== Modelos de Resultados SQL =====
+
 
 class ProductData(BaseModel):
     """Modelo para dados de produtos"""
@@ -146,6 +147,7 @@ class ProductData(BaseModel):
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True
         json_schema_extra = {
             "example": {
@@ -155,7 +157,7 @@ class ProductData(BaseModel):
                 "list_price": 99.99,
                 "quantity_available": 10.5,
                 "category_id": 5,
-                "category_name": "Eletrônicos"
+                "category_name": "Eletrônicos",
             }
         }
 
@@ -172,6 +174,7 @@ class SaleOrderLine(BaseModel):
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True
 
 
@@ -189,6 +192,7 @@ class SaleOrder(BaseModel):
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True
         json_schema_extra = {
             "example": {
@@ -205,10 +209,10 @@ class SaleOrder(BaseModel):
                         "product_name": "Produto Teste",
                         "product_uom_qty": 2.0,
                         "price_unit": 99.99,
-                        "price_total": 199.98
+                        "price_total": 199.98,
                     }
                 ],
-                "amount_total": 199.98
+                "amount_total": 199.98,
             }
         }
 
@@ -225,6 +229,7 @@ class PurchaseOrderLine(BaseModel):
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True
 
 
@@ -242,6 +247,7 @@ class PurchaseOrder(BaseModel):
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True
 
 
@@ -265,4 +271,5 @@ class PurchaseSuggestion(BaseModel):
 
     class Config:
         """Configuração do modelo Pydantic"""
+
         validate_assignment = True

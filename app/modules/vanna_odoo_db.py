@@ -7,12 +7,12 @@ manipulação de esquemas.
 """
 
 import os
+
 import pandas as pd
 import psycopg2
-from sqlalchemy import create_engine, text
-
 from modules.models import DatabaseConfig
 from modules.vanna_odoo_core import VannaOdooCore
+from sqlalchemy import create_engine, text
 
 
 class VannaOdooDB(VannaOdooCore):
@@ -39,7 +39,7 @@ class VannaOdooDB(VannaOdooCore):
             port=int(os.getenv("ODOO_DB_PORT", "5432")),
             database=os.getenv("ODOO_DB_NAME", ""),
             user=os.getenv("ODOO_DB_USER", ""),
-            password=os.getenv("ODOO_DB_PASSWORD", "")
+            password=os.getenv("ODOO_DB_PASSWORD", ""),
         )
 
         # Manter compatibilidade com código existente
@@ -208,15 +208,24 @@ class VannaOdooDB(VannaOdooCore):
 
             # Verificar se a consulta é a consulta específica para produtos sem estoque
             # Esta é uma solução específica para a consulta que sabemos que está causando problemas
-            if "produtos foram vendidos nos últimos" in sql.lower() and "não têm estoque" in sql.lower():
+            if (
+                "produtos foram vendidos nos últimos" in sql.lower()
+                and "não têm estoque" in sql.lower()
+            ):
                 print("[DEBUG] Detectada consulta específica para produtos sem estoque")
                 # Usar a consulta do exemplo_pairs.py que sabemos que funciona
                 from modules.example_pairs import get_example_pairs
+
                 for pair in get_example_pairs():
-                    if "produtos foram vendidos nos últimos 30 dias, mas não têm estoque" in pair.get("question", ""):
+                    if (
+                        "produtos foram vendidos nos últimos 30 dias, mas não têm estoque"
+                        in pair.get("question", "")
+                    ):
                         print("[DEBUG] Usando SQL do exemplo para produtos sem estoque")
                         # Extrair o número de dias da consulta original
-                        days_match = re.search(r'INTERVAL\s+\'(\d+)\s+days\'', sql, re.IGNORECASE)
+                        days_match = re.search(
+                            r"INTERVAL\s+\'(\d+)\s+days\'", sql, re.IGNORECASE
+                        )
                         days = "30"  # Valor padrão
                         if days_match:
                             days = days_match.group(1)
@@ -225,7 +234,9 @@ class VannaOdooDB(VannaOdooCore):
                         # Usar o SQL do exemplo, substituindo o número de dias se necessário
                         example_sql = pair.get("sql", "")
                         if days != "30":
-                            example_sql = example_sql.replace("'30 days'", f"'{days} days'")
+                            example_sql = example_sql.replace(
+                                "'30 days'", f"'{days} days'"
+                            )
 
                         return example_sql
 
@@ -234,63 +245,101 @@ class VannaOdooDB(VannaOdooCore):
                 print("[DEBUG] Validando consulta com GROUP BY e HAVING")
 
                 # Extrair a parte do GROUP BY
-                group_by_match = re.search(r'GROUP\s+BY\s+(.*?)(?:HAVING|ORDER\s+BY|LIMIT|$)', sql, re.IGNORECASE | re.DOTALL)
+                group_by_match = re.search(
+                    r"GROUP\s+BY\s+(.*?)(?:HAVING|ORDER\s+BY|LIMIT|$)",
+                    sql,
+                    re.IGNORECASE | re.DOTALL,
+                )
                 if group_by_match:
                     group_by_columns = group_by_match.group(1).strip()
                     print(f"[DEBUG] Colunas no GROUP BY: {group_by_columns}")
 
                     # Extrair a parte do HAVING
-                    having_match = re.search(r'HAVING\s+(.*?)(?:ORDER\s+BY|LIMIT|$)', sql, re.IGNORECASE | re.DOTALL)
+                    having_match = re.search(
+                        r"HAVING\s+(.*?)(?:ORDER\s+BY|LIMIT|$)",
+                        sql,
+                        re.IGNORECASE | re.DOTALL,
+                    )
                     if having_match:
                         having_clause = having_match.group(1).strip()
                         print(f"[DEBUG] Cláusula HAVING: {having_clause}")
 
                         # Verificar se há colunas no HAVING que não estão no GROUP BY ou em funções de agregação
                         # Primeiro, verificar padrões como "COALESCE(coluna, 0)" que não estão em funções de agregação
-                        coalesce_match = re.search(r'COALESCE\s*\(\s*([^,\s]+)\.([^,\s\)]+)', having_clause)
+                        coalesce_match = re.search(
+                            r"COALESCE\s*\(\s*([^,\s]+)\.([^,\s\)]+)", having_clause
+                        )
                         if coalesce_match:
                             table_alias = coalesce_match.group(1)
                             column_name = coalesce_match.group(2)
                             column_ref = f"{table_alias}.{column_name}"
-                            print(f"[DEBUG] Encontrada referência a coluna em COALESCE: {column_ref}")
+                            print(
+                                f"[DEBUG] Encontrada referência a coluna em COALESCE: {column_ref}"
+                            )
 
                             # Verificar se a coluna está no GROUP BY
                             if column_ref not in group_by_columns:
-                                print(f"[DEBUG] Coluna {column_ref} não está no GROUP BY, corrigindo...")
+                                print(
+                                    f"[DEBUG] Coluna {column_ref} não está no GROUP BY, corrigindo..."
+                                )
 
                                 # Verificar se a coluna vem de uma subconsulta (alias de tabela com resultado agregado)
                                 # ou se já está dentro de uma função de agregação
-                                if table_alias.lower() in ["estoque", "inventory", "stock"]:
-                                    print(f"[DEBUG] Coluna {column_ref} vem de uma subconsulta, usando diretamente")
+                                if table_alias.lower() in [
+                                    "estoque",
+                                    "inventory",
+                                    "stock",
+                                ]:
+                                    print(
+                                        f"[DEBUG] Coluna {column_ref} vem de uma subconsulta, usando diretamente"
+                                    )
                                     # Para subconsultas, não precisamos agregar novamente, pois já está agregado
                                     # Apenas garantir que estamos usando o valor agregado corretamente
                                     fixed_having = having_clause
                                 else:
                                     # Verificar se a coluna já está dentro de uma função de agregação
                                     # Procurar padrões como SUM(coluna) ou AVG(coluna)
-                                    agg_pattern = re.compile(r'(SUM|AVG|MIN|MAX|COUNT)\s*\(\s*' + re.escape(column_ref) + r'\s*\)', re.IGNORECASE)
+                                    agg_pattern = re.compile(
+                                        r"(SUM|AVG|MIN|MAX|COUNT)\s*\(\s*"
+                                        + re.escape(column_ref)
+                                        + r"\s*\)",
+                                        re.IGNORECASE,
+                                    )
                                     if agg_pattern.search(having_clause):
-                                        print(f"[DEBUG] Coluna {column_ref} já está em uma função de agregação, mantendo como está")
+                                        print(
+                                            f"[DEBUG] Coluna {column_ref} já está em uma função de agregação, mantendo como está"
+                                        )
                                         fixed_having = having_clause
                                     else:
                                         # Corrigir usando SUM ou outra função de agregação apropriada
                                         # Substituir COALESCE(coluna, 0) por COALESCE(SUM(coluna), 0)
                                         fixed_having = having_clause.replace(
                                             f"COALESCE({column_ref}",
-                                            f"COALESCE(SUM({column_ref})"
+                                            f"COALESCE(SUM({column_ref})",
                                         )
 
                                 # Verificar se não estamos criando funções de agregação aninhadas
                                 # Procurar padrões como SUM(SUM(coluna))
-                                nested_agg_pattern = re.compile(r'(SUM|AVG|MIN|MAX|COUNT)\s*\(\s*(SUM|AVG|MIN|MAX|COUNT)', re.IGNORECASE)
+                                nested_agg_pattern = re.compile(
+                                    r"(SUM|AVG|MIN|MAX|COUNT)\s*\(\s*(SUM|AVG|MIN|MAX|COUNT)",
+                                    re.IGNORECASE,
+                                )
                                 if nested_agg_pattern.search(fixed_having):
-                                    print("[DEBUG] Detectada função de agregação aninhada, usando consulta original")
+                                    print(
+                                        "[DEBUG] Detectada função de agregação aninhada, usando consulta original"
+                                    )
                                     # Se detectarmos funções de agregação aninhadas, é melhor usar a consulta original
                                     # ou tentar uma abordagem diferente
                                     from modules.example_pairs import get_example_pairs
+
                                     for pair in get_example_pairs():
-                                        if "produtos foram vendidos nos últimos 30 dias, mas não têm estoque" in pair.get("question", ""):
-                                            print("[DEBUG] Usando SQL do exemplo para produtos sem estoque")
+                                        if (
+                                            "produtos foram vendidos nos últimos 30 dias, mas não têm estoque"
+                                            in pair.get("question", "")
+                                        ):
+                                            print(
+                                                "[DEBUG] Usando SQL do exemplo para produtos sem estoque"
+                                            )
                                             return pair.get("sql", "")
 
                                     # Se não encontrarmos um exemplo adequado, manter a consulta original
@@ -304,6 +353,7 @@ class VannaOdooDB(VannaOdooCore):
         except Exception as e:
             print(f"[DEBUG] Erro ao validar e corrigir SQL: {e}")
             import traceback
+
             traceback.print_exc()
             return sql  # Retornar o SQL original em caso de erro
 
@@ -315,7 +365,9 @@ class VannaOdooDB(VannaOdooCore):
         sql = self.validate_and_fix_sql(sql)
 
         # Estimar tokens da consulta SQL
-        model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
+        model = (
+            self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
+        )
         sql_tokens = self.estimate_tokens(sql, model)
         print(f"[DEBUG] Executando SQL ({sql_tokens} tokens estimados)")
 
@@ -340,11 +392,14 @@ class VannaOdooDB(VannaOdooCore):
                 # Create DataFrame
                 df = pd.DataFrame(rows, columns=columns)
 
-                print(f"[DEBUG] Query executada com sucesso: {len(df)} linhas retornadas")
+                print(
+                    f"[DEBUG] Query executada com sucesso: {len(df)} linhas retornadas"
+                )
                 return df
         except Exception as e:
             print(f"[DEBUG] Erro ao executar SQL: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 

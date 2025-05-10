@@ -7,7 +7,7 @@ relacionadas à geração e processamento de consultas SQL para o banco de dados
 
 import os
 import re
-from typing import Dict, List, Optional, Union, Any
+from typing import Any, Dict, List, Optional, Union
 
 from modules.vanna_odoo_db import VannaOdooDB
 
@@ -323,13 +323,8 @@ class VannaOdooSQL(VannaOdooDB):
                         print(f"[DEBUG] Added days interval: {days}")
 
             # Check if it has a problematic condition
-            if (
-                "HAVING" in sql.upper()
-                and "COALESCE(SUM(sq.quantity), 0) = 0" in sql
-            ):
-                print(
-                    "[DEBUG] Detected problematic stock query, adapting condition"
-                )
+            if "HAVING" in sql.upper() and "COALESCE(SUM(sq.quantity), 0) = 0" in sql:
+                print("[DEBUG] Detected problematic stock query, adapting condition")
                 sql = sql.replace(
                     "COALESCE(SUM(sq.quantity), 0) = 0",
                     "(COALESCE(SUM(sq.quantity), 0) <= 0 OR SUM(sq.quantity) IS NULL)",
@@ -340,9 +335,7 @@ class VannaOdooSQL(VannaOdooDB):
                 "sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)"
                 in sql
             ):
-                print(
-                    "[DEBUG] Detected problematic location condition, removing it"
-                )
+                print("[DEBUG] Detected problematic location condition, removing it")
                 sql = sql.replace(
                     "sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)",
                     "1=1",
@@ -424,6 +417,7 @@ class VannaOdooSQL(VannaOdooDB):
         except Exception as e:
             print(f"Error getting similar questions: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
@@ -445,6 +439,7 @@ class VannaOdooSQL(VannaOdooDB):
         except Exception as e:
             print(f"Error getting related DDL: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
@@ -466,6 +461,7 @@ class VannaOdooSQL(VannaOdooDB):
         except Exception as e:
             print(f"Error getting related documentation: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 
@@ -507,16 +503,28 @@ class VannaOdooSQL(VannaOdooDB):
             )
 
             # Estimar tokens do prompt
-            model = self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
-            prompt_tokens = sum(self.estimate_tokens(msg["content"], model) for msg in prompt if "content" in msg)
-            print(f"[DEBUG] Generated prompt with {len(prompt)} messages ({prompt_tokens} tokens estimados)")
+            model = (
+                self.model
+                if hasattr(self, "model")
+                else os.getenv("OPENAI_MODEL", "gpt-4")
+            )
+            prompt_tokens = sum(
+                self.estimate_tokens(msg["content"], model)
+                for msg in prompt
+                if "content" in msg
+            )
+            print(
+                f"[DEBUG] Generated prompt with {len(prompt)} messages ({prompt_tokens} tokens estimados)"
+            )
 
             # Submit the prompt to the LLM
             response = self.submit_prompt(prompt, temperature=0.1, **kwargs)
 
             # Estimar tokens da resposta
             response_tokens = self.estimate_tokens(response, model)
-            print(f"[DEBUG] Received response from LLM ({response_tokens} tokens estimados)")
+            print(
+                f"[DEBUG] Received response from LLM ({response_tokens} tokens estimados)"
+            )
 
             # Extract SQL from the response and adapt it based on the original question
             sql = self.extract_sql(response, question=question)

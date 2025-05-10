@@ -7,34 +7,37 @@ entre DataFrames e modelos Pydantic.
 
 import os
 import sys
+
 import pandas as pd
 import pytest
 from pydantic import ValidationError
 
 # Adicionar os diretórios necessários ao path para importar os módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
-from app.modules.models import ProductData, SaleOrder, PurchaseSuggestion
 from app.modules.data_converter import (
-    dataframe_to_model_list,
     dataframe_to_model,
+    dataframe_to_model_list,
+    dict_to_model,
     model_list_to_dataframe,
     model_to_dict,
-    dict_to_model,
-    validate_dataframe
+    validate_dataframe,
 )
+from app.modules.models import ProductData, PurchaseSuggestion, SaleOrder
 from app.tests.pydantic.fixtures import (
     get_test_products,
-    get_test_sale_orders,
     get_test_purchase_suggestions,
+    get_test_sale_orders,
     products_to_dataframe,
+    purchase_suggestions_to_dataframe,
     sale_orders_to_dataframe,
-    purchase_suggestions_to_dataframe
 )
 
-
 # ===== Testes para Conversão DataFrame -> Modelo =====
+
 
 def test_dataframe_to_model_list():
     """Testa a conversão de DataFrame para lista de modelos."""
@@ -65,9 +68,16 @@ def test_dataframe_to_model_list_empty():
 def test_dataframe_to_model_list_invalid():
     """Testa a conversão de DataFrame com dados inválidos."""
     # Criar DataFrame com valores negativos (inválidos)
-    df = pd.DataFrame([
-        {"id": 1, "name": "Produto Teste", "list_price": -10.0, "quantity_available": 5.0}
-    ])
+    df = pd.DataFrame(
+        [
+            {
+                "id": 1,
+                "name": "Produto Teste",
+                "list_price": -10.0,
+                "quantity_available": 5.0,
+            }
+        ]
+    )
 
     # Deve lançar erro de validação
     with pytest.raises(ValidationError):
@@ -99,6 +109,7 @@ def test_dataframe_to_model_empty():
 
 
 # ===== Testes para Conversão Modelo -> DataFrame =====
+
 
 def test_model_list_to_dataframe():
     """Testa a conversão de lista de modelos para DataFrame."""
@@ -142,7 +153,7 @@ def test_dict_to_model():
         "id": 1,
         "name": "Produto Teste",
         "list_price": 99.99,
-        "quantity_available": 10.5
+        "quantity_available": 10.5,
     }
 
     product = dict_to_model(product_dict, ProductData)
@@ -159,7 +170,7 @@ def test_dict_to_model_invalid():
         "id": 1,
         "name": "Produto Teste",
         "list_price": -99.99,  # Valor negativo (inválido)
-        "quantity_available": 10.5
+        "quantity_available": 10.5,
     }
 
     with pytest.raises(ValidationError):
@@ -167,6 +178,7 @@ def test_dict_to_model_invalid():
 
 
 # ===== Testes para Validação de DataFrame =====
+
 
 def test_validate_dataframe_valid():
     """Testa a validação de DataFrame válido."""
@@ -179,9 +191,16 @@ def test_validate_dataframe_valid():
 def test_validate_dataframe_invalid():
     """Testa a validação de DataFrame inválido."""
     # Criar DataFrame com valores negativos (inválidos)
-    df = pd.DataFrame([
-        {"id": 1, "name": "Produto Teste", "list_price": -10.0, "quantity_available": 5.0}
-    ])
+    df = pd.DataFrame(
+        [
+            {
+                "id": 1,
+                "name": "Produto Teste",
+                "list_price": -10.0,
+                "quantity_available": 5.0,
+            }
+        ]
+    )
 
     assert validate_dataframe(df, ProductData) is False
 
@@ -189,14 +208,13 @@ def test_validate_dataframe_invalid():
 def test_validate_dataframe_missing_fields():
     """Testa a validação de DataFrame com campos obrigatórios faltando."""
     # Criar DataFrame sem campo obrigatório (name)
-    df = pd.DataFrame([
-        {"id": 1, "list_price": 99.99, "quantity_available": 5.0}
-    ])
+    df = pd.DataFrame([{"id": 1, "list_price": 99.99, "quantity_available": 5.0}])
 
     assert validate_dataframe(df, ProductData) is False
 
 
 # ===== Testes para Casos Específicos =====
+
 
 def test_complex_model_conversion():
     """Testa a conversão de modelos complexos (com relacionamentos)."""

@@ -19,16 +19,26 @@ sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêi
 # Verificar se os módulos necessários estão disponíveis
 try:
     import vanna
+
+    from app.modules.data_converter import (
+        dataframe_to_model_list,
+        model_list_to_dataframe,
+    )
+    from app.modules.models import (
+        DatabaseConfig,
+        ProductData,
+        PurchaseSuggestion,
+        SaleOrder,
+        VannaConfig,
+    )
     from app.modules.vanna_odoo import VannaOdoo
-    from app.modules.models import VannaConfig, DatabaseConfig, ProductData, SaleOrder, PurchaseSuggestion
-    from app.modules.data_converter import dataframe_to_model_list, model_list_to_dataframe
     from app.tests.pydantic.fixtures import (
-        get_test_vanna_config,
         get_test_db_config,
         get_test_products,
-        get_test_sale_orders,
         get_test_purchase_suggestions,
-        products_to_dataframe
+        get_test_sale_orders,
+        get_test_vanna_config,
+        products_to_dataframe,
     )
 
     MODULES_AVAILABLE = True
@@ -52,7 +62,9 @@ class TestVannaOdooPydantic(unittest.TestCase):
 
         # Configurar mocks para os testes
         self.vanna.get_sqlalchemy_engine = MagicMock(return_value=None)
-        self.vanna.get_odoo_tables = MagicMock(return_value=["product_product", "product_template", "sale_order"])
+        self.vanna.get_odoo_tables = MagicMock(
+            return_value=["product_product", "product_template", "sale_order"]
+        )
 
         # Mock para run_sql_query
         self.mock_products_df = products_to_dataframe(get_test_products(3))
@@ -63,14 +75,20 @@ class TestVannaOdooPydantic(unittest.TestCase):
         self.vanna.get_related_ddl = MagicMock(return_value=[])
         self.vanna.get_related_documentation = MagicMock(return_value=[])
         self.vanna.get_sql_prompt = MagicMock(return_value=[])
-        self.vanna.submit_prompt = MagicMock(return_value="SELECT * FROM product_product LIMIT 10")
+        self.vanna.submit_prompt = MagicMock(
+            return_value="SELECT * FROM product_product LIMIT 10"
+        )
 
     def test_initialization_with_pydantic_config(self):
         """Testar inicialização com configuração Pydantic."""
         # Imprimir informações de diagnóstico
         print(f"Configuração original: {self.vanna_config.chroma_persist_directory}")
-        print(f"Configuração na instância: {self.vanna.vanna_config.chroma_persist_directory}")
-        print(f"Configuração no dicionário: {self.vanna.config.get('chroma_persist_directory', 'Não definido')}")
+        print(
+            f"Configuração na instância: {self.vanna.vanna_config.chroma_persist_directory}"
+        )
+        print(
+            f"Configuração no dicionário: {self.vanna.config.get('chroma_persist_directory', 'Não definido')}"
+        )
         print(f"Atributo da instância: {self.vanna.chroma_persist_directory}")
 
         # Verificar se a configuração foi aplicada corretamente
@@ -91,7 +109,9 @@ class TestVannaOdooPydantic(unittest.TestCase):
         # Verificar apenas se max_tokens é um número inteiro positivo
         self.assertIsInstance(self.vanna.vanna_config.max_tokens, int)
         self.assertGreater(self.vanna.vanna_config.max_tokens, 0)
-        print(f"max_tokens: {self.vanna.vanna_config.max_tokens} (esperado: 1000, mas aceitando qualquer valor positivo)")
+        print(
+            f"max_tokens: {self.vanna.vanna_config.max_tokens} (esperado: 1000, mas aceitando qualquer valor positivo)"
+        )
 
     def test_db_config_integration(self):
         """Testar integração com configuração de banco de dados."""
@@ -110,7 +130,9 @@ class TestVannaOdooPydantic(unittest.TestCase):
 
         # Verificar string de conexão
         conn_string = self.vanna.db_config.get_connection_string()
-        self.assertEqual(conn_string, "postgresql://test_user:test_password@localhost:5432/test_db")
+        self.assertEqual(
+            conn_string, "postgresql://test_user:test_password@localhost:5432/test_db"
+        )
 
     def test_run_sql_query_with_product_data(self):
         """Testar conversão de resultados SQL para modelos ProductData."""
@@ -148,7 +170,9 @@ class TestVannaOdooPydantic(unittest.TestCase):
         self.vanna.run_sql_query = MagicMock(return_value=suggestions_df)
 
         # Executar consulta
-        result_df = self.vanna.run_sql_query("SELECT * FROM purchase_suggestion LIMIT 3")
+        result_df = self.vanna.run_sql_query(
+            "SELECT * FROM purchase_suggestion LIMIT 3"
+        )
 
         # Verificar resultado
         self.assertEqual(len(result_df), 3)
@@ -181,11 +205,15 @@ class TestVannaOdooPydantic(unittest.TestCase):
     def test_ask_with_pydantic_models(self):
         """Testar método ask com integração de modelos Pydantic."""
         # Configurar mocks para o teste
-        self.vanna.generate_sql = MagicMock(return_value="SELECT * FROM product_product LIMIT 10")
+        self.vanna.generate_sql = MagicMock(
+            return_value="SELECT * FROM product_product LIMIT 10"
+        )
 
         # Configurar mock para run_sql para retornar uma string em vez de um DataFrame
         original_run_sql = self.vanna.run_sql
-        self.vanna.run_sql = MagicMock(return_value="SELECT * FROM product_product LIMIT 10")
+        self.vanna.run_sql = MagicMock(
+            return_value="SELECT * FROM product_product LIMIT 10"
+        )
 
         try:
             # Chamar o método ask
@@ -208,6 +236,7 @@ class TestVannaOdooPydantic(unittest.TestCase):
 
     def test_get_model_info(self):
         """Testar método get_model_info."""
+
         # Implementar o método get_model_info na classe VannaOdoo para o teste
         # Isso é necessário porque o método está implementado em VannaOdooExtended, mas o teste usa VannaOdoo
         def mock_get_model_info(self):
@@ -215,11 +244,13 @@ class TestVannaOdooPydantic(unittest.TestCase):
                 "model": "gpt-4.1-nano",
                 "allow_llm_to_see_data": False,
                 "chroma_persist_directory": "/tmp/test_chromadb",
-                "max_tokens": 1000
+                "max_tokens": 1000,
             }
 
         # Adicionar o método à instância de teste
-        self.vanna.get_model_info = mock_get_model_info.__get__(self.vanna, type(self.vanna))
+        self.vanna.get_model_info = mock_get_model_info.__get__(
+            self.vanna, type(self.vanna)
+        )
 
         # Verificar se a função get_model_info está disponível
         self.assertTrue(hasattr(self.vanna, "get_model_info"))

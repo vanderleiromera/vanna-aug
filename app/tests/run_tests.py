@@ -62,24 +62,49 @@ if __name__ == "__main__":
     print(" EXECUTANDO TESTES DA APLICAÇÃO VANNA AI ODOO ".center(80, "="))
     print("=" * 80 + "\n")
 
-    # Descobrir e executar todos os testes
+    # Executar testes unittest
     test_loader = unittest.TestLoader()
     test_suite = test_loader.discover(
         os.path.dirname(os.path.abspath(__file__)), pattern="test_*.py"
     )
 
-    # Executar os testes
+    # Verificar se o teste de segurança de dados do LLM está incluído
+    test_llm_security_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "test_llm_data_security.py"
+    )
+    if os.path.exists(test_llm_security_path):
+        print(
+            f"\nTeste de segurança de dados do LLM encontrado: {test_llm_security_path}"
+        )
+
+        # Adicionar o teste explicitamente
+        try:
+            import test_llm_data_security
+
+            if hasattr(test_llm_data_security, "TestLLMDataSecurity"):
+                print("Adicionando TestLLMDataSecurity ao test suite...")
+                llm_security_suite = unittest.TestLoader().loadTestsFromName(
+                    "test_llm_data_security.TestLLMDataSecurity"
+                )
+                test_suite.addTest(llm_security_suite)
+        except Exception as e:
+            print(f"Erro ao adicionar teste de segurança de dados do LLM: {e}")
+
+    # Executar os testes unittest
     test_runner = unittest.TextTestRunner(verbosity=2)
     result = test_runner.run(test_suite)
+
+    # Verificar resultados
+    success = result.wasSuccessful()
 
     # Imprimir resumo
     print("\n" + "=" * 80)
     print(
-        f" RESUMO: {result.testsRun} testes executados, {len(result.failures)} falhas, {len(result.errors)} erros ".center(
+        f" RESUMO: {result.testsRun} testes unittest executados, {len(result.failures)} falhas, {len(result.errors)} erros ".center(
             80, "="
         )
     )
     print("=" * 80 + "\n")
 
     # Sair com código de erro se algum teste falhar
-    sys.exit(not result.wasSuccessful())
+    sys.exit(not success)

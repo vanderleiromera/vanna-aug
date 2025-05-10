@@ -6,9 +6,12 @@ echo "Verificando e corrigindo problemas de código..."
 # Instalar dependências necessárias
 pip install black flake8
 
+# Diretórios específicos a serem verificados
+DIRS_TO_CHECK="app tests *.py"
+
 # Verificar problemas de sintaxe com flake8
 echo "Verificando problemas de sintaxe com flake8..."
-SYNTAX_ISSUES=$(flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics)
+SYNTAX_ISSUES=$(flake8 $DIRS_TO_CHECK --count --select=E9,F63,F7,F82 --show-source --statistics)
 
 if [ -n "$SYNTAX_ISSUES" ]; then
     echo "Problemas de sintaxe encontrados:"
@@ -26,7 +29,7 @@ if [ -n "$SYNTAX_ISSUES" ]; then
 
         # Procurar arquivos locais com o problema
         echo "Procurando arquivos locais com o problema..."
-        FILES_WITH_DISPLAY=$(grep -l "display(Code(" --include="*.py" -r .)
+        FILES_WITH_DISPLAY=$(grep -l "display(Code(" --include="*.py" -r app tests)
 
         for file in $FILES_WITH_DISPLAY; do
             echo "Corrigindo $file..."
@@ -43,7 +46,7 @@ fi
 
 # Reformatar código com Black
 echo "Reformatando código com Black..."
-black .
+black $DIRS_TO_CHECK
 
 echo "Verificação e correção concluídas!"
 echo "Verifique as alterações e faça commit se estiver satisfeito."

@@ -7,16 +7,16 @@ configuração e métodos de utilidade.
 """
 
 import os
-import tiktoken
-from typing import Dict, List, Optional, Union, Any
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
+import tiktoken
 from dotenv import load_dotenv
-from vanna.chromadb.chromadb_vector import ChromaDB_VectorStore
-from vanna.openai.openai_chat import OpenAI_Chat
 
 # Importar modelos Pydantic
-from modules.models import VannaConfig, DatabaseConfig
+from modules.models import DatabaseConfig, VannaConfig
+from vanna.chromadb.chromadb_vector import ChromaDB_VectorStore
+from vanna.openai.openai_chat import OpenAI_Chat
 
 # Load environment variables
 load_dotenv()
@@ -41,7 +41,9 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
         # Definir valores padrão
         default_model = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
         default_allow_llm_to_see_data = False
-        default_chroma_persist_directory = os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb")
+        default_chroma_persist_directory = os.getenv(
+            "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"
+        )
         default_max_tokens = 14000
         default_api_key = os.getenv("OPENAI_API_KEY")
 
@@ -56,7 +58,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 "allow_llm_to_see_data": config.allow_llm_to_see_data,
                 "chroma_persist_directory": config.chroma_persist_directory,
                 "max_tokens": config.max_tokens,
-                "api_key": config.api_key
+                "api_key": config.api_key,
             }
         elif isinstance(config, dict):
             # Se é um dicionário, extrair valores com segurança
@@ -73,7 +75,10 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
             else:
                 allow_llm_to_see_data = default_allow_llm_to_see_data
 
-            if "chroma_persist_directory" in config_dict and config_dict["chroma_persist_directory"]:
+            if (
+                "chroma_persist_directory" in config_dict
+                and config_dict["chroma_persist_directory"]
+            ):
                 chroma_persist_directory = config_dict["chroma_persist_directory"]
             else:
                 chroma_persist_directory = default_chroma_persist_directory
@@ -94,7 +99,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 allow_llm_to_see_data=allow_llm_to_see_data,
                 chroma_persist_directory=chroma_persist_directory,
                 max_tokens=max_tokens,
-                api_key=api_key
+                api_key=api_key,
             )
 
             # Manter o dicionário original para compatibilidade
@@ -106,7 +111,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 allow_llm_to_see_data=default_allow_llm_to_see_data,
                 chroma_persist_directory=default_chroma_persist_directory,
                 max_tokens=default_max_tokens,
-                api_key=default_api_key
+                api_key=default_api_key,
             )
 
             # Criar um dicionário vazio para compatibilidade
@@ -122,7 +127,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 allow_llm_to_see_data=config.allow_llm_to_see_data,
                 chroma_persist_directory=config.chroma_persist_directory,
                 max_tokens=config.max_tokens,
-                api_key=config.api_key
+                api_key=config.api_key,
             )
 
         # Atribuir propriedades do modelo para compatibilidade
@@ -178,7 +183,9 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
 
                 # Check if the directory has any files
                 if len(dir_contents) == 0:
-                    print("WARNING: ChromaDB directory is empty. No data will be loaded.")
+                    print(
+                        "WARNING: ChromaDB directory is empty. No data will be loaded."
+                    )
             except Exception as e:
                 print(f"Error listing directory contents: {e}")
 
@@ -196,6 +203,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
             except Exception as e:
                 print(f"Error initializing ChromaDB client: {e}")
                 import traceback
+
                 traceback.print_exc()
 
                 # Try again with default settings
@@ -204,9 +212,13 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                     self.chromadb_client = chromadb.PersistentClient(
                         path=self.chroma_persist_directory
                     )
-                    print("Successfully initialized ChromaDB persistent client with default settings")
+                    print(
+                        "Successfully initialized ChromaDB persistent client with default settings"
+                    )
                 except Exception as e2:
-                    print(f"Error initializing ChromaDB client with default settings: {e2}")
+                    print(
+                        f"Error initializing ChromaDB client with default settings: {e2}"
+                    )
                     traceback.print_exc()
                     self.chromadb_client = None
                     self.collection = None
@@ -221,7 +233,9 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
             try:
                 # List all collections
                 collections = self.chromadb_client.list_collections()
-                print(f"Found {len(collections)} collections: {[c.name for c in collections]}")
+                print(
+                    f"Found {len(collections)} collections: {[c.name for c in collections]}"
+                )
 
                 # Check if 'vanna' collection exists
                 for collection in collections:
@@ -269,7 +283,9 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                         self.collection = self.chromadb_client.get_or_create_collection(
                             name="vanna", embedding_function=embedding_function
                         )
-                        print("Successfully retrieved or created 'vanna' collection as fallback")
+                        print(
+                            "Successfully retrieved or created 'vanna' collection as fallback"
+                        )
                     except Exception as e2:
                         print(f"Error getting or creating collection as fallback: {e2}")
                         self.collection = None
@@ -290,7 +306,9 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
                 if count == 0:
                     print("WARNING: Collection is empty. No training data found.")
                 else:
-                    print(f"SUCCESS: Collection has {count} documents. Training data is available.")
+                    print(
+                        f"SUCCESS: Collection has {count} documents. Training data is available."
+                    )
 
                     # Try to get some documents to verify
                     try:
@@ -346,6 +364,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
 
             # Obter o codificador
             import tiktoken
+
             encoding = tiktoken.get_encoding(encoding_name)
 
             # Contar tokens

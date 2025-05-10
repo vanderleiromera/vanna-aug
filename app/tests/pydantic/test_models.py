@@ -5,37 +5,40 @@ Este módulo contém testes para validar o comportamento dos modelos Pydantic,
 garantindo que a validação de dados funcione corretamente.
 """
 
+import datetime
 import os
 import sys
-import datetime
+
 import pytest
 from pydantic import ValidationError
 
 # Adicionar os diretórios necessários ao path para importar os módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
 from app.modules.models import (
-    VannaConfig,
+    AnomalyDetectionConfig,
+    AnomalyDetectionMethod,
     DatabaseConfig,
     ProductData,
+    PurchaseSuggestion,
     SaleOrder,
     SaleOrderLine,
-    PurchaseSuggestion,
-    AnomalyDetectionConfig,
-    AnomalyDetectionMethod
+    VannaConfig,
 )
 from app.tests.pydantic.fixtures import (
-    get_test_vanna_config,
+    get_test_anomaly_config,
     get_test_db_config,
     get_test_products,
-    get_test_sale_orders,
     get_test_purchase_suggestions,
-    get_test_anomaly_config
+    get_test_sale_orders,
+    get_test_vanna_config,
 )
 
-
 # ===== Testes para VannaConfig =====
+
 
 def test_vanna_config_valid():
     """Testa a criação de uma configuração válida do Vanna."""
@@ -65,6 +68,7 @@ def test_vanna_config_invalid_max_tokens():
 
 
 # ===== Testes para DatabaseConfig =====
+
 
 def test_db_config_valid():
     """Testa a criação de uma configuração válida de banco de dados."""
@@ -101,13 +105,11 @@ def test_db_config_missing_required():
 
 # ===== Testes para ProductData =====
 
+
 def test_product_data_valid():
     """Testa a criação de um produto válido."""
     product = ProductData(
-        id=1,
-        name="Produto Teste",
-        list_price=99.99,
-        quantity_available=10.5
+        id=1, name="Produto Teste", list_price=99.99, quantity_available=10.5
     )
     assert product.id == 1
     assert product.name == "Produto Teste"
@@ -125,7 +127,7 @@ def test_product_data_negative_values():
             id=1,
             name="Produto Teste",
             list_price=-10.0,  # Preço negativo
-            quantity_available=10.5
+            quantity_available=10.5,
         )
 
     with pytest.raises(ValidationError):
@@ -133,7 +135,7 @@ def test_product_data_negative_values():
             id=1,
             name="Produto Teste",
             list_price=99.99,
-            quantity_available=-5.0  # Quantidade negativa
+            quantity_available=-5.0,  # Quantidade negativa
         )
 
 
@@ -149,6 +151,7 @@ def test_product_data_list():
 
 # ===== Testes para SaleOrder e SaleOrderLine =====
 
+
 def test_sale_order_valid():
     """Testa a criação de um pedido de venda válido."""
     # Criar linhas de pedido
@@ -158,7 +161,7 @@ def test_sale_order_valid():
         product_name="Produto Teste",
         product_uom_qty=2.0,
         price_unit=99.99,
-        price_total=199.98
+        price_total=199.98,
     )
 
     # Criar pedido
@@ -170,7 +173,7 @@ def test_sale_order_valid():
         partner_id=1,
         partner_name="Cliente Teste",
         order_lines=[line],
-        amount_total=199.98
+        amount_total=199.98,
     )
 
     assert order.id == 1
@@ -191,7 +194,7 @@ def test_sale_order_negative_values():
             product_name="Produto Teste",
             product_uom_qty=-2.0,  # Quantidade negativa
             price_unit=99.99,
-            price_total=199.98
+            price_total=199.98,
         )
 
     with pytest.raises(ValidationError):
@@ -203,7 +206,7 @@ def test_sale_order_negative_values():
             partner_id=1,
             partner_name="Cliente Teste",
             order_lines=[],
-            amount_total=-199.98  # Valor total negativo
+            amount_total=-199.98,  # Valor total negativo
         )
 
 
@@ -222,6 +225,7 @@ def test_sale_order_list():
 
 # ===== Testes para AnomalyDetectionConfig =====
 
+
 def test_anomaly_config_valid():
     """Testa a criação de uma configuração válida de detecção de anomalias."""
     config = get_test_anomaly_config()
@@ -238,7 +242,7 @@ def test_anomaly_config_invalid_values():
             method=AnomalyDetectionMethod.Z_SCORE,
             threshold=0.05,  # Menor que o mínimo (0.1)
             columns=["quantity"],
-            sensitivity=1.0
+            sensitivity=1.0,
         )
 
     with pytest.raises(ValidationError):
@@ -246,7 +250,7 @@ def test_anomaly_config_invalid_values():
             method=AnomalyDetectionMethod.Z_SCORE,
             threshold=3.0,
             columns=["quantity"],
-            sensitivity=15.0  # Maior que o máximo (10.0)
+            sensitivity=15.0,  # Maior que o máximo (10.0)
         )
 
 
@@ -256,6 +260,6 @@ def test_anomaly_config_enum():
         method="iqr",  # Usando string em vez do enum
         threshold=2.0,
         columns=["quantity"],
-        sensitivity=1.0
+        sensitivity=1.0,
     )
     assert config.method == AnomalyDetectionMethod.IQR  # Convertido para enum

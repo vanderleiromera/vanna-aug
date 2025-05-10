@@ -3,8 +3,9 @@
 Script para testar consultas SQL no banco de dados Odoo.
 """
 
-from modules.vanna_odoo_db import VannaOdooDB
 import pandas as pd
+from modules.vanna_odoo_db import VannaOdooDB
+
 
 def test_vendas_recentes():
     """
@@ -133,6 +134,7 @@ def test_vendas_recentes():
         result = db.run_sql_query(sql_produtos_vendidos_sem_estoque)
         print(f"\n=== Produtos vendidos nos últimos {dias} dias sem estoque ===")
         print(result)
+
 
 if __name__ == "__main__":
     test_vendas_recentes()
