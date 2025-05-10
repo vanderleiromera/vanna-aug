@@ -30,10 +30,10 @@ vanna-ai-odoo/
 │   │   ├── visualization.py          # Funções de visualização de dados
 │   │   └── odoo_priority_tables.py   # Lista de tabelas prioritárias do Odoo
 │   ├── app.py              # Aplicação Streamlit
-│   ├── train_vanna.py      # Script para treinar o modelo
-│   ├── test_connection.py  # Script para testar a conexão com o banco de dados
-│   ├── debug_chromadb.py   # Script para depurar problemas do ChromaDB
-│   └── check_persistence.py # Script para verificar persistência do ChromaDB
+│   ├── train_all.py        # Script unificado para treinar o modelo
+│   ├── tests/              # Testes unitários e de integração
+│   ├── utils/              # Utilitários e ferramentas
+│   └── legacy_tests/       # Testes legados (mantidos para referência)
 ├── data/                   # Diretório para dados persistentes (criado automaticamente)
 │   └── chromadb/           # Dados do ChromaDB
 ├── .env.example            # Exemplo de arquivo de variáveis de ambiente
@@ -106,7 +106,7 @@ A aplicação usa um volume Docker nomeado (`chromadb-data`) para garantir que s
 
 Para verificar se a persistência está funcionando corretamente, você pode executar:
 ```
-docker-compose exec vanna-app python app/check_persistence.py
+docker-compose exec vanna-app python app/utils/check_persistence.py
 ```
 
 Se você precisar redefinir completamente seus dados de treinamento, pode remover o volume:
@@ -291,13 +291,34 @@ Você pode treinar o modelo de várias maneiras:
    - Use o botão "Treinar Exemplo de Vendas por Mês" para treinar com exemplos predefinidos.
    - Adicione consultas bem-sucedidas ao treinamento usando o botão "Adicionar ao Treinamento" após executar uma consulta.
 
-2. Usando a linha de comando:
+2. Usando o script `run_train.sh`:
    ```
    # Treinar em tudo
-   python app/train_vanna.py --all
+   ./run_train.sh --all
+
+   # Resetar a coleção e treinar novamente
+   ./run_train.sh --reset --all
+
+   # Treinar apenas com esquema e exemplos
+   ./run_train.sh --schema --examples
+
+   # Treinar dentro do contêiner Docker
+   ./run_train.sh --docker --all
+   ```
+
+3. Usando a linha de comando diretamente:
+   ```
+   # Treinar em tudo
+   python app/train_all.py --all
 
    # Ou treinar em aspectos específicos
-   python app/train_vanna.py --schema --relationships
+   python app/train_all.py --schema --relationships
+
+   # Resetar a coleção e treinar novamente
+   python app/train_all.py --reset --all
+
+   # Verificar a persistência após o treinamento
+   python app/train_all.py --verify
    ```
 
 ### Avaliação de Qualidade de SQL
@@ -531,7 +552,7 @@ Se você estiver enfrentando problemas com a persistência do ChromaDB (dados de
 2. Verifique se o diretório ChromaDB tem as permissões corretas.
 3. Execute o script de depuração para verificar o status do ChromaDB:
    ```
-   docker-compose exec vanna-app python app/debug_chromadb.py
+   docker-compose exec vanna-app python app/utils/debug_chromadb.py
    ```
 
 ### Problemas de Conexão com o Banco de Dados
@@ -542,14 +563,14 @@ Se você estiver tendo problemas para se conectar ao seu banco de dados Odoo:
 2. Certifique-se de que seu banco de dados está acessível a partir do contêiner Docker.
 3. Execute o script de teste de conexão:
    ```
-   docker-compose exec vanna-app python app/test_connection.py
+   docker-compose exec vanna-app python app/legacy_tests/test_connection.py
 
 ### Verificando o Modelo de Embeddings
 
 Para verificar qual modelo de embeddings está sendo usado:
 
 ```
-docker-compose exec vanna-app python app/check_embedding_model.py
+docker-compose exec vanna-app python app/utils/check_embedding_model.py
 ```
 
 Este script mostrará informações detalhadas sobre o modelo de embeddings configurado e se ele está sendo usado corretamente pelo ChromaDB.
@@ -562,13 +583,13 @@ Treinar o modelo:
 Use o botão "Treinar Exemplo de Vendas por Mês" na interface
 Ou execute o script de treinamento:
 
-   docker-compose exec vanna-app python app/train_vanna.py --all
+   ./run_train.sh --docker --all
 
 Verificar se os dados foram salvos:
 Use o botão "Verificar Status do Treinamento" na interface
 Ou execute o script de verificação:
 
-   docker-compose exec vanna-app python app/check_persistence.py
+   docker-compose exec vanna-app python app/utils/check_persistence.py
 
 Reiniciar o contêiner para testar a persistência:
 Verificar novamente se os dados ainda estão lá:
@@ -672,20 +693,17 @@ docker exec doodba12-vanna-1 coverage html
 
 # Copiar o relatório HTML para o host (opcional)
 docker cp doodba12-vanna-1:/app/htmlcov ./htmlcov
-6. Executando Testes com Pytest (Alternativa ao unittest)
-Se preferir usar pytest em vez de unittest, você pode instalá-lo e usá-lo assim:
-
-# Instalar pytest no contêiner (se ainda não estiver instalado)
-docker exec doodba12-vanna-1 pip install pytest
-
-# Executar todos os testes com pytest
-docker exec doodba12-vanna-1 pytest /app/app/tests
+6. Executando Testes Específicos
+Você pode executar testes específicos usando o script run_tests_with_options.sh:
 
 # Executar um arquivo de teste específico
-docker exec doodba12-vanna-1 pytest /app/app/tests/test_basic.py
+./run_tests_with_options.sh --specific test_basic.py
 
-# Executar um teste específico
-docker exec doodba12-vanna-1 pytest /app/app/tests/test_basic.py::TestBasicFunctionality::test_pandas_functionality
+# Executar um método de teste específico
+./run_tests_with_options.sh --specific test_basic.py --method TestBasicFunctionality.test_pandas_functionality
+
+# Executar testes com saída verbosa
+./run_tests_with_options.sh --verbose
 
 Loading...
 Dicas Adicionais
@@ -719,22 +737,22 @@ Este projeto utiliza GitHub Actions para integração contínua e entrega contí
 
 ### Como Executar os Testes Localmente
 
-Você pode executar os testes localmente usando o script `run_ci_tests.py`:
+Você pode executar os testes localmente usando o script `run_tests.sh`:
 
 ```bash
-python run_ci_tests.py
+./run_tests.sh
 ```
 
-Ou usando pytest diretamente:
+Ou usando o script com opções:
 
 ```bash
-pytest app/tests
+./run_tests_with_options.sh --verbose
 ```
 
 Para executar os testes com cobertura de código:
 
 ```bash
-pytest app/tests --cov=app/modules --cov-report=html
+./run_tests_with_options.sh --coverage
 ```
 
 ### Formatação de Código

@@ -12,7 +12,7 @@ fi
 
 # Run the debug script in the container
 echo "Running debug script in container..."
-docker-compose -f docker-compose-fixed.yml exec vanna-app python debug_chromadb.py
+docker-compose -f docker-compose-fixed.yml exec vanna-app python app/utils/debug_chromadb.py
 
 # Check volume contents
 echo "Checking volume contents..."

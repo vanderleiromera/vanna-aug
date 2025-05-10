@@ -18,11 +18,11 @@ fi
 
 # Reset and train
 echo -e "\n=== Resetting and Training ==="
-docker exec $CONTAINER_NAME python app/reset_and_train.py
+docker exec $CONTAINER_NAME python app/train_all.py --reset --all
 
 # Check documents
 echo -e "\n=== Checking Documents ==="
-docker exec $CONTAINER_NAME python app/check_documents.py
+docker exec $CONTAINER_NAME python app/utils/check_documents.py
 
 # Restart the container to verify persistence
 echo -e "\n=== Restarting Container to Verify Persistence ==="
@@ -34,7 +34,7 @@ sleep 10
 
 # Check documents again
 echo -e "\n=== Checking Documents After Restart ==="
-docker exec $CONTAINER_NAME python app/check_documents.py
+docker exec $CONTAINER_NAME python app/utils/check_documents.py
 
 echo -e "\n=== Process Complete ==="
 echo "If you see the same documents before and after restart, persistence is working correctly!"
