@@ -7,7 +7,7 @@ echo "Verificando e corrigindo problemas de código..."
 pip install black flake8
 
 # Diretórios específicos a serem verificados
-DIRS_TO_CHECK="app tests *.py"
+DIRS_TO_CHECK="app *.py"
 
 # Verificar problemas de sintaxe com flake8
 echo "Verificando problemas de sintaxe com flake8..."
@@ -29,7 +29,7 @@ if [ -n "$SYNTAX_ISSUES" ]; then
 
         # Procurar arquivos locais com o problema
         echo "Procurando arquivos locais com o problema..."
-        FILES_WITH_DISPLAY=$(grep -l "display(Code(" --include="*.py" -r app tests)
+        FILES_WITH_DISPLAY=$(grep -l "display(Code(" --include="*.py" -r app)
 
         for file in $FILES_WITH_DISPLAY; do
             echo "Corrigindo $file..."

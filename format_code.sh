@@ -16,7 +16,7 @@ if ! command -v black &> /dev/null; then
 fi
 
 # Diretórios específicos a serem formatados
-DIRS_TO_FORMAT="app tests *.py"
+DIRS_TO_FORMAT="app *.py"
 
 # Formatar imports com isort
 echo "Formatando imports com isort..."
