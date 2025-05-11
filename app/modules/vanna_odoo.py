@@ -1037,3 +1037,102 @@ class VannaOdoo(VannaOdooTraining):
 
             traceback.print_exc()
             return None
+
+    def get_collection(self):
+        """
+        Retorna a coleção ChromaDB atual. Se a coleção não existir, tenta criá-la.
+
+        Returns:
+            Collection: A coleção ChromaDB ou None se não estiver disponível
+        """
+        # Se a coleção já estiver disponível, retorná-la
+        if hasattr(self, "collection") and self.collection is not None:
+            return self.collection
+
+        # Verificar se temos acesso ao cliente ChromaDB
+        if hasattr(self, "chromadb_client") and self.chromadb_client is not None:
+            try:
+                # Tentar obter ou criar a coleção
+                self.collection = self.chromadb_client.get_or_create_collection("vanna")
+                print(
+                    f"[DEBUG] Coleção ChromaDB obtida com sucesso: {self.collection.name}"
+                )
+                return self.collection
+            except Exception as e:
+                print(f"[DEBUG] Erro ao obter coleção ChromaDB: {e}")
+
+                # Tentar obter a coleção sem criar
+                try:
+                    self.collection = self.chromadb_client.get_collection("vanna")
+                    print(
+                        f"[DEBUG] Coleção ChromaDB existente obtida: {self.collection.name}"
+                    )
+                    return self.collection
+                except Exception as e2:
+                    print(f"[DEBUG] Erro ao obter coleção existente: {e2}")
+
+        # Se chegamos aqui, precisamos inicializar o ChromaDB
+        print("[DEBUG] Tentando inicializar ChromaDB...")
+        try:
+            # Verificar se temos o método _init_chromadb
+            if hasattr(self, "_init_chromadb"):
+                self._init_chromadb()
+                if hasattr(self, "collection") and self.collection is not None:
+                    return self.collection
+        except Exception as e:
+            print(f"[DEBUG] Erro ao inicializar ChromaDB: {e}")
+
+        # Se ainda não temos a coleção, retornar None
+        print("[DEBUG] Não foi possível obter a coleção ChromaDB")
+        return None
+
+    def remove_training_data(self, id):
+        """
+        Remove um documento específico da coleção ChromaDB pelo ID.
+
+        Args:
+            id (str): O ID do documento a ser removido
+
+        Returns:
+            bool: True se o documento foi removido com sucesso, False caso contrário
+        """
+        try:
+            print(f"[DEBUG] Tentando remover documento com ID: {id}")
+
+            # Obter a coleção
+            collection = self.get_collection()
+            if not collection:
+                print("[DEBUG] Não foi possível obter a coleção ChromaDB")
+                return False
+
+            # Verificar se o documento existe
+            try:
+                # Tentar obter o documento pelo ID para verificar se ele existe
+                result = collection.get(ids=[id])
+                if not result or "documents" not in result or not result["documents"]:
+                    print(f"[DEBUG] Documento com ID {id} não encontrado")
+                    return False
+
+                print(f"[DEBUG] Documento encontrado: {result['documents'][0][:50]}...")
+            except Exception as e:
+                print(f"[DEBUG] Erro ao verificar existência do documento: {e}")
+                # Continuar mesmo se não conseguirmos verificar a existência
+
+            # Remover o documento
+            try:
+                collection.delete(ids=[id])
+                print(f"[DEBUG] Documento com ID {id} removido com sucesso")
+                return True
+            except Exception as e:
+                print(f"[DEBUG] Erro ao remover documento: {e}")
+                import traceback
+
+                traceback.print_exc()
+                return False
+
+        except Exception as e:
+            print(f"[DEBUG] Erro ao remover dados de treinamento: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False

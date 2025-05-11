@@ -358,7 +358,7 @@ if col8.button("📋 Gerenciar"):
     with st.sidebar:
         st.info("Gerenciamento de dados:")
         st.code(
-            "docker-compose exec vanna-app streamlit run app/manage_training.py --server.port=8502"
+            "docker exec doodba12-vanna-1 streamlit run app/manage_training.py --server.port=8502"
         )
         st.markdown("[Acessar http://localhost:8502](http://localhost:8502)")
         st.caption("Execute o comando acima em um terminal separado")
