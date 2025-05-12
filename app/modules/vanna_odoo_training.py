@@ -329,60 +329,104 @@ class VannaOdooTraining(VannaOdooSQL):
         try:
             # Verificar se existe um módulo de documentação
             try:
-                from modules.documentation import get_documentation
+                # Tentar importar diretamente do arquivo odoo_documentation.py
+                try:
+                    from odoo_documentation import ODOO_DOCUMENTATION
 
-                documentation_list = get_documentation()
-            except ImportError:
-                # Se não existir, criar uma documentação básica
-                documentation_list = [
-                    "Odoo is an open source ERP and CRM system.",
-                    "The database contains tables for products, sales, purchases, inventory, etc.",
-                    "Most tables have a 'name' field and an 'active' field.",
-                    "The 'res_partner' table contains information about customers and suppliers.",
-                    "The 'product_product' table contains information about products.",
-                    "The 'sale_order' table contains information about sales orders.",
-                    "The 'purchase_order' table contains information about purchase orders.",
-                    "The 'stock_move' table contains information about inventory movements.",
-                ]
+                    documentation_list = ODOO_DOCUMENTATION
+                    print(
+                        f"Loaded {len(documentation_list)} documentation items from odoo_documentation.py"
+                    )
+                except ImportError:
+                    # Se não existir, criar uma documentação básica
+                    documentation_list = [
+                        "Odoo is an open source ERP and CRM system.",
+                        "The database contains tables for products, sales, purchases, inventory, etc.",
+                        "Most tables have a 'name' field and an 'active' field.",
+                        "The 'res_partner' table contains information about customers and suppliers.",
+                        "The 'product_product' table contains information about products.",
+                        "The 'sale_order' table contains information about sales orders.",
+                        "The 'purchase_order' table contains information about purchase orders.",
+                        "The 'stock_move' table contains information about inventory movements.",
+                    ]
+                    print("Using default documentation (8 items)")
+            except Exception as e:
+                print(f"Error loading documentation: {e}")
+                return False
 
             # Treinar em cada item de documentação
             trained_count = 0
             for doc in documentation_list:
                 if doc:
                     try:
-                        # Treinar o modelo com a documentação
-                        result = self.train(documentation=doc)
-                        print(
-                            f"Trained on documentation: {doc[:50]}..., result: {result}"
-                        )
+                        # Criar o conteúdo do documento
+                        content = f"Documentation: {doc}"
 
-                        # Adicionar diretamente à coleção para melhor persistência
+                        # Gerar um ID único para o documento
+                        import hashlib
+
+                        content_hash = hashlib.md5(content.encode()).hexdigest()
+                        doc_id = f"doc-{content_hash}"
+
+                        # Adicionar diretamente à coleção
                         if hasattr(self, "collection") and self.collection:
-                            content = f"Documentation: {doc}"
-                            content_hash = hashlib.md5(content.encode()).hexdigest()
-                            doc_id = f"doc-{content_hash}"
-
-                            # Adicionar à coleção
                             try:
-                                self.collection.add(
-                                    documents=[content],
-                                    metadatas=[
-                                        {"type": "documentation", "content": doc[:100]}
-                                    ],
-                                    ids=[doc_id],
+                                # Verificar se o documento já existe
+                                existing_doc = self.collection.get(ids=[doc_id])
+                                if (
+                                    existing_doc
+                                    and "documents" in existing_doc
+                                    and existing_doc["documents"]
+                                ):
+                                    print(f"Documentation already exists, ID: {doc_id}")
+                                else:
+                                    # Adicionar à coleção com metadados explícitos
+                                    self.collection.add(
+                                        documents=[content],
+                                        metadatas=[
+                                            {
+                                                "type": "documentation",
+                                                "content": doc[:100],
+                                                "source": "Documentation",
+                                            }
+                                        ],
+                                        ids=[doc_id],
+                                    )
+                                    print(f"Added documentation document, ID: {doc_id}")
+
+                                # Treinar o modelo com a documentação (método original)
+                                result = self.train(documentation=doc)
+                                print(
+                                    f"Trained on documentation: {doc[:50]}..., result: {result}"
                                 )
-                                print(f"Added documentation document, ID: {doc_id}")
+
+                                trained_count += 1
                             except Exception as e:
                                 print(f"Error adding documentation: {e}")
+                                import traceback
 
-                            trained_count += 1
+                                traceback.print_exc()
+                        else:
+                            # Se não tiver acesso à coleção, usar apenas o método train
+                            result = self.train(documentation=doc)
+                            print(
+                                f"Trained on documentation: {doc[:50]}..., result: {result}"
+                            )
+                            if result:
+                                trained_count += 1
                     except Exception as e:
                         print(f"Error training on documentation: {e}")
+                        import traceback
+
+                        traceback.print_exc()
 
             print(f"Trained on {trained_count} documentation items")
             return trained_count > 0
         except Exception as e:
             print(f"Error in train_on_documentation: {e}")
+            import traceback
+
+            traceback.print_exc()
             return False
 
     def train_on_sql_examples(self):
@@ -412,18 +456,70 @@ class VannaOdooTraining(VannaOdooSQL):
                         # Criar uma pergunta genérica para o SQL
                         question = f"How to query {sql.split('FROM')[1].split('WHERE')[0].strip() if 'FROM' in sql else 'data'}"
 
-                        # Treinar o modelo com o par pergunta-SQL
-                        result = self.train_on_example_pair(question, sql)
-                        if result:
-                            print(f"Trained on SQL example: {sql[:50]}...")
-                            trained_count += 1
+                        # Criar o conteúdo do documento
+                        content = f"Question: {question}\nSQL: {sql}"
+
+                        # Gerar um ID único para o documento
+                        import hashlib
+
+                        content_hash = hashlib.md5(content.encode()).hexdigest()
+                        doc_id = f"sql-{content_hash}"
+
+                        # Adicionar diretamente à coleção
+                        if hasattr(self, "collection") and self.collection:
+                            try:
+                                # Verificar se o documento já existe
+                                existing_doc = self.collection.get(ids=[doc_id])
+                                if (
+                                    existing_doc
+                                    and "documents" in existing_doc
+                                    and existing_doc["documents"]
+                                ):
+                                    print(f"SQL example already exists, ID: {doc_id}")
+                                else:
+                                    # Adicionar à coleção com metadados explícitos
+                                    self.collection.add(
+                                        documents=[content],
+                                        metadatas=[
+                                            {
+                                                "type": "sql_example",
+                                                "question": question,
+                                                "source": "SQL Example",
+                                            }
+                                        ],
+                                        ids=[doc_id],
+                                    )
+                                    print(f"Added SQL example document, ID: {doc_id}")
+
+                                # Treinar o modelo com o par pergunta-SQL (método original)
+                                result = self.train_on_example_pair(question, sql)
+                                if result:
+                                    print(f"Trained on SQL example: {sql[:50]}...")
+                                    trained_count += 1
+                            except Exception as e:
+                                print(f"Error adding SQL example: {e}")
+                                import traceback
+
+                                traceback.print_exc()
+                        else:
+                            # Se não tiver acesso à coleção, usar apenas o método train_on_example_pair
+                            result = self.train_on_example_pair(question, sql)
+                            if result:
+                                print(f"Trained on SQL example: {sql[:50]}...")
+                                trained_count += 1
                     except Exception as e:
                         print(f"Error training on SQL example: {e}")
+                        import traceback
+
+                        traceback.print_exc()
 
             print(f"Trained on {trained_count} SQL examples")
             return trained_count > 0
         except Exception as e:
             print(f"Error in train_on_sql_examples: {e}")
+            import traceback
+
+            traceback.print_exc()
             return False
 
     def execute_training_plan(self, plan=None):
@@ -456,27 +552,94 @@ class VannaOdooTraining(VannaOdooSQL):
 
         # Train on tables
         if "tables" in plan and plan["tables"]:
-            # Filter tables to train
-            available_tables = self.get_odoo_tables()
-            tables_to_train = [
-                table for table in plan["tables"] if table in available_tables
-            ]
+            # Usar o método train_on_priority_tables para treinar tabelas
+            # Este método adiciona os documentos DDL ao ChromaDB com metadados corretos
+            print("Usando train_on_priority_tables para treinar tabelas...")
 
-            # Train on tables
-            trained_count = 0
-            for table in tables_to_train:
-                # Get DDL for the table
-                ddl = self.get_table_ddl(table)
-                if ddl:
-                    try:
-                        # Train Vanna on the table DDL
-                        result = self.train(ddl=ddl)
-                        print(f"Trained on table: {table}, result: {result}")
-                        trained_count += 1
-                    except Exception as e:
-                        print(f"Error training on table {table}: {e}")
+            # Salvar as tabelas originais do plano
+            original_tables = plan["tables"]
 
-            results["tables_trained"] = trained_count
+            try:
+                # Importar a lista de tabelas prioritárias
+                # Substituir temporariamente as tabelas prioritárias pelas tabelas do plano
+                # para usar o método train_on_priority_tables
+                import sys
+
+                from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
+
+                sys.modules["modules.odoo_priority_tables"].ODOO_PRIORITY_TABLES = (
+                    original_tables
+                )
+
+                # Treinar usando o método train_on_priority_tables
+                result = self.train_on_priority_tables()
+
+                # Restaurar as tabelas prioritárias originais
+                sys.modules["modules.odoo_priority_tables"].ODOO_PRIORITY_TABLES = (
+                    ODOO_PRIORITY_TABLES
+                )
+
+                # Verificar o resultado
+                if result:
+                    print(f"Treinamento com tabelas concluído com sucesso!")
+                    # Obter a contagem de tabelas treinadas
+                    results["tables_trained"] = len(original_tables)
+                else:
+                    print("Falha ao treinar com tabelas")
+                    results["tables_trained"] = 0
+            except Exception as e:
+                print(f"Erro ao treinar tabelas: {e}")
+                import traceback
+
+                traceback.print_exc()
+
+                # Fallback para o método original se o método acima falhar
+                print("Usando método alternativo para treinar tabelas...")
+
+                # Filter tables to train
+                available_tables = self.get_odoo_tables()
+                tables_to_train = [
+                    table for table in plan["tables"] if table in available_tables
+                ]
+
+                # Train on tables
+                trained_count = 0
+                for table in tables_to_train:
+                    # Get DDL for the table
+                    ddl = self.get_table_ddl(table)
+                    if ddl:
+                        try:
+                            # Adicionar diretamente à coleção para melhor persistência
+                            if self.collection:
+                                content = f"Table DDL: {table}\n{ddl}"
+                                content_hash = hashlib.md5(content.encode()).hexdigest()
+                                doc_id = f"ddl-{content_hash}"
+
+                                # Adicionar à coleção com metadados explícitos
+                                try:
+                                    self.collection.add(
+                                        documents=[content],
+                                        metadatas=[{"type": "ddl", "table": table}],
+                                        ids=[doc_id],
+                                    )
+                                    print(f"Added DDL document, ID: {doc_id}")
+                                except Exception as e:
+                                    print(f"Error adding DDL: {e}")
+                                    import traceback
+
+                                    traceback.print_exc()
+
+                            # Train Vanna on the table DDL
+                            result = self.train(ddl=ddl)
+                            print(f"Trained on table: {table}, result: {result}")
+                            trained_count += 1
+                        except Exception as e:
+                            print(f"Error training on table {table}: {e}")
+                            import traceback
+
+                            traceback.print_exc()
+
+                results["tables_trained"] = trained_count
 
         # Train on relationships
         if "relationships" in plan and plan["relationships"]:

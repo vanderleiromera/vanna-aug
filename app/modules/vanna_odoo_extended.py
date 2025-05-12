@@ -840,6 +840,15 @@ class VannaOdooExtended(VannaOdooNumeric):
                         relationship_tables[table]["count"] += 1
                         relationship_tables[table]["relationships"] += rel_count
 
+                # Analisar documentos de tabelas (DDL)
+                ddl_docs = [m for m in all_docs["metadatas"] if m.get("type") == "ddl"]
+
+                # Extrair nomes de tabelas dos documentos DDL
+                ddl_tables = set()
+                for doc in ddl_docs:
+                    if "table" in doc and doc["table"]:
+                        ddl_tables.add(doc["table"])
+
                 # Analisar documentos de pares pergunta-SQL
                 pair_docs = [
                     m for m in all_docs["metadatas"] if m.get("type") == "pair"
@@ -848,6 +857,11 @@ class VannaOdooExtended(VannaOdooNumeric):
                 # Analisar documentos de documentação
                 doc_docs = [
                     m for m in all_docs["metadatas"] if m.get("type") == "documentation"
+                ]
+
+                # Analisar documentos de exemplos SQL
+                sql_example_docs = [
+                    m for m in all_docs["metadatas"] if m.get("type") == "sql_example"
                 ]
 
                 # Analisar exemplos SQL
@@ -872,6 +886,16 @@ class VannaOdooExtended(VannaOdooNumeric):
                     table_matches += re.findall(r"join\s+([a-z0-9_]+)", sql.lower())
                     for table in table_matches:
                         sql_tables.add(table.strip())
+
+                # Contar documentos SQL nos pares de exemplo
+                sql_pairs = 0
+                for doc in pair_docs:
+                    question = doc.get("question", "")
+                    if "How to query" in question:
+                        sql_pairs += 1
+
+                # Total de exemplos SQL (documentos sql_example + pares SQL)
+                total_sql_examples = len(sql_example_docs) + sql_pairs
 
                 # Analisar plano de treinamento
                 training_plan = {}
@@ -899,18 +923,29 @@ class VannaOdooExtended(VannaOdooNumeric):
                     "message": f"Análise do ChromaDB concluída. Total: {total_count} documentos.",
                     "count": total_count,
                     "document_types": doc_types,
+                    "ddl_stats": {
+                        "count": len(ddl_docs),
+                        "tables": len(ddl_tables),
+                        "tables_list": list(ddl_tables),
+                    },
                     "relationship_stats": {
                         "tables": len(relationship_tables),
                         "documents": len(relationship_docs),
                         "total_relationships": total_relationships,
                         "details": relationship_tables,
                     },
-                    "pair_stats": {"count": len(pair_docs)},
+                    "pair_stats": {
+                        "count": len(pair_docs),
+                        "sql_pairs": sql_pairs,
+                        "example_pairs": len(pair_docs) - sql_pairs,
+                    },
                     "documentation_stats": {"count": len(doc_docs)},
                     "sql_examples_stats": {
                         "count": len(sql_examples),
                         "tables": len(sql_tables),
                         "tables_list": list(sql_tables),
+                        "sql_example_docs": len(sql_example_docs),
+                        "total_sql_examples": total_sql_examples,
                     },
                     "training_plan_stats": training_plan,
                 }

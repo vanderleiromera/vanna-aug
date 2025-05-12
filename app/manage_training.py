@@ -139,6 +139,8 @@ def get_training_data(vn):
                 # Verificar se é um exemplo SQL ou um par de exemplo
                 if "How to query" in question:
                     source = "Exemplo SQL (Botão 4)"
+                    # Adicionar log para depuração
+                    print(f"[DEBUG] Identificado exemplo SQL em par: {question}")
                 else:
                     source = "Par Exemplo (Botão 5)"
                 # Forçar o tipo para 'pair' se o ID começar com 'pair-'
@@ -146,6 +148,14 @@ def get_training_data(vn):
                     doc_type = "pair"
                     print(
                         f"[DEBUG] Corrigindo tipo para 'pair' baseado no ID: {doc_id}"
+                    )
+            elif doc_id.startswith("sql-"):
+                source = "Exemplo SQL (Botão 4)"
+                # Forçar o tipo para 'sql_example' se o ID começar com 'sql-'
+                if doc_type == "unknown":
+                    doc_type = "sql_example"
+                    print(
+                        f"[DEBUG] Corrigindo tipo para 'sql_example' baseado no ID: {doc_id}"
                     )
             elif doc_id.startswith("doc-"):
                 source = "Documentação (Botão 3)"
@@ -581,8 +591,11 @@ def main():
                 )
 
         elif show_sql:
-            # Mostrar apenas documentos que contêm SQL
-            filtered_df = filtered_df[filtered_df["sql"].str.len() > 0]
+            # Mostrar documentos que contêm SQL ou são do tipo sql_example
+            sql_mask = (filtered_df["sql"].str.len() > 0) | (
+                filtered_df["type"] == "sql_example"
+            )
+            filtered_df = filtered_df[sql_mask]
             print(
                 f"[DEBUG] Filtro rápido: Mostrar SQL. Encontrados {len(filtered_df)} documentos."
             )

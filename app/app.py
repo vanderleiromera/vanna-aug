@@ -143,61 +143,103 @@ if col3.button("📝 3. Docs"):
     with st.sidebar:
         with st.spinner("Treinando com documentação..."):
             try:
-                # Importar a documentação
-                from odoo_documentation import ODOO_DOCUMENTATION
+                # Verificar se o método train_on_documentation existe
+                if hasattr(vn, "train_on_documentation"):
+                    # Usar o método train_on_documentation que adiciona documentos ao ChromaDB
+                    st.info("Usando método train_on_documentation...")
+                    result = vn.train_on_documentation()
 
-                # Treinar com cada string de documentação
-                success_count = 0
-                total_docs = len(ODOO_DOCUMENTATION)
-
-                for i, doc in enumerate(ODOO_DOCUMENTATION):
-                    try:
-                        st.text(f"Doc {i+1}/{total_docs}...")
-                        result = vn.train(documentation=doc)
-                        if result:
-                            success_count += 1
-                    except Exception as e:
-                        st.error(f"Erro doc {i+1}: {e}")
-
-                if success_count == total_docs:
-                    st.success(f"✅ Docs treinados! ({success_count}/{total_docs})")
-                elif success_count > 0:
-                    st.warning(f"⚠️ Treinamento parcial ({success_count}/{total_docs})")
+                    if result:
+                        st.success("✅ Documentação treinada com sucesso!")
+                    else:
+                        st.error("❌ Falha ao treinar documentação")
                 else:
-                    st.error("❌ Falha no treinamento")
+                    # Fallback para o método antigo
+                    st.warning(
+                        "Método train_on_documentation não encontrado. Usando método alternativo..."
+                    )
+
+                    # Importar a documentação
+                    from odoo_documentation import ODOO_DOCUMENTATION
+
+                    # Treinar com cada string de documentação
+                    success_count = 0
+                    total_docs = len(ODOO_DOCUMENTATION)
+
+                    for i, doc in enumerate(ODOO_DOCUMENTATION):
+                        try:
+                            st.text(f"Doc {i+1}/{total_docs}...")
+                            result = vn.train(documentation=doc)
+                            if result:
+                                success_count += 1
+                        except Exception as e:
+                            st.error(f"Erro doc {i+1}: {e}")
+
+                    if success_count == total_docs:
+                        st.success(f"✅ Docs treinados! ({success_count}/{total_docs})")
+                    elif success_count > 0:
+                        st.warning(
+                            f"⚠️ Treinamento parcial ({success_count}/{total_docs})"
+                        )
+                    else:
+                        st.error("❌ Falha no treinamento")
             except Exception as e:
                 st.error(f"❌ Erro: {e}")
+                import traceback
+
+                st.code(traceback.format_exc())
 
 if col4.button("💻 4. SQL"):
     with st.sidebar:
         with st.spinner("Treinando com exemplos SQL..."):
             try:
-                # Importar os exemplos de SQL
-                from odoo_sql_examples import ODOO_SQL_EXAMPLES
+                # Verificar se o método train_on_sql_examples existe
+                if hasattr(vn, "train_on_sql_examples"):
+                    # Usar o método train_on_sql_examples que adiciona documentos ao ChromaDB
+                    st.info("Usando método train_on_sql_examples...")
+                    result = vn.train_on_sql_examples()
 
-                # Treinar com cada exemplo de SQL
-                success_count = 0
-                total_examples = len(ODOO_SQL_EXAMPLES)
-
-                for i, sql in enumerate(ODOO_SQL_EXAMPLES):
-                    try:
-                        st.text(f"SQL {i+1}/{total_examples}...")
-                        result = vn.train(sql=sql)
-                        if result:
-                            success_count += 1
-                    except Exception as e:
-                        st.error(f"Erro SQL {i+1}: {e}")
-
-                if success_count == total_examples:
-                    st.success(f"✅ SQL treinado! ({success_count}/{total_examples})")
-                elif success_count > 0:
-                    st.warning(
-                        f"⚠️ Treinamento parcial ({success_count}/{total_examples})"
-                    )
+                    if result:
+                        st.success("✅ Exemplos SQL treinados com sucesso!")
+                    else:
+                        st.error("❌ Falha ao treinar exemplos SQL")
                 else:
-                    st.error("❌ Falha no treinamento")
+                    # Fallback para o método antigo
+                    st.warning(
+                        "Método train_on_sql_examples não encontrado. Usando método alternativo..."
+                    )
+
+                    # Importar os exemplos de SQL
+                    from odoo_sql_examples import ODOO_SQL_EXAMPLES
+
+                    # Treinar com cada exemplo de SQL
+                    success_count = 0
+                    total_examples = len(ODOO_SQL_EXAMPLES)
+
+                    for i, sql in enumerate(ODOO_SQL_EXAMPLES):
+                        try:
+                            st.text(f"SQL {i+1}/{total_examples}...")
+                            result = vn.train(sql=sql)
+                            if result:
+                                success_count += 1
+                        except Exception as e:
+                            st.error(f"Erro SQL {i+1}: {e}")
+
+                    if success_count == total_examples:
+                        st.success(
+                            f"✅ SQL treinado! ({success_count}/{total_examples})"
+                        )
+                    elif success_count > 0:
+                        st.warning(
+                            f"⚠️ Treinamento parcial ({success_count}/{total_examples})"
+                        )
+                    else:
+                        st.error("❌ Falha no treinamento")
             except Exception as e:
                 st.error(f"❌ Erro: {e}")
+                import traceback
+
+                st.code(traceback.format_exc())
 
 col5, col6 = st.sidebar.columns(2)
 
@@ -397,8 +439,33 @@ except Exception as e:
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Diagnóstico do ChromaDB")
 
+# Botão para forçar a recarga da coleção ChromaDB
+if st.sidebar.button("🔄 Recarregar Coleção ChromaDB", key="btn_reload_chromadb"):
+    with st.sidebar:
+        with st.spinner("Recarregando coleção ChromaDB..."):
+            try:
+                # Verificar se o método check_chromadb existe
+                if hasattr(vn, "check_chromadb"):
+                    # Chamar o método check_chromadb
+                    result = vn.check_chromadb()
+
+                    # Verificar o resultado
+                    if result["status"] == "success":
+                        st.success(f"✅ {result['message']}")
+                    elif result["status"] == "warning":
+                        st.warning(f"⚠️ {result['message']}")
+                    else:
+                        st.error(f"❌ {result['message']}")
+                else:
+                    st.error("❌ Método check_chromadb não encontrado.")
+            except Exception as e:
+                st.error(f"❌ Erro ao recarregar ChromaDB: {e}")
+                import traceback
+
+                st.code(traceback.format_exc())
+
 # Botão para verificar o conteúdo do ChromaDB
-if st.sidebar.button("Analisar Conteúdo do ChromaDB", key="btn_analyze_chromadb"):
+if st.sidebar.button("🔍 Analisar Conteúdo do ChromaDB", key="btn_analyze_chromadb"):
     with st.sidebar:
         with st.spinner("Analisando conteúdo do ChromaDB..."):
             try:
@@ -425,8 +492,30 @@ if st.sidebar.button("Analisar Conteúdo do ChromaDB", key="btn_analyze_chromadb
                                 st.info(f"🔗 Documentos de Relacionamentos: {count}")
                             elif doc_type == "documentation":
                                 st.info(f"📚 Documentação: {count}")
+                            elif doc_type == "sql_example":
+                                st.info(f"📄 Exemplos SQL: {count}")
                             else:
                                 st.info(f"📄 Outros ({doc_type}): {count}")
+
+                        # Mostrar estatísticas de tabelas DDL
+                        ddl_stats = result.get("ddl_stats", {})
+                        if ddl_stats:
+                            st.subheader("Estatísticas de Tabelas (DDL)")
+                            st.info(
+                                f"🗄️ Total de documentos DDL: {ddl_stats.get('count', 0)}"
+                            )
+                            st.info(f"🗄️ Tabelas únicas: {ddl_stats.get('tables', 0)}")
+
+                            # Mostrar lista de tabelas DDL
+                            tables_list = ddl_stats.get("tables_list", [])
+                            if tables_list:
+                                with st.expander("Tabelas definidas (DDL)"):
+                                    # Ordenar tabelas alfabeticamente
+                                    sorted_tables = sorted(tables_list)
+                                    # Mostrar as tabelas em colunas
+                                    cols = st.columns(3)
+                                    for i, table in enumerate(sorted_tables):
+                                        cols[i % 3].write(f"- `{table}`")
 
                         # Mostrar estatísticas de relacionamentos
                         rel_stats = result.get("relationship_stats", {})
@@ -464,6 +553,12 @@ if st.sidebar.button("Analisar Conteúdo do ChromaDB", key="btn_analyze_chromadb
                         if pair_stats:
                             st.subheader("Estatísticas de Pares Pergunta-SQL")
                             st.info(f"📝 Total de pares: {pair_stats.get('count', 0)}")
+                            st.info(
+                                f"📊 Pares de exemplo SQL: {pair_stats.get('sql_pairs', 0)}"
+                            )
+                            st.info(
+                                f"📝 Outros pares de exemplo: {pair_stats.get('example_pairs', 0)}"
+                            )
 
                         # Mostrar estatísticas de documentação
                         doc_stats = result.get("documentation_stats", {})
@@ -478,7 +573,13 @@ if st.sidebar.button("Analisar Conteúdo do ChromaDB", key="btn_analyze_chromadb
                         if sql_examples_stats:
                             st.subheader("Exemplos SQL Disponíveis")
                             st.info(
-                                f"📊 Total de exemplos SQL: {sql_examples_stats.get('count', 0)}"
+                                f"📊 Total de exemplos SQL: {sql_examples_stats.get('total_sql_examples', 0)}"
+                            )
+                            st.info(
+                                f"📄 Documentos SQL diretos: {sql_examples_stats.get('sql_example_docs', 0)}"
+                            )
+                            st.info(
+                                f"📄 Documentos SQL em pares: {pair_stats.get('sql_pairs', 0)}"
                             )
                             st.info(
                                 f"🗄️ Tabelas mencionadas: {sql_examples_stats.get('tables', 0)}"
