@@ -845,6 +845,54 @@ class VannaOdooExtended(VannaOdooNumeric):
                     m for m in all_docs["metadatas"] if m.get("type") == "pair"
                 ]
 
+                # Analisar documentos de documentação
+                doc_docs = [
+                    m for m in all_docs["metadatas"] if m.get("type") == "documentation"
+                ]
+
+                # Analisar exemplos SQL
+                sql_examples = []
+                try:
+                    # Importar os exemplos de SQL
+                    from odoo_sql_examples import ODOO_SQL_EXAMPLES
+
+                    sql_examples = ODOO_SQL_EXAMPLES
+                    print(
+                        f"[DEBUG] Encontrados {len(sql_examples)} exemplos SQL em odoo_sql_examples.py"
+                    )
+                except Exception as e:
+                    print(f"[DEBUG] Erro ao importar exemplos SQL: {e}")
+
+                # Contar tabelas mencionadas nos exemplos SQL
+                sql_tables = set()
+                for sql in sql_examples:
+                    # Extrair tabelas mencionadas no SQL
+                    # Usar o módulo re já importado no início do arquivo
+                    table_matches = re.findall(r"from\s+([a-z0-9_]+)", sql.lower())
+                    table_matches += re.findall(r"join\s+([a-z0-9_]+)", sql.lower())
+                    for table in table_matches:
+                        sql_tables.add(table.strip())
+
+                # Analisar plano de treinamento
+                training_plan = {}
+                try:
+                    # Verificar se o método get_training_plan existe
+                    if hasattr(self, "get_training_plan"):
+                        # Obter o plano de treinamento
+                        plan = self.get_training_plan()
+                        if plan:
+                            training_plan = {
+                                "tables_count": len(plan.get("tables", [])),
+                                "tables": plan.get("tables", []),
+                                "relationships": plan.get("relationships", False),
+                                "example_pairs": plan.get("example_pairs", False),
+                            }
+                            print(
+                                f"[DEBUG] Plano de treinamento obtido: {len(plan.get('tables', []))} tabelas"
+                            )
+                except Exception as e:
+                    print(f"[DEBUG] Erro ao obter plano de treinamento: {e}")
+
                 # Preparar resultado
                 result = {
                     "status": "success",
@@ -858,6 +906,13 @@ class VannaOdooExtended(VannaOdooNumeric):
                         "details": relationship_tables,
                     },
                     "pair_stats": {"count": len(pair_docs)},
+                    "documentation_stats": {"count": len(doc_docs)},
+                    "sql_examples_stats": {
+                        "count": len(sql_examples),
+                        "tables": len(sql_tables),
+                        "tables_list": list(sql_tables),
+                    },
+                    "training_plan_stats": training_plan,
                 }
 
                 return result
@@ -1266,8 +1321,8 @@ class VannaOdooExtended(VannaOdooNumeric):
                     # Por exemplo, limpar arquivos específicos no diretório de persistência
                     try:
                         import os
-                        import shutil
 
+                        # import shutil  # Comentado pois não é utilizado
                         # Obter o diretório de persistência
                         persist_dir = (
                             self.chroma_persist_directory

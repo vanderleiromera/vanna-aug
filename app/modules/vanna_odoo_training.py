@@ -284,7 +284,15 @@ class VannaOdooTraining(VannaOdooSQL):
 
     def get_training_plan(self):
         """
-        Generate a training plan for the Odoo database using only priority tables
+        Generate a comprehensive training plan for the Odoo database
+
+        Returns:
+            dict: A dictionary containing the training plan with the following keys:
+                - tables: List of tables to train on
+                - relationships: Whether to train on relationships
+                - example_pairs: Whether to train on example pairs
+                - documentation: Whether to train on documentation
+                - sql_examples: Whether to train on SQL examples
         """
         # Import the list of priority tables
         from modules.odoo_priority_tables import ODOO_PRIORITY_TABLES
@@ -297,18 +305,143 @@ class VannaOdooTraining(VannaOdooSQL):
             table for table in ODOO_PRIORITY_TABLES if table in available_tables
         ]
 
-        # Create training plan
+        # Create comprehensive training plan
         plan = {
             "tables": tables_to_train,
             "relationships": True,
             "example_pairs": True,
+            "documentation": True,  # Incluir treinamento de documentação (botão 3)
+            "sql_examples": True,  # Incluir treinamento de exemplos SQL (botão 4)
         }
 
         return plan
 
+    def train_on_documentation(self):
+        """
+        Train Vanna on documentation
+
+        This method trains the model on documentation about the Odoo database.
+        It can include general information about tables, business rules, etc.
+
+        Returns:
+            bool: True if training was successful, False otherwise
+        """
+        try:
+            # Verificar se existe um módulo de documentação
+            try:
+                from modules.documentation import get_documentation
+
+                documentation_list = get_documentation()
+            except ImportError:
+                # Se não existir, criar uma documentação básica
+                documentation_list = [
+                    "Odoo is an open source ERP and CRM system.",
+                    "The database contains tables for products, sales, purchases, inventory, etc.",
+                    "Most tables have a 'name' field and an 'active' field.",
+                    "The 'res_partner' table contains information about customers and suppliers.",
+                    "The 'product_product' table contains information about products.",
+                    "The 'sale_order' table contains information about sales orders.",
+                    "The 'purchase_order' table contains information about purchase orders.",
+                    "The 'stock_move' table contains information about inventory movements.",
+                ]
+
+            # Treinar em cada item de documentação
+            trained_count = 0
+            for doc in documentation_list:
+                if doc:
+                    try:
+                        # Treinar o modelo com a documentação
+                        result = self.train(documentation=doc)
+                        print(
+                            f"Trained on documentation: {doc[:50]}..., result: {result}"
+                        )
+
+                        # Adicionar diretamente à coleção para melhor persistência
+                        if hasattr(self, "collection") and self.collection:
+                            content = f"Documentation: {doc}"
+                            content_hash = hashlib.md5(content.encode()).hexdigest()
+                            doc_id = f"doc-{content_hash}"
+
+                            # Adicionar à coleção
+                            try:
+                                self.collection.add(
+                                    documents=[content],
+                                    metadatas=[
+                                        {"type": "documentation", "content": doc[:100]}
+                                    ],
+                                    ids=[doc_id],
+                                )
+                                print(f"Added documentation document, ID: {doc_id}")
+                            except Exception as e:
+                                print(f"Error adding documentation: {e}")
+
+                            trained_count += 1
+                    except Exception as e:
+                        print(f"Error training on documentation: {e}")
+
+            print(f"Trained on {trained_count} documentation items")
+            return trained_count > 0
+        except Exception as e:
+            print(f"Error in train_on_documentation: {e}")
+            return False
+
+    def train_on_sql_examples(self):
+        """
+        Train Vanna on SQL examples
+
+        This method trains the model on SQL examples from odoo_sql_examples.py.
+
+        Returns:
+            bool: True if training was successful, False otherwise
+        """
+        try:
+            # Importar os exemplos de SQL
+            try:
+                from odoo_sql_examples import ODOO_SQL_EXAMPLES
+
+                sql_examples = ODOO_SQL_EXAMPLES
+            except ImportError:
+                print("SQL examples not found in odoo_sql_examples.py")
+                return False
+
+            # Treinar em cada exemplo de SQL
+            trained_count = 0
+            for sql in sql_examples:
+                if sql:
+                    try:
+                        # Criar uma pergunta genérica para o SQL
+                        question = f"How to query {sql.split('FROM')[1].split('WHERE')[0].strip() if 'FROM' in sql else 'data'}"
+
+                        # Treinar o modelo com o par pergunta-SQL
+                        result = self.train_on_example_pair(question, sql)
+                        if result:
+                            print(f"Trained on SQL example: {sql[:50]}...")
+                            trained_count += 1
+                    except Exception as e:
+                        print(f"Error training on SQL example: {e}")
+
+            print(f"Trained on {trained_count} SQL examples")
+            return trained_count > 0
+        except Exception as e:
+            print(f"Error in train_on_sql_examples: {e}")
+            return False
+
     def execute_training_plan(self, plan=None):
         """
-        Execute a training plan
+        Execute a comprehensive training plan
+
+        This method executes a training plan that can include:
+        - Tables (DDL)
+        - Relationships between tables
+        - Example pairs (question-SQL)
+        - Documentation
+        - SQL examples
+
+        Args:
+            plan (dict, optional): The training plan to execute. If None, get_training_plan() is called.
+
+        Returns:
+            dict: Results of the training plan execution
         """
         if plan is None:
             plan = self.get_training_plan()
@@ -317,6 +450,8 @@ class VannaOdooTraining(VannaOdooSQL):
             "tables_trained": 0,
             "relationships_trained": 0,
             "example_pairs_trained": 0,
+            "documentation_trained": 0,
+            "sql_examples_trained": 0,
         }
 
         # Train on tables
@@ -354,5 +489,17 @@ class VannaOdooTraining(VannaOdooSQL):
             # Train on example pairs
             if self.train_on_example_pairs():
                 results["example_pairs_trained"] = 1
+
+        # Train on documentation
+        if "documentation" in plan and plan["documentation"]:
+            # Train on documentation
+            if self.train_on_documentation():
+                results["documentation_trained"] = 1
+
+        # Train on SQL examples
+        if "sql_examples" in plan and plan["sql_examples"]:
+            # Train on SQL examples
+            if self.train_on_sql_examples():
+                results["sql_examples_trained"] = 1
 
         return results

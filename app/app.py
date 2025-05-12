@@ -97,7 +97,7 @@ st.sidebar.markdown(
 3. Documentação
 4. Exemplos de SQL
 5. Exemplos Pré-definidos
-6. Plano de Treinamento (Opcional)
+6. Plano de Treinamento (Treina todos)
 
 **Nota**: Esta implementação usa apenas tabelas prioritárias para evitar sobrecarga em bancos de dados Odoo extensos (800+ tabelas).
 """
@@ -267,6 +267,14 @@ if col6.button("🔄 6. Plano"):
                         st.info(
                             f"- Exemplos: {'Sim' if plan['example_pairs'] else 'Não'}"
                         )
+                    if "documentation" in plan:
+                        st.info(
+                            f"- Documentação: {'Sim' if plan['documentation'] else 'Não'}"
+                        )
+                    if "sql_examples" in plan:
+                        st.info(
+                            f"- Exemplos SQL: {'Sim' if plan['sql_examples'] else 'Não'}"
+                        )
 
                     with st.spinner("Executando plano..."):
                         try:
@@ -288,6 +296,14 @@ if col6.button("🔄 6. Plano"):
                                 if "example_pairs_trained" in result:
                                     st.info(
                                         f"- Exemplos treinados: {result['example_pairs_trained']}"
+                                    )
+                                if "documentation_trained" in result:
+                                    st.info(
+                                        f"- Documentação treinada: {result['documentation_trained']}"
+                                    )
+                                if "sql_examples_trained" in result:
+                                    st.info(
+                                        f"- Exemplos SQL treinados: {result['sql_examples_trained']}"
                                     )
                             else:
                                 st.error("❌ Falha na execução")
@@ -448,6 +464,86 @@ if st.sidebar.button("Analisar Conteúdo do ChromaDB", key="btn_analyze_chromadb
                         if pair_stats:
                             st.subheader("Estatísticas de Pares Pergunta-SQL")
                             st.info(f"📝 Total de pares: {pair_stats.get('count', 0)}")
+
+                        # Mostrar estatísticas de documentação
+                        doc_stats = result.get("documentation_stats", {})
+                        if doc_stats:
+                            st.subheader("Estatísticas de Documentação")
+                            st.info(
+                                f"📚 Total de documentos: {doc_stats.get('count', 0)}"
+                            )
+
+                        # Mostrar estatísticas de exemplos SQL
+                        sql_examples_stats = result.get("sql_examples_stats", {})
+                        if sql_examples_stats:
+                            st.subheader("Exemplos SQL Disponíveis")
+                            st.info(
+                                f"📊 Total de exemplos SQL: {sql_examples_stats.get('count', 0)}"
+                            )
+                            st.info(
+                                f"🗄️ Tabelas mencionadas: {sql_examples_stats.get('tables', 0)}"
+                            )
+
+                            # Mostrar lista de tabelas mencionadas nos exemplos SQL
+                            tables_list = sql_examples_stats.get("tables_list", [])
+                            if tables_list:
+                                with st.expander("Tabelas nos exemplos SQL"):
+                                    # Ordenar tabelas alfabeticamente
+                                    sorted_tables = sorted(tables_list)
+                                    # Mostrar as tabelas em colunas
+                                    cols = st.columns(3)
+                                    for i, table in enumerate(sorted_tables):
+                                        cols[i % 3].write(f"- `{table}`")
+
+                                    # Verificar se a tabela purchase_order está na lista
+                                    if "purchase_order" in tables_list:
+                                        st.success(
+                                            "✅ A tabela `purchase_order` está incluída nos exemplos SQL (linha 171)"
+                                        )
+                                    else:
+                                        st.warning(
+                                            "⚠️ A tabela `purchase_order` não foi encontrada nos exemplos SQL"
+                                        )
+
+                        # Mostrar estatísticas do plano de treinamento
+                        training_plan_stats = result.get("training_plan_stats", {})
+                        if training_plan_stats:
+                            st.subheader("Plano de Treinamento")
+                            st.info(
+                                f"🔄 Tabelas no plano: {training_plan_stats.get('tables_count', 0)}"
+                            )
+
+                            # Mostrar detalhes do plano
+                            if training_plan_stats.get("relationships", False):
+                                st.info("🔗 Inclui treinamento de relacionamentos: ✅")
+                            else:
+                                st.info("🔗 Inclui treinamento de relacionamentos: ❌")
+
+                            if training_plan_stats.get("example_pairs", False):
+                                st.info("📝 Inclui treinamento de exemplos: ✅")
+                            else:
+                                st.info("📝 Inclui treinamento de exemplos: ❌")
+
+                            # Mostrar lista de tabelas no plano
+                            tables_list = training_plan_stats.get("tables", [])
+                            if tables_list:
+                                with st.expander("Tabelas no plano de treinamento"):
+                                    # Ordenar tabelas alfabeticamente
+                                    sorted_tables = sorted(tables_list)
+                                    # Mostrar as tabelas em colunas
+                                    cols = st.columns(3)
+                                    for i, table in enumerate(sorted_tables):
+                                        cols[i % 3].write(f"- `{table}`")
+
+                                    # Verificar se a tabela purchase_order está na lista
+                                    if "purchase_order" in tables_list:
+                                        st.success(
+                                            "✅ A tabela `purchase_order` está incluída no plano de treinamento (linha 244)"
+                                        )
+                                    else:
+                                        st.warning(
+                                            "⚠️ A tabela `purchase_order` não foi encontrada no plano de treinamento"
+                                        )
 
                     elif result["status"] == "warning":
                         st.warning(f"⚠️ {result['message']}")
