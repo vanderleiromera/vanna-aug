@@ -16,7 +16,7 @@ RUN curl -sSL https://install.python-poetry.org | python3 - && \
 # Configure Poetry to not create a virtual environment inside the container
 RUN poetry config virtualenvs.create false
 
-# Copy pyproject.toml and poetry.lock (if exists)
+# Copy pyproject.toml and poetry.lock
 COPY pyproject.toml poetry.lock* ./
 
 # Install dependencies
@@ -40,4 +40,6 @@ EXPOSE 8501
 EXPOSE 8502
 
 # Command to run the application
-CMD ["streamlit", "run", "app/app.py", "--server.address=0.0.0.0"]
+# Use the refactored app by default, but allow overriding with environment variable
+ENV APP_SCRIPT=app/app.py
+CMD ["sh", "-c", "streamlit run ${APP_SCRIPT} --server.address=0.0.0.0"]

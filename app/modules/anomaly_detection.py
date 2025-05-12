@@ -5,11 +5,14 @@ Este módulo fornece funções para detectar valores atípicos (outliers) em con
 utilizando diferentes algoritmos de detecção de anomalias.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from pyod.models.iforest import IForest
+import plotly.express as px
+import plotly.graph_objects as go
+
+# Importações para detecção de anomalias
 from pyod.models.knn import KNN
 from scipy import stats
 from sklearn.ensemble import IsolationForest
@@ -289,3 +292,169 @@ def get_anomaly_summary(df: pd.DataFrame, outlier_df: pd.DataFrame) -> Dict:
             }
 
     return summary
+
+
+def create_anomaly_visualization(
+    df: pd.DataFrame,
+    method: str = "z-score",
+    columns: Optional[List[str]] = None,
+    **kwargs,
+) -> Tuple[Optional[go.Figure], pd.DataFrame, Dict]:
+    """
+    Cria uma visualização para detecção de anomalias.
+
+    Args:
+        df: DataFrame com os dados
+        method: Método de detecção ('z-score', 'iqr', 'isolation_forest', 'knn')
+        columns: Lista de colunas para análise
+        **kwargs: Parâmetros adicionais para o método de detecção
+
+    Returns:
+        Tupla contendo (figura Plotly, DataFrame com outliers marcados, resumo das anomalias)
+    """
+    # Mapear nomes de métodos para funções internas
+    method_map = {
+        "z-score": "statistical",
+        "statistical": "statistical",
+        "iqr": "iqr",
+        "isolation_forest": "isolation_forest",
+        "knn": "knn",
+    }
+
+    # Verificar se o método é válido
+    if method not in method_map:
+        raise ValueError(f"Método '{method}' não suportado")
+
+    # Converter para o método interno
+    internal_method = method_map[method]
+
+    # Verificar se temos colunas numéricas
+    if columns is None:
+        columns = df.select_dtypes(include=np.number).columns.tolist()
+
+    if not columns:
+        return None, df.copy(), {"error": "Não há colunas numéricas para análise"}
+
+    # Detectar outliers
+    df_with_outliers = highlight_outliers(
+        df, method=internal_method, columns=columns, **kwargs
+    )
+
+    # Gerar resumo das anomalias
+    anomaly_summary = get_anomaly_summary(df, df_with_outliers)
+
+    # Criar visualização
+    fig = None
+
+    # Se temos apenas uma coluna, criar um boxplot
+    if len(columns) == 1:
+        col = columns[0]
+        fig = px.box(
+            df,
+            y=col,
+            title=f"Distribuição de {col} com Detecção de Anomalias",
+            points="outliers",
+        )
+
+        # Adicionar pontos para os outliers
+        outlier_indices = df_with_outliers[df_with_outliers["contains_outliers"]].index
+        if len(outlier_indices) > 0:
+            outlier_values = df.loc[outlier_indices, col]
+            fig.add_trace(
+                go.Scatter(
+                    x=["Outliers"] * len(outlier_values),
+                    y=outlier_values,
+                    mode="markers",
+                    marker=dict(color="red", size=8, symbol="circle"),
+                    name="Anomalias",
+                )
+            )
+
+    # Se temos duas colunas, criar um gráfico de dispersão
+    elif len(columns) == 2:
+        col1, col2 = columns[:2]
+
+        # Criar gráfico de dispersão
+        fig = px.scatter(
+            df,
+            x=col1,
+            y=col2,
+            title=f"Relação entre {col1} e {col2} com Detecção de Anomalias",
+            color_discrete_sequence=["blue"],
+        )
+
+        # Adicionar pontos para os outliers
+        outlier_indices = df_with_outliers[df_with_outliers["contains_outliers"]].index
+        if len(outlier_indices) > 0:
+            outlier_df = df.loc[outlier_indices]
+            fig.add_trace(
+                go.Scatter(
+                    x=outlier_df[col1],
+                    y=outlier_df[col2],
+                    mode="markers",
+                    marker=dict(color="red", size=10, symbol="circle"),
+                    name="Anomalias",
+                )
+            )
+
+    # Se temos mais de duas colunas, criar uma matriz de gráficos de dispersão
+    elif len(columns) > 2:
+        # Limitar a 4 colunas para não sobrecarregar
+        cols_to_plot = columns[: min(4, len(columns))]
+
+        # Criar matriz de gráficos de dispersão
+        fig = px.scatter_matrix(
+            df,
+            dimensions=cols_to_plot,
+            title="Matriz de Dispersão com Detecção de Anomalias",
+            color=df_with_outliers["contains_outliers"].map(
+                {True: "Anomalia", False: "Normal"}
+            ),
+            color_discrete_map={"Anomalia": "red", "Normal": "blue"},
+        )
+
+    return fig, df_with_outliers, anomaly_summary
+
+
+def format_anomaly_summary(summary: Dict) -> str:
+    """
+    Formata o resumo das anomalias para exibição.
+
+    Args:
+        summary: Dicionário com estatísticas sobre as anomalias
+
+    Returns:
+        String formatada em Markdown com o resumo das anomalias
+    """
+    if "error" in summary:
+        return f"**Erro:** {summary['error']}"
+
+    total_rows = summary.get("total_rows", 0)
+    outlier_rows = summary.get("outlier_rows", 0)
+    outlier_percentage = summary.get("outlier_percentage", 0)
+
+    markdown = f"""
+    ### Resumo da Detecção de Anomalias
+
+    - **Total de registros analisados:** {total_rows}
+    - **Registros com anomalias:** {outlier_rows} ({outlier_percentage}%)
+    """
+
+    columns_with_outliers = summary.get("columns_with_outliers", {})
+    if columns_with_outliers:
+        markdown += "\n\n#### Detalhes por Coluna:\n\n"
+
+        for col, col_stats in columns_with_outliers.items():
+            markdown += f"""
+            **{col}**:
+            - Anomalias: {col_stats['count']} ({col_stats['percentage']}%)
+            - Valor mínimo: {col_stats['min_value']:.2f}
+            - Valor máximo: {col_stats['max_value']:.2f}
+            - Média: {col_stats['mean']:.2f}
+            - Mediana: {col_stats['median']:.2f}
+            - Desvio padrão: {col_stats['std']:.2f}
+            """
+    else:
+        markdown += "\n\nNenhuma anomalia detectada nas colunas analisadas."
+
+    return markdown

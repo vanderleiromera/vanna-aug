@@ -8,17 +8,10 @@ e treinamento do modelo.
 
 import os
 import re
-from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
-from modules.data_converter import dataframe_to_model_list, model_list_to_dataframe
-from modules.models import (
-    DatabaseConfig,
-    ProductData,
-    PurchaseSuggestion,
-    SaleOrder,
-    VannaConfig,
-)
+from modules.data_converter import dataframe_to_model_list
+from modules.models import ProductData, PurchaseSuggestion, SaleOrder, VannaConfig
 from modules.vanna_odoo_training import VannaOdooTraining
 
 
