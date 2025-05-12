@@ -727,8 +727,8 @@ if user_question:
                     help="Baixar resultados em formato JSON",
                 )
 
-            # Criar colunas para os botões de resumo e perguntas de acompanhamento
-            col_summary, col_followup = st.columns(2)
+            # Criar colunas para os botões de resumo, treinamento e perguntas de acompanhamento
+            col_summary, col_train, col_followup = st.columns(3)
 
             # Botão para gerar resumo
             with col_summary:
@@ -746,6 +746,33 @@ if user_question:
                         else:
                             st.subheader("Resumo dos Dados")
                             st.write(summary)
+
+            # Botão para treinar manualmente
+            with col_train:
+                if st.button("🧠 Treinar com este SQL", key="btn_manual_train"):
+                    with st.spinner("Treinando com o SQL gerado..."):
+                        try:
+                            # Chamar o método ask_with_results com manual_train=True
+                            _, _, _, trained = vn.ask_with_results(
+                                question=user_question,
+                                print_results=False,
+                                auto_train=False,
+                                manual_train=True,
+                                debug=False,
+                                allow_llm_to_see_data=False,
+                            )
+
+                            if trained:
+                                st.success(
+                                    "✅ Treinado com sucesso! Este par pergunta-SQL será usado para melhorar respostas futuras."
+                                )
+                            else:
+                                st.error("❌ Falha ao treinar com este SQL.")
+                        except Exception as e:
+                            st.error(f"❌ Erro ao treinar: {e}")
+                            import traceback
+
+                            st.code(traceback.format_exc())
 
             # Botão para gerar perguntas relacionadas
             with col_followup:

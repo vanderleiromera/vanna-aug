@@ -1308,6 +1308,7 @@ class VannaOdooExtended(VannaOdooNumeric):
         question,
         print_results=True,
         auto_train=False,
+        manual_train=False,
         debug=True,
         allow_llm_to_see_data=False,
     ):
@@ -1318,11 +1319,12 @@ class VannaOdooExtended(VannaOdooNumeric):
             question (str): The question to ask
             print_results (bool, optional): Whether to print results. Defaults to True.
             auto_train (bool, optional): Whether to auto-train on the question and SQL. Defaults to False.
+            manual_train (bool, optional): Whether to manually train on the question and SQL. Defaults to False.
             debug (bool, optional): Se True, imprime informações de depuração. Defaults to True.
             allow_llm_to_see_data (bool, optional): Whether to allow the LLM to see data. Defaults to False.
 
         Returns:
-            tuple: (sql, df, fig) - The SQL query, results DataFrame, and Plotly figure
+            tuple: (sql, df, fig, trained) - The SQL query, results DataFrame, Plotly figure, and whether training was successful
         """
         try:
             # Extrair valores numéricos da pergunta para depuração
@@ -1374,16 +1376,34 @@ class VannaOdooExtended(VannaOdooNumeric):
                 except Exception as e:
                     print(f"Erro ao gerar gráfico: {e}")
 
+            # Variável para rastrear se o treinamento foi bem-sucedido
+            trained = False
+
             # Auto-train if enabled
             if auto_train and sql and df is not None and not df.empty:
                 try:
                     # Train with the adjusted SQL to improve future responses
-                    self.train(question=question, sql=sql)
-                    print("Treinado com sucesso na pergunta e SQL ajustado.")
+                    result = self.train(question=question, sql=sql)
+                    if result:
+                        trained = True
+                        print("Treinado automaticamente com sucesso na pergunta e SQL.")
                 except Exception as e:
-                    print(f"Erro ao treinar: {e}")
+                    print(f"Erro ao treinar automaticamente: {e}")
 
-            return sql, df, fig
+            # Manual train if enabled
+            if manual_train and sql:
+                try:
+                    # Usar o método train_on_example_pair para garantir que o par seja adicionado diretamente à coleção
+                    result = self.train_on_example_pair(question=question, sql=sql)
+                    if result:
+                        trained = True
+                        print("Treinado manualmente com sucesso na pergunta e SQL.")
+                    else:
+                        print("Falha ao treinar manualmente na pergunta e SQL.")
+                except Exception as e:
+                    print(f"Erro ao treinar manualmente: {e}")
+
+            return sql, df, fig, trained
         except Exception as e:
             print(f"Erro ao processar pergunta: {e}")
-            return None, None, None
+            return None, None, None, False
