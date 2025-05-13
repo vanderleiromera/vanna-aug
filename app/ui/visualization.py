@@ -6,6 +6,7 @@ import dateutil.parser
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from ui.chart_utils import add_download_button
 
 
 def render_visualizations(results):
@@ -410,6 +411,10 @@ def render_auto_chart(results, date_cols, categorical_cols, numeric_cols, measur
 
         st.plotly_chart(fig, use_container_width=True, key="auto_time_series")
 
+        # Adicionar botões de download
+        st.caption("Download do gráfico:")
+        add_download_button(fig, filename="evolucao_temporal", key="auto_time_series")
+
         # Adicionar estatísticas de tendência
         try:
             first_value = results_sorted[y_col].iloc[0]
@@ -470,6 +475,10 @@ def render_auto_chart(results, date_cols, categorical_cols, numeric_cols, measur
 
         st.plotly_chart(fig, use_container_width=True, key="auto_treemap")
 
+        # Adicionar botões de download
+        st.caption("Download do gráfico:")
+        add_download_button(fig, filename="treemap_categorias", key="auto_treemap")
+
     elif chart_type == "scatter_plot":
         # Gráfico de dispersão para duas variáveis numéricas
         x_col = numeric_cols[0]
@@ -509,6 +518,10 @@ def render_auto_chart(results, date_cols, categorical_cols, numeric_cols, measur
             )
 
         st.plotly_chart(fig, use_container_width=True, key="auto_scatter")
+
+        # Adicionar botões de download
+        st.caption("Download do gráfico:")
+        add_download_button(fig, filename="dispersao", key="auto_scatter")
 
         # Adicionar estatísticas de correlação
         try:
@@ -554,6 +567,10 @@ def render_auto_chart(results, date_cols, categorical_cols, numeric_cols, measur
             )
 
         st.plotly_chart(fig, use_container_width=True, key="auto_histogram")
+
+        # Adicionar botões de download
+        st.caption("Download do gráfico:")
+        add_download_button(fig, filename="histograma", key="auto_histogram")
 
         # Adicionar estatísticas descritivas
         try:
@@ -663,6 +680,10 @@ def render_auto_chart(results, date_cols, categorical_cols, numeric_cols, measur
 
         st.plotly_chart(fig, use_container_width=True, key="auto_bar_chart")
 
+        # Adicionar botões de download
+        st.caption("Download do gráfico:")
+        add_download_button(fig, filename="grafico_barras", key="auto_bar_chart")
+
         # Adicionar estatísticas
         try:
             col1, col2, col3 = st.columns(3)
@@ -703,6 +724,10 @@ def render_auto_chart(results, date_cols, categorical_cols, numeric_cols, measur
             )
 
             st.plotly_chart(fig, use_container_width=True, key="auto_bar_simple")
+
+            # Adicionar botões de download
+            st.caption("Download do gráfico:")
+            add_download_button(fig, filename="grafico_simples", key="auto_bar_simple")
         else:
             st.warning("Não há colunas suficientes para criar um gráfico")
 
@@ -810,6 +835,12 @@ def render_bar_chart(results, categorical_cols, numeric_cols, measure_cols):
 
         st.plotly_chart(fig, use_container_width=True)
 
+        # Adicionar botões de download
+        st.caption("Download do gráfico:")
+        add_download_button(
+            fig, filename=f"barras_{x_col}_{y_col}", key=f"bar_{x_col}_{y_col}"
+        )
+
     except Exception as e:
         st.error(f"Erro ao criar gráfico de barras: {e}")
         st.info("Tente selecionar colunas diferentes.")
@@ -896,6 +927,12 @@ def render_line_chart(results, date_cols, categorical_cols, numeric_cols, measur
 
         st.plotly_chart(fig, use_container_width=True)
 
+        # Adicionar botões de download
+        st.caption("Download do gráfico:")
+        add_download_button(
+            fig, filename=f"linha_{x_col}_{y_col}", key=f"line_{x_col}_{y_col}"
+        )
+
     except Exception as e:
         st.error(f"Erro ao criar gráfico de linha: {e}")
         st.info("Tente selecionar colunas diferentes.")
@@ -970,6 +1007,14 @@ def render_pie_chart(results, categorical_cols, numeric_cols, measure_cols):
         fig.update_traces(textposition="inside", textinfo="percent+label")
 
         st.plotly_chart(fig, use_container_width=True)
+
+        # Adicionar botões de download
+        st.caption("Download do gráfico:")
+        add_download_button(
+            fig,
+            filename=f"pizza_{names_col}_{values_col}",
+            key=f"pie_{names_col}_{values_col}",
+        )
 
     except Exception as e:
         st.error(f"Erro ao criar gráfico de pizza: {e}")
@@ -1055,6 +1100,14 @@ def render_pivot_table(results, numeric_cols):
                 title=f"{agg_func} de {values_col} por {index_col} e {columns_col}",
             )
             st.plotly_chart(fig, use_container_width=True)
+
+            # Adicionar botões de download
+            st.caption("Download do gráfico:")
+            add_download_button(
+                fig,
+                filename=f"heatmap_{index_col}_{values_col}",
+                key=f"heatmap_{index_col}_{values_col}",
+            )
     except Exception as e:
         st.error(f"Erro ao criar tabela dinâmica: {e}")
         st.info(
@@ -1169,6 +1222,12 @@ def render_anomaly_detection(results):
                 # Exibir o gráfico
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
+
+                    # Adicionar botões de download
+                    st.caption("Download do gráfico:")
+                    add_download_button(
+                        fig, filename=f"anomalias_{method}", key=f"anomaly_{method}"
+                    )
                 else:
                     st.warning(
                         "Não foi possível criar uma visualização para os dados selecionados"

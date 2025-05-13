@@ -9,8 +9,18 @@ import sys
 import unittest
 
 # Adicionar os diretórios necessários ao path para importar os módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(app_dir)
+sys.path.append(os.path.dirname(app_dir))  # Adicionar o diretório raiz do projeto
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
+
+# Configurar o ambiente para permitir importações relativas
+if "app" not in sys.modules:
+    import app
+
+# Imprimir informações de debug sobre os caminhos
+print(f"Diretório da aplicação: {app_dir}")
+print(f"Caminhos de importação: {sys.path[:5]}")  # Mostrar os primeiros 5 caminhos
 
 # Configurar protobuf para usar implementação pura Python
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"

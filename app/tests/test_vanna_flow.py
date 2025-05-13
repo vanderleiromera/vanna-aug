@@ -40,6 +40,7 @@ class TestVannaFlow(unittest.TestCase):
                 "user": "test_user",
                 "password": "test_password",
                 "database": "test_db",
+                "chroma_persist_directory": "/tmp/test_chromadb",  # Usar diretório temporário para testes
             }
         )
 

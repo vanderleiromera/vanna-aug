@@ -3,17 +3,30 @@ import sys
 import unittest
 
 # Adicionar os diretórios necessários ao path para importar os módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(app_dir)
+sys.path.append(os.path.dirname(app_dir))  # Adicionar o diretório raiz do projeto
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
 # Importar o módulo a ser testado
-from app.modules.sql_evaluator import (
-    check_basic_syntax,
-    check_best_practices,
-    check_performance,
-    check_security,
-    evaluate_sql_quality,
-)
+try:
+    # Tentar importar do módulo app.modules primeiro (ambiente de desenvolvimento)
+    from app.modules.sql_evaluator import (
+        check_basic_syntax,
+        check_best_practices,
+        check_performance,
+        check_security,
+        evaluate_sql_quality,
+    )
+except ImportError:
+    # Tentar importar diretamente do módulo modules (ambiente Docker)
+    from modules.sql_evaluator import (
+        check_basic_syntax,
+        check_best_practices,
+        check_performance,
+        check_security,
+        evaluate_sql_quality,
+    )
 
 
 class TestSQLEvaluator(unittest.TestCase):

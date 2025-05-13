@@ -7,14 +7,26 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from app.modules.anomaly_detection import (
-    detect_iqr_outliers,
-    detect_isolation_forest_outliers,
-    detect_knn_outliers,
-    detect_statistical_outliers,
-    get_anomaly_summary,
-    highlight_outliers,
-)
+# Tentar importar do módulo app.modules primeiro (ambiente de desenvolvimento)
+try:
+    from app.modules.anomaly_detection import (
+        detect_iqr_outliers,
+        detect_isolation_forest_outliers,
+        detect_knn_outliers,
+        detect_statistical_outliers,
+        get_anomaly_summary,
+        highlight_outliers,
+    )
+except ImportError:
+    # Tentar importar diretamente do módulo modules (ambiente Docker)
+    from modules.anomaly_detection import (
+        detect_iqr_outliers,
+        detect_isolation_forest_outliers,
+        detect_knn_outliers,
+        detect_statistical_outliers,
+        get_anomaly_summary,
+        highlight_outliers,
+    )
 
 
 class TestAnomalyDetection(unittest.TestCase):

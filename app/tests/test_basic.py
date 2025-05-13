@@ -6,7 +6,9 @@ import numpy as np
 import pandas as pd
 
 # Adicionar os diretórios necessários ao path para importar os módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(app_dir)
+sys.path.append(os.path.dirname(app_dir))  # Adicionar o diretório raiz do projeto
 sys.path.append("/app")  # Adicionar o diretório raiz da aplicação no contêiner Docker
 
 
@@ -50,7 +52,12 @@ class TestBasicFunctionality(unittest.TestCase):
     def test_sql_evaluator_import(self):
         """Testar importação do módulo sql_evaluator"""
         try:
-            from app.modules.sql_evaluator import evaluate_sql_quality
+            # Tentar importar do módulo app.modules primeiro (ambiente de desenvolvimento)
+            try:
+                from app.modules.sql_evaluator import evaluate_sql_quality
+            except ImportError:
+                # Tentar importar diretamente do módulo modules (ambiente Docker)
+                from modules.sql_evaluator import evaluate_sql_quality
 
             # Testar a função com um SQL simples
             result = evaluate_sql_quality("SELECT * FROM test")
