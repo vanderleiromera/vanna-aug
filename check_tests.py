@@ -16,6 +16,13 @@ def find_test_files():
     """Encontrar todos os arquivos de teste."""
     test_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app", "tests")
     test_files = glob.glob(os.path.join(test_dir, "test_*.py"))
+
+    # Ignorar o arquivo test_config.py que não é um arquivo de teste
+    config_file = os.path.join(test_dir, "test_config.py")
+    if config_file in test_files:
+        test_files.remove(config_file)
+        print(f"Ignorando {os.path.basename(config_file)} (arquivo de configuração)")
+
     return test_files
 
 
@@ -73,9 +80,7 @@ def check_test_file(file_path):
         # Verificar se as classes de teste contêm métodos de teste
         for test_class in loaded_test_classes:
             test_methods = []
-            for name, method in inspect.getmembers(
-                test_class, predicate=inspect.isfunction
-            ):
+            for name, _ in inspect.getmembers(test_class, predicate=inspect.isfunction):
                 if name.startswith("test_"):
                     test_methods.append(name)
 

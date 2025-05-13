@@ -1,3 +1,8 @@
+# Este arquivo não é um arquivo de teste, mas sim um arquivo de configuração para os testes.
+# Este arquivo não é um arquivo de teste, mas sim um arquivo de configuração para os testes.
+# Este arquivo não é um arquivo de teste, mas sim um arquivo de configuração para os testes.
+# Ele não contém classes de teste e não deve ser executado diretamente pelo test runner.
+
 """
 Configurações para os testes da aplicação.
 
@@ -33,7 +38,10 @@ def configure_logging():
 
         # Suprimir prints durante os testes
         if "pytest" in sys.modules:
-            sys.stdout = open(os.devnull, "w")
+            # Usar 'with' para garantir que o arquivo seja fechado corretamente
+            # e especificar a codificação explicitamente
+            with open(os.devnull, "w", encoding="utf-8") as devnull:
+                sys.stdout = devnull
     else:
         # Em modo normal, usar o nível de log INFO
         logging.basicConfig(level=logging.INFO)

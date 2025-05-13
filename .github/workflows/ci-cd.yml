@@ -89,7 +89,7 @@ jobs:
 
           # Executar o script de testes melhorado
           echo "Executando os testes..."
-          python run_ci_tests.py
+          python app/tests/run_ci_tests.py
         env:
           PYTHONPATH: ${{ github.workspace }}
           POSTGRES_HOST: localhost

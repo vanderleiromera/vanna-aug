@@ -209,7 +209,14 @@ def products_to_dataframe(products: List[ProductData]) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame com os dados dos produtos
     """
-    return pd.DataFrame([p.model_dump() for p in products])
+    # Compatibilidade com diferentes versões do Pydantic
+    product_dicts = []
+    for p in products:
+        if hasattr(p, "model_dump"):
+            product_dicts.append(p.model_dump())
+        else:
+            product_dicts.append(p.dict())
+    return pd.DataFrame(product_dicts)
 
 
 def sale_orders_to_dataframe(orders: List[SaleOrder]) -> pd.DataFrame:
@@ -225,7 +232,11 @@ def sale_orders_to_dataframe(orders: List[SaleOrder]) -> pd.DataFrame:
     # Converter para dicionários, excluindo order_lines que é uma lista
     order_dicts = []
     for order in orders:
-        order_dict = order.model_dump()
+        # Compatibilidade com diferentes versões do Pydantic
+        if hasattr(order, "model_dump"):
+            order_dict = order.model_dump()
+        else:
+            order_dict = order.dict()
         order_dict.pop("order_lines")
         order_dicts.append(order_dict)
 
@@ -244,7 +255,14 @@ def purchase_suggestions_to_dataframe(
     Returns:
         pd.DataFrame: DataFrame com os dados das sugestões
     """
-    return pd.DataFrame([s.model_dump() for s in suggestions])
+    # Compatibilidade com diferentes versões do Pydantic
+    suggestion_dicts = []
+    for s in suggestions:
+        if hasattr(s, "model_dump"):
+            suggestion_dicts.append(s.model_dump())
+        else:
+            suggestion_dicts.append(s.dict())
+    return pd.DataFrame(suggestion_dicts)
 
 
 # ===== Dados de Exemplo para Testes =====

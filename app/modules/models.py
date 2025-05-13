@@ -81,7 +81,11 @@ class DatabaseConfig(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         """Converte o modelo para um dicionário para uso com psycopg2"""
-        return self.model_dump()
+        # Compatibilidade com diferentes versões do Pydantic
+        if hasattr(self, "model_dump"):
+            return self.model_dump()
+        else:
+            return self.dict()
 
     def get_connection_string(self) -> str:
         """Retorna a string de conexão SQLAlchemy"""

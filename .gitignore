@@ -46,3 +46,5 @@ poetry.toml
 .vscode/
 *.swp
 *.swo
+test-reports/
+coverage.xml
