@@ -5,7 +5,7 @@ Este módulo fornece funções para converter pandas DataFrames em modelos Pydan
 e vice-versa, facilitando a validação e tipagem de dados.
 """
 
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import pandas as pd
 from pydantic import BaseModel
@@ -70,7 +70,13 @@ def model_list_to_dataframe(models: List[BaseModel]) -> pd.DataFrame:
         return pd.DataFrame()
 
     # Converter cada modelo para um dicionário
-    records = [model.model_dump() for model in models]
+    records = []
+    for model in models:
+        # Compatibilidade com diferentes versões do Pydantic
+        if hasattr(model, "model_dump"):
+            records.append(model.model_dump())
+        else:
+            records.append(model.dict())
 
     # Converter lista de dicionários para DataFrame
     return pd.DataFrame(records)
@@ -86,7 +92,11 @@ def model_to_dict(model: BaseModel) -> Dict[str, Any]:
     Returns:
         Dicionário com os dados do modelo
     """
-    return model.model_dump()
+    # Compatibilidade com diferentes versões do Pydantic
+    if hasattr(model, "model_dump"):
+        return model.model_dump()
+    else:
+        return model.dict()
 
 
 def dict_to_model(data: Dict[str, Any], model_class: Type[T]) -> T:
@@ -117,5 +127,6 @@ def validate_dataframe(df: pd.DataFrame, model_class: Type[T]) -> bool:
     try:
         dataframe_to_model_list(df, model_class)
         return True
-    except Exception:
+    except (ValueError, TypeError, AttributeError):
+        # Capturar exceções específicas relacionadas à validação
         return False

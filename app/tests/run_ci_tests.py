@@ -74,7 +74,7 @@ def find_test_modules():
     test_dir = os.path.dirname(os.path.abspath(__file__))
     test_modules = []
 
-    # Listar todos os arquivos de teste
+    # Listar todos os arquivos de teste no diretório principal
     test_files = [
         f for f in os.listdir(test_dir) if f.startswith("test_") and f.endswith(".py")
     ]
@@ -83,9 +83,23 @@ def find_test_modules():
     if "test_config.py" in test_files:
         test_files.remove("test_config.py")
 
+    # Adicionar os testes da pasta pydantic
+    pydantic_dir = os.path.join(test_dir, "pydantic")
+    if os.path.exists(pydantic_dir) and os.path.isdir(pydantic_dir):
+        pydantic_test_files = [
+            os.path.join("pydantic", f)
+            for f in os.listdir(pydantic_dir)
+            if f.startswith("test_") and f.endswith(".py")
+        ]
+        test_files.extend(pydantic_test_files)
+        print(
+            f"Adicionados {len(pydantic_test_files)} arquivos de teste da pasta pydantic"
+        )
+
     # Importar cada módulo de teste
     for test_file in test_files:
-        module_name = test_file[:-3]  # Remover a extensão .py
+        # Converter caminho para nome de módulo
+        module_name = test_file.replace(os.path.sep, ".").replace(".py", "")
         module_path = os.path.join(test_dir, test_file)
 
         try:
@@ -99,7 +113,7 @@ def find_test_modules():
 
             # Verificar se o módulo contém classes de teste
             has_test_classes = False
-            for name, obj in inspect.getmembers(module):
+            for _, obj in inspect.getmembers(module):
                 if is_test_class(obj):
                     has_test_classes = True
                     break
@@ -110,6 +124,8 @@ def find_test_modules():
             else:
                 print(f"Aviso: Nenhuma classe de teste encontrada em {module_name}")
 
+        except ImportError as e:
+            print(f"Erro de importação no módulo {module_name}: {str(e)}")
         except Exception as e:
             print(f"Erro ao importar o módulo {module_name}: {str(e)}")
 
@@ -140,7 +156,7 @@ def main():
     test_modules = find_test_modules()
 
     # Adicionar as classes de teste ao test suite
-    for module_name, module in test_modules:
+    for _, module in test_modules:
         for name, obj in inspect.getmembers(module):
             if is_test_class(obj):
                 print(f"Adicionando classe de teste {name} ao test suite...")
@@ -156,11 +172,9 @@ def main():
 
     # Imprimir resumo
     print("\n" + "=" * 80)
-    print(
-        f" RESUMO: {result.testsRun} testes executados, {len(result.failures)} falhas, {len(result.errors)} erros ".center(
-            80, "="
-        )
-    )
+    resumo = f" RESUMO: {result.testsRun} testes executados, "
+    resumo += f"{len(result.failures)} falhas, {len(result.errors)} erros "
+    print(resumo.center(80, "="))
     print("=" * 80 + "\n")
 
     # Sair com código de erro se algum teste falhar
