@@ -427,32 +427,301 @@ class VannaOdooDB(VannaOdooCore):
                 FROM
                     information_schema.table_constraints AS tc
                     JOIN information_schema.key_column_usage AS kcu
-                      ON tc.constraint_name = kcu.constraint_name
-                      AND tc.table_schema = kcu.table_schema
+                    ON tc.constraint_name = kcu.constraint_name
+                    AND tc.table_schema = kcu.table_schema
                     JOIN information_schema.constraint_column_usage AS ccu
-                      ON ccu.constraint_name = tc.constraint_name
-                      AND ccu.table_schema = tc.table_schema
+                    ON ccu.constraint_name = tc.constraint_name
+                    AND ccu.table_schema = tc.table_schema
                 WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name=%s
             """,
                 (table_name,),
             )
 
             relationships = cursor.fetchall()
+
+            # Se não encontrou relacionamentos formais, tentar identificar por convenção de nomenclatura
+            if not relationships:
+                print(
+                    f"[DEBUG] Nenhum relacionamento formal encontrado para {table_name}, tentando por convenção de nomenclatura"
+                )
+
+                # Obter colunas da tabela
+                cursor.execute(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = %s
+                    ORDER BY ordinal_position
+                    """,
+                    (table_name,),
+                )
+
+                columns = [row[0] for row in cursor.fetchall()]
+
+                # Identificar colunas que seguem a convenção de nomenclatura do Odoo para chaves estrangeiras
+                # Exemplo: partner_id, product_id, etc.
+                relationships = []
+
+                # Mapeamento de casos especiais do Odoo
+                odoo_special_cases = {
+                    "partner_id": "res_partner",
+                    "user_id": "res_users",
+                    "company_id": "res_company",
+                    "currency_id": "res_currency",
+                    "country_id": "res_country",
+                    "state_id": "res_country_state",
+                    "product_id": "product_product",
+                    "product_tmpl_id": "product_template",
+                    "category_id": "product_category",
+                    "order_id": "sale_order",
+                    "invoice_id": "account_invoice",
+                    "move_id": "account_move",
+                    "journal_id": "account_journal",
+                    "account_id": "account_account",
+                    "picking_id": "stock_picking",
+                    "location_id": "stock_location",
+                    "warehouse_id": "stock_warehouse",
+                    "lot_id": "stock_production_lot",
+                    "uom_id": "uom_uom",
+                    "payment_id": "account_payment",
+                    "tax_id": "account_tax",
+                    "pricelist_id": "product_pricelist",
+                }
+
+                for column in columns:
+                    # Verificar se a coluna termina com '_id'
+                    if column.endswith("_id") and column != "id":
+                        # Verificar se é um caso especial do Odoo
+                        if column in odoo_special_cases:
+                            referenced_table = odoo_special_cases[column]
+
+                            # Verificar se a tabela referenciada existe
+                            cursor.execute(
+                                """
+                                SELECT EXISTS (
+                                    SELECT 1
+                                    FROM information_schema.tables
+                                    WHERE table_schema = 'public' AND table_name = %s
+                                )
+                                """,
+                                (referenced_table,),
+                            )
+
+                            table_exists = cursor.fetchone()[0]
+
+                            if table_exists:
+                                relationships.append(
+                                    (
+                                        "public",  # table_schema
+                                        f"fk_{table_name}_{column}",  # constraint_name (fictício)
+                                        table_name,  # table_name
+                                        column,  # column_name
+                                        "public",  # foreign_table_schema
+                                        referenced_table,  # foreign_table_name
+                                        "id",  # foreign_column_name
+                                    )
+                                )
+                                continue
+
+                        # Extrair o nome da tabela referenciada
+                        referenced_table = column[:-3]  # Remover o '_id'
+
+                        # Verificar se a tabela referenciada existe
+                        cursor.execute(
+                            """
+                            SELECT EXISTS (
+                                SELECT 1
+                                FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = %s
+                            )
+                            """,
+                            (referenced_table,),
+                        )
+
+                        table_exists = cursor.fetchone()[0]
+
+                        # Se a tabela existir, adicionar o relacionamento
+                        if table_exists:
+                            relationships.append(
+                                (
+                                    "public",  # table_schema
+                                    f"fk_{table_name}_{column}",  # constraint_name (fictício)
+                                    table_name,  # table_name
+                                    column,  # column_name
+                                    "public",  # foreign_table_schema
+                                    referenced_table,  # foreign_table_name
+                                    "id",  # foreign_column_name
+                                )
+                            )
+                        else:
+                            # Verificar se existe uma tabela com prefixo (comum no Odoo)
+                            # Exemplo: partner_id -> res_partner
+                            for prefix in [
+                                "res_",
+                                "product_",
+                                "sale_",
+                                "purchase_",
+                                "stock_",
+                                "account_",
+                                "mrp_",
+                            ]:
+                                potential_table = f"{prefix}{referenced_table}"
+                                cursor.execute(
+                                    """
+                                    SELECT EXISTS (
+                                        SELECT 1
+                                        FROM information_schema.tables
+                                        WHERE table_schema = 'public' AND table_name = %s
+                                    )
+                                    """,
+                                    (potential_table,),
+                                )
+
+                                table_exists = cursor.fetchone()[0]
+
+                                if table_exists:
+                                    relationships.append(
+                                        (
+                                            "public",  # table_schema
+                                            f"fk_{table_name}_{column}",  # constraint_name (fictício)
+                                            table_name,  # table_name
+                                            column,  # column_name
+                                            "public",  # foreign_table_schema
+                                            potential_table,  # foreign_table_name
+                                            "id",  # foreign_column_name
+                                        )
+                                    )
+                                    break
+
+                            # Verificar casos de pluralização
+                            if not table_exists:
+                                # Tentar adicionar 's' ao final (comum para plurais em inglês)
+                                potential_table = f"{referenced_table}s"
+                                cursor.execute(
+                                    """
+                                    SELECT EXISTS (
+                                        SELECT 1
+                                        FROM information_schema.tables
+                                        WHERE table_schema = 'public' AND table_name = %s
+                                    )
+                                    """,
+                                    (potential_table,),
+                                )
+
+                                table_exists = cursor.fetchone()[0]
+
+                                if table_exists:
+                                    relationships.append(
+                                        (
+                                            "public",  # table_schema
+                                            f"fk_{table_name}_{column}",  # constraint_name (fictício)
+                                            table_name,  # table_name
+                                            column,  # column_name
+                                            "public",  # foreign_table_schema
+                                            potential_table,  # foreign_table_name
+                                            "id",  # foreign_column_name
+                                        )
+                                    )
+
+                # Verificar tabelas de relacionamento many-to-many
+                if "_rel" in table_name:
+                    # Tabelas de relacionamento geralmente têm nomes como 'table1_table2_rel'
+                    parts = table_name.split("_")
+                    if len(parts) >= 3 and parts[-1] == "rel":
+                        # Tentar identificar as duas tabelas relacionadas
+                        table1 = "_".join(parts[:-2])
+                        table2 = parts[-2]
+
+                        # Verificar se as tabelas existem
+                        cursor.execute(
+                            """
+                            SELECT EXISTS (
+                                SELECT 1
+                                FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = %s
+                            )
+                            """,
+                            (table1,),
+                        )
+
+                        table1_exists = cursor.fetchone()[0]
+
+                        cursor.execute(
+                            """
+                            SELECT EXISTS (
+                                SELECT 1
+                                FROM information_schema.tables
+                                WHERE table_schema = 'public' AND table_name = %s
+                            )
+                            """,
+                            (table2,),
+                        )
+
+                        table2_exists = cursor.fetchone()[0]
+
+                        # Se ambas as tabelas existirem, adicionar os relacionamentos
+                        if table1_exists and table2_exists:
+                            # Relacionamento da tabela de relacionamento para a primeira tabela
+                            relationships.append(
+                                (
+                                    "public",  # table_schema
+                                    f"fk_{table_name}_{table1}",  # constraint_name (fictício)
+                                    table_name,  # table_name
+                                    f"{table1}_id",  # column_name
+                                    "public",  # foreign_table_schema
+                                    table1,  # foreign_table_name
+                                    "id",  # foreign_column_name
+                                )
+                            )
+
+                            # Relacionamento da tabela de relacionamento para a segunda tabela
+                            relationships.append(
+                                (
+                                    "public",  # table_schema
+                                    f"fk_{table_name}_{table2}",  # constraint_name (fictício)
+                                    table_name,  # table_name
+                                    f"{table2}_id",  # column_name
+                                    "public",  # foreign_table_schema
+                                    table2,  # foreign_table_name
+                                    "id",  # foreign_column_name
+                                )
+                            )
+
             cursor.close()
             conn.close()
 
-            return pd.DataFrame(
-                relationships,
-                columns=[
-                    "table_schema",
-                    "constraint_name",
-                    "table_name",
-                    "column_name",
-                    "foreign_table_schema",
-                    "foreign_table_name",
-                    "foreign_column_name",
-                ],
-            )
+            if relationships:
+                print(
+                    f"[DEBUG] Encontrados {len(relationships)} relacionamentos para a tabela {table_name}"
+                )
+                return pd.DataFrame(
+                    relationships,
+                    columns=[
+                        "table_schema",
+                        "constraint_name",
+                        "table_name",
+                        "column_name",
+                        "foreign_table_schema",
+                        "foreign_table_name",
+                        "foreign_column_name",
+                    ],
+                )
+            else:
+                print(
+                    f"[DEBUG] Nenhum relacionamento encontrado para a tabela {table_name}"
+                )
+                return pd.DataFrame(
+                    [],
+                    columns=[
+                        "table_schema",
+                        "constraint_name",
+                        "table_name",
+                        "column_name",
+                        "foreign_table_schema",
+                        "foreign_table_name",
+                        "foreign_column_name",
+                    ],
+                )
         except Exception as e:
             print(f"Error getting relationships for table {table_name}: {e}")
             if conn:
