@@ -198,6 +198,9 @@ class VannaOdoo(VannaOdooTraining):
         """
         import re  # Importar o módulo re no início da função para garantir que esteja disponível
 
+        # Inicializar a variável supplier_ref com um valor padrão
+        supplier_ref = None
+
         try:
             # Extrair a consulta SQL da pergunta similar
             sql = similar_question.get("sql", "")
@@ -554,13 +557,24 @@ class VannaOdoo(VannaOdooTraining):
 
             # Verificação final para garantir que não há erros de sintaxe comuns
             # Verificar se há padrões problemáticos como "rp.L66'" que são claramente erros
-            final_check_patterns = [
-                (r"rp\.L\d+\'", f"rp.ref = '{supplier_ref}'"),
-                (r"rp\.ref\s*=\s*L\d+\b", f"rp.ref = '{supplier_ref}'"),
-                (r'rp\.ref\s*=\s*[\'"]L\d+[\'"]', f"rp.ref = '{supplier_ref}'"),
-                # Padrão específico para o erro relatado
-                (r"rp\.L\d+", f"rp.ref = '{supplier_ref}'"),
-            ]
+            if supplier_ref:
+                # Se temos supplier_ref, usar padrões específicos para fornecedor
+                final_check_patterns = [
+                    (r"rp\.L\d+\'", f"rp.ref = '{supplier_ref}'"),
+                    (r"rp\.ref\s*=\s*L\d+\b", f"rp.ref = '{supplier_ref}'"),
+                    (r'rp\.ref\s*=\s*[\'"]L\d+[\'"]', f"rp.ref = '{supplier_ref}'"),
+                    # Padrão específico para o erro relatado
+                    (r"rp\.L\d+", f"rp.ref = '{supplier_ref}'"),
+                ]
+            else:
+                # Se não temos supplier_ref, usar padrões genéricos
+                final_check_patterns = [
+                    (r"rp\.L\d+\'", "1=1"),
+                    (r"rp\.ref\s*=\s*L\d+\b", "1=1"),
+                    (r'rp\.ref\s*=\s*[\'"]L\d+[\'"]', "1=1"),
+                    # Padrão específico para o erro relatado
+                    (r"rp\.L\d+", "1=1"),
+                ]
 
             for pattern, replacement in final_check_patterns:
                 if re.search(pattern, adapted_sql):
@@ -598,27 +612,41 @@ class VannaOdoo(VannaOdooTraining):
                             or "Filtro por código interno do fornecedor" in next_line
                         ):
                             # Substituir a linha inteira
-                            lines[where_line_index + 1] = (
-                                f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
-                            )
-                            print(
-                                f"[DEBUG] Linha após WHERE corrigida: {lines[where_line_index + 1]}"
-                            )
+                            if supplier_ref:
+                                lines[where_line_index + 1] = (
+                                    f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
+                                )
+                                print(
+                                    f"[DEBUG] Linha após WHERE corrigida para referência de fornecedor: {lines[where_line_index + 1]}"
+                                )
+                            else:
+                                lines[where_line_index + 1] = (
+                                    "    1=1  /* Condição genérica */"
+                                )
+                                print(
+                                    f"[DEBUG] Linha após WHERE corrigida para condição genérica: {lines[where_line_index + 1]}"
+                                )
 
                 # Verificar todas as linhas para outros padrões problemáticos
                 for i, line in enumerate(lines):
                     # Verificar padrões problemáticos em linhas que podem conter a referência do fornecedor
                     if "v'" in line:
                         print(f"[DEBUG] Encontrada linha com 'v'' ({i+1}): {line}")
-                        lines[i] = (
-                            f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
-                        )
+                        if supplier_ref:
+                            lines[i] = (
+                                f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
+                            )
+                        else:
+                            lines[i] = "    1=1  /* Condição genérica */"
                         print(f"[DEBUG] Linha corrigida: {lines[i]}")
                     elif "rp.L" in line:
                         print(f"[DEBUG] Encontrada linha com 'rp.L' ({i+1}): {line}")
-                        lines[i] = (
-                            f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
-                        )
+                        if supplier_ref:
+                            lines[i] = (
+                                f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
+                            )
+                        else:
+                            lines[i] = "    1=1  /* Condição genérica */"
                         print(f"[DEBUG] Linha corrigida: {lines[i]}")
                     elif (
                         "Filtro por código interno do fornecedor" in line
@@ -627,20 +655,30 @@ class VannaOdoo(VannaOdooTraining):
                         print(
                             f"[DEBUG] Encontrada linha com comentário de filtro sem referência correta ({i+1}): {line}"
                         )
-                        lines[i] = (
-                            f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
-                        )
+                        if supplier_ref:
+                            lines[i] = (
+                                f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
+                            )
+                        else:
+                            lines[i] = "    1=1  /* Condição genérica */"
                         print(f"[DEBUG] Linha corrigida: {lines[i]}")
 
                 # Reconstruir o SQL com as linhas corrigidas
                 adapted_sql = "\n".join(lines)
 
                 # Verificação adicional para padrões problemáticos específicos
-                problematic_patterns = [
-                    (r"v'", f"rp.ref = '{supplier_ref}'"),
-                    (r"rp\.L\d+'", f"rp.ref = '{supplier_ref}'"),
-                    (r"rp\.L\d+", f"rp.ref = '{supplier_ref}'"),
-                ]
+                if supplier_ref:
+                    problematic_patterns = [
+                        (r"v'", f"rp.ref = '{supplier_ref}'"),
+                        (r"rp\.L\d+'", f"rp.ref = '{supplier_ref}'"),
+                        (r"rp\.L\d+", f"rp.ref = '{supplier_ref}'"),
+                    ]
+                else:
+                    problematic_patterns = [
+                        (r"v'", "1=1"),
+                        (r"rp\.L\d+'", "1=1"),
+                        (r"rp\.L\d+", "1=1"),
+                    ]
 
                 for pattern, replacement in problematic_patterns:
                     if re.search(pattern, adapted_sql):
@@ -653,12 +691,22 @@ class VannaOdoo(VannaOdooTraining):
                 # Verificação final para garantir que a linha WHERE está correta
                 if "WHERE" in adapted_sql and "v'" in adapted_sql:
                     print(f"[DEBUG] Ainda encontrado 'v'' após correções")
-                    adapted_sql = re.sub(
-                        r"(WHERE\s*\n\s*)v'",
-                        f"\\1rp.ref = '{supplier_ref}'",
-                        adapted_sql,
-                    )
-                    print(f"[DEBUG] Padrão 'v'' corrigido manualmente")
+                    if supplier_ref:
+                        adapted_sql = re.sub(
+                            r"(WHERE\s*\n\s*)v'",
+                            f"\\1rp.ref = '{supplier_ref}'",
+                            adapted_sql,
+                        )
+                        print(
+                            f"[DEBUG] Padrão 'v'' corrigido para referência de fornecedor"
+                        )
+                    else:
+                        adapted_sql = re.sub(
+                            r"(WHERE\s*\n\s*)v'",
+                            "\\11=1",
+                            adapted_sql,
+                        )
+                        print(f"[DEBUG] Padrão 'v'' corrigido para condição genérica")
 
             return adapted_sql
         except Exception as e:
