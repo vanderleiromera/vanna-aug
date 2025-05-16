@@ -196,6 +196,8 @@ class VannaOdoo(VannaOdooTraining):
 
         Esta implementação é baseada no código original que funcionava corretamente
         """
+        import re  # Importar o módulo re no início da função para garantir que esteja disponível
+
         try:
             # Extrair a consulta SQL da pergunta similar
             sql = similar_question.get("sql", "")
@@ -211,8 +213,6 @@ class VannaOdoo(VannaOdooTraining):
             # Verificar se é uma consulta sobre produtos vendidos nos últimos dias
             if "últimos" in question.lower() and "dias" in question.lower():
                 # Extrair o número de dias
-                import re
-
                 days_match = re.search(r"(\d+)\s+dias", question.lower())
                 if days_match:
                     days = int(days_match.group(1))
@@ -267,7 +267,6 @@ class VannaOdoo(VannaOdooTraining):
                         )
 
                         # Usar regex para substituir todas as ocorrências de "* 30" relacionadas a dias
-                        import re
 
                         # Substituir padrões específicos primeiro
                         patterns = [
@@ -322,6 +321,197 @@ class VannaOdoo(VannaOdooTraining):
 
                         print(f"[DEBUG] SQL adaptado para {days} dias")
 
+            # Verificar se é uma consulta sobre um fornecedor específico
+            supplier_ref_match = re.search(
+                r"fornecedor\s+(?:com\s+)?(?:referência|referencia|ref|código|codigo)\s*['\"]?(\d+)['\"]?",
+                question.lower(),
+            )
+
+            # Se não encontrou no padrão anterior, tentar outros padrões
+            if not supplier_ref_match:
+                # Tentar padrão de referência no final da pergunta
+                supplier_ref_match = re.search(
+                    r"referência\s*['\"]?(\d+)['\"]?", question.lower()
+                )
+
+            # Tentar padrão com rep.ref
+            if not supplier_ref_match:
+                supplier_ref_match = re.search(
+                    r"rep\.ref\s*=\s*(\d+)", question.lower()
+                )
+            if supplier_ref_match:
+                supplier_ref = supplier_ref_match.group(1)
+                print(
+                    f"[DEBUG] Detected supplier reference {supplier_ref} in original question"
+                )
+
+                # Substituir a referência do fornecedor na consulta SQL usando vários padrões
+                padroes_substituicao = [
+                    # Padrão simples
+                    ("rp.ref = '146'", f"rp.ref = '{supplier_ref}'"),
+                    # Padrão com comentário
+                    (
+                        "rp.ref = '146'  /* Filtro por código interno do fornecedor */",
+                        f"rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */",
+                    ),
+                    # Padrão com aspas duplas
+                    ('rp.ref = "146"', f'rp.ref = "{supplier_ref}"'),
+                    # Padrão sem aspas
+                    ("rp.ref = 146", f"rp.ref = {supplier_ref}"),
+                    # Outros possíveis padrões
+                    ("partner.ref = '146'", f"partner.ref = '{supplier_ref}'"),
+                    ("res_partner.ref = '146'", f"res_partner.ref = '{supplier_ref}'"),
+                    ("p.ref = '146'", f"p.ref = '{supplier_ref}'"),
+                    # Padrão para fornecedor_ref
+                    ("fornecedor_ref = '146'", f"fornecedor_ref = '{supplier_ref}'"),
+                    # Padrão específico da consulta de exemplo
+                    (
+                        "rp.ref = '146'  /* Filtro por código interno do fornecedor */",
+                        f"rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */",
+                    ),
+                    # Padrão da consulta de sugestão de compras
+                    (
+                        "WHERE\n    rp.ref = '146'",
+                        f"WHERE\n    rp.ref = '{supplier_ref}'",
+                    ),
+                    # Padrão específico para a linha 957 do exemplo de sugestão de compras
+                    (
+                        "    rp.ref = '146'  /* Filtro por código interno do fornecedor */",
+                        f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */",
+                    ),
+                ]
+
+                # Aplicar todas as substituições específicas
+                for padrao_antigo, padrao_novo in padroes_substituicao:
+                    if padrao_antigo in adapted_sql:
+                        adapted_sql = adapted_sql.replace(padrao_antigo, padrao_novo)
+                        print(
+                            f"[DEBUG] Substituído referência do fornecedor '146' por '{supplier_ref}' no padrão: {padrao_antigo}"
+                        )
+
+                # Tentar substituição genérica com regex para capturar outros padrões
+                # Padrão para ref = '146' em qualquer contexto
+                adapted_sql = re.sub(
+                    r"(ref\s*=\s*['\"])146(['\"])", f"\\1{supplier_ref}\\2", adapted_sql
+                )
+
+                # Padrão para ref = 146 (sem aspas) em qualquer contexto
+                adapted_sql = re.sub(
+                    r"(ref\s*=\s*)146\b", f"\\1{supplier_ref}", adapted_sql
+                )
+
+                # Padrão para "fornecedor_ref = '146'" em qualquer contexto
+                adapted_sql = re.sub(
+                    r"(fornecedor_ref\s*=\s*['\"])146(['\"])",
+                    f"\\1{supplier_ref}\\2",
+                    adapted_sql,
+                )
+
+                # Padrão para qualquer campo que termine com _ref = '146'
+                adapted_sql = re.sub(
+                    r"(_ref\s*=\s*['\"])146(['\"])",
+                    f"\\1{supplier_ref}\\2",
+                    adapted_sql,
+                )
+
+                # Padrão para WHERE rp.ref = '146' com possíveis espaços e quebras de linha
+                adapted_sql = re.sub(
+                    r"(WHERE\s+rp\.ref\s*=\s*['\"])146(['\"])",
+                    f"\\1{supplier_ref}\\2",
+                    adapted_sql,
+                    flags=re.IGNORECASE,
+                )
+
+                # Padrão específico para a linha 957 do exemplo de sugestão de compras
+                # Usar uma abordagem mais segura para substituir a referência na linha WHERE
+                where_pattern = re.compile(
+                    r'(WHERE\s+rp\.ref\s*=\s*[\'"]\d+[\'"])', re.IGNORECASE
+                )
+                if where_pattern.search(adapted_sql):
+                    adapted_sql = where_pattern.sub(
+                        f"WHERE\\n    rp.ref = '{supplier_ref}'", adapted_sql
+                    )
+                    print(
+                        f"[DEBUG] Substituído padrão WHERE rp.ref = '...' por WHERE rp.ref = '{supplier_ref}'"
+                    )
+
+                # Verificar se há comentários com a referência antiga e substituir de forma segura
+                if "/* Filtro por código interno do fornecedor */" in adapted_sql:
+                    # Padrão mais específico para evitar substituições parciais
+                    comment_pattern = re.compile(
+                        r'(rp\.ref\s*=\s*[\'"])\d+([\'"](\s*\/\*\s*Filtro por código interno do fornecedor\s*\*\/))'
+                    )
+                    if comment_pattern.search(adapted_sql):
+                        adapted_sql = comment_pattern.sub(
+                            f"\\1{supplier_ref}\\2", adapted_sql
+                        )
+                        print(
+                            f"[DEBUG] Substituído referência no comentário 'Filtro por código interno do fornecedor'"
+                        )
+
+                # Verificar e corrigir qualquer sintaxe SQL inválida que possa ter sido gerada
+                # Procurar por padrões como "rp.L6'" que são claramente erros
+                error_pattern = re.compile(r"rp\.L\d+\'")
+                if error_pattern.search(adapted_sql):
+                    adapted_sql = error_pattern.sub(
+                        f"rp.ref = '{supplier_ref}'", adapted_sql
+                    )
+                    print(
+                        f"[DEBUG] Corrigido erro de sintaxe SQL: 'rp.L...' -> 'rp.ref = '{supplier_ref}''"
+                    )
+
+                # Verificar e corrigir outros possíveis erros de sintaxe
+                # Procurar por padrões como "rp.ref = L6" (sem aspas)
+                error_pattern2 = re.compile(r"rp\.ref\s*=\s*L\d+\b")
+                if error_pattern2.search(adapted_sql):
+                    adapted_sql = error_pattern2.sub(
+                        f"rp.ref = '{supplier_ref}'", adapted_sql
+                    )
+                    print(
+                        f"[DEBUG] Corrigido erro de sintaxe SQL: 'rp.ref = L...' -> 'rp.ref = '{supplier_ref}''"
+                    )
+
+                # Verificar e corrigir outros possíveis erros de sintaxe com aspas
+                error_pattern3 = re.compile(r'rp\.ref\s*=\s*[\'"]L\d+[\'"]')
+                if error_pattern3.search(adapted_sql):
+                    adapted_sql = error_pattern3.sub(
+                        f"rp.ref = '{supplier_ref}'", adapted_sql
+                    )
+                    print(
+                        f"[DEBUG] Corrigido erro de sintaxe SQL: 'rp.ref = \"L...\"' -> 'rp.ref = '{supplier_ref}''"
+                    )
+
+                # Verificar e corrigir qualquer padrão específico que possa estar causando o erro
+                if "rp.ref = '146'" in adapted_sql:
+                    adapted_sql = adapted_sql.replace(
+                        "rp.ref = '146'", f"rp.ref = '{supplier_ref}'"
+                    )
+                    print(
+                        f"[DEBUG] Substituído 'rp.ref = '146'' por 'rp.ref = '{supplier_ref}''"
+                    )
+
+                # Verificar e corrigir qualquer padrão específico que possa estar causando o erro
+                if f"rp.L{supplier_ref}'" in adapted_sql:
+                    adapted_sql = adapted_sql.replace(
+                        f"rp.L{supplier_ref}'", f"rp.ref = '{supplier_ref}'"
+                    )
+                    print(
+                        f"[DEBUG] Corrigido erro de sintaxe SQL: 'rp.L{supplier_ref}'' -> 'rp.ref = '{supplier_ref}''"
+                    )
+
+                # Verificar e corrigir qualquer padrão específico que possa estar causando o erro
+                if "rp.L" in adapted_sql:
+                    adapted_sql = re.sub(
+                        r"rp\.L\w+", f"rp.ref = '{supplier_ref}'", adapted_sql
+                    )
+                    print(
+                        f"[DEBUG] Corrigido erro de sintaxe SQL: 'rp.L...' -> 'rp.ref = '{supplier_ref}''"
+                    )
+
+                print(
+                    f"[DEBUG] Aplicadas substituições genéricas para referência do fornecedor '146' -> '{supplier_ref}'"
+                )
+
             # Verificar se é uma consulta sobre produtos vendidos em um ano específico
             year_match = re.search(r"\b(\d{4})\b", question)
             if year_match:
@@ -361,6 +551,114 @@ class VannaOdoo(VannaOdooTraining):
                 print(f"[DEBUG] SQL adaptado com sucesso:\n{adapted_sql}")
             else:
                 print("[DEBUG] Nenhuma adaptação foi necessária para o SQL")
+
+            # Verificação final para garantir que não há erros de sintaxe comuns
+            # Verificar se há padrões problemáticos como "rp.L66'" que são claramente erros
+            final_check_patterns = [
+                (r"rp\.L\d+\'", f"rp.ref = '{supplier_ref}'"),
+                (r"rp\.ref\s*=\s*L\d+\b", f"rp.ref = '{supplier_ref}'"),
+                (r'rp\.ref\s*=\s*[\'"]L\d+[\'"]', f"rp.ref = '{supplier_ref}'"),
+                # Padrão específico para o erro relatado
+                (r"rp\.L\d+", f"rp.ref = '{supplier_ref}'"),
+            ]
+
+            for pattern, replacement in final_check_patterns:
+                if re.search(pattern, adapted_sql):
+                    print(
+                        f"[DEBUG] Encontrado padrão problemático na verificação final: {pattern}"
+                    )
+                    adapted_sql = re.sub(pattern, replacement, adapted_sql)
+                    print(f"[DEBUG] SQL corrigido na verificação final")
+
+            # Verificar especificamente a linha 957 do exemplo
+            if "WHERE" in adapted_sql:
+                # Verificar se há uma linha específica com o padrão problemático
+                lines = adapted_sql.split("\n")
+
+                # Procurar especificamente a linha WHERE
+                where_line_index = -1
+                for i, line in enumerate(lines):
+                    if "WHERE" in line:
+                        where_line_index = i
+                        break
+
+                # Se encontramos a linha WHERE, verificar as próximas linhas
+                if where_line_index >= 0:
+                    # Verificar a próxima linha após WHERE (que deve conter a referência do fornecedor)
+                    if where_line_index + 1 < len(lines):
+                        next_line = lines[where_line_index + 1]
+                        print(
+                            f"[DEBUG] Verificando linha após WHERE ({where_line_index + 1}): {next_line}"
+                        )
+
+                        # Verificar se a linha contém a referência do fornecedor ou padrões problemáticos
+                        if (
+                            "v'" in next_line
+                            or "rp.L" in next_line
+                            or "Filtro por código interno do fornecedor" in next_line
+                        ):
+                            # Substituir a linha inteira
+                            lines[where_line_index + 1] = (
+                                f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
+                            )
+                            print(
+                                f"[DEBUG] Linha após WHERE corrigida: {lines[where_line_index + 1]}"
+                            )
+
+                # Verificar todas as linhas para outros padrões problemáticos
+                for i, line in enumerate(lines):
+                    # Verificar padrões problemáticos em linhas que podem conter a referência do fornecedor
+                    if "v'" in line:
+                        print(f"[DEBUG] Encontrada linha com 'v'' ({i+1}): {line}")
+                        lines[i] = (
+                            f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
+                        )
+                        print(f"[DEBUG] Linha corrigida: {lines[i]}")
+                    elif "rp.L" in line:
+                        print(f"[DEBUG] Encontrada linha com 'rp.L' ({i+1}): {line}")
+                        lines[i] = (
+                            f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
+                        )
+                        print(f"[DEBUG] Linha corrigida: {lines[i]}")
+                    elif (
+                        "Filtro por código interno do fornecedor" in line
+                        and "rp.ref" not in line
+                    ):
+                        print(
+                            f"[DEBUG] Encontrada linha com comentário de filtro sem referência correta ({i+1}): {line}"
+                        )
+                        lines[i] = (
+                            f"    rp.ref = '{supplier_ref}'  /* Filtro por código interno do fornecedor */"
+                        )
+                        print(f"[DEBUG] Linha corrigida: {lines[i]}")
+
+                # Reconstruir o SQL com as linhas corrigidas
+                adapted_sql = "\n".join(lines)
+
+                # Verificação adicional para padrões problemáticos específicos
+                problematic_patterns = [
+                    (r"v'", f"rp.ref = '{supplier_ref}'"),
+                    (r"rp\.L\d+'", f"rp.ref = '{supplier_ref}'"),
+                    (r"rp\.L\d+", f"rp.ref = '{supplier_ref}'"),
+                ]
+
+                for pattern, replacement in problematic_patterns:
+                    if re.search(pattern, adapted_sql):
+                        print(f"[DEBUG] Encontrado padrão problemático: {pattern}")
+                        adapted_sql = re.sub(pattern, replacement, adapted_sql)
+                        print(
+                            f"[DEBUG] Padrão problemático substituído por: {replacement}"
+                        )
+
+                # Verificação final para garantir que a linha WHERE está correta
+                if "WHERE" in adapted_sql and "v'" in adapted_sql:
+                    print(f"[DEBUG] Ainda encontrado 'v'' após correções")
+                    adapted_sql = re.sub(
+                        r"(WHERE\s*\n\s*)v'",
+                        f"\\1rp.ref = '{supplier_ref}'",
+                        adapted_sql,
+                    )
+                    print(f"[DEBUG] Padrão 'v'' corrigido manualmente")
 
             return adapted_sql
         except Exception as e:
