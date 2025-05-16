@@ -4,6 +4,8 @@
 # Este arquivo não é um arquivo de teste, mas sim um arquivo de configuração para os testes.
 # Este arquivo não é um arquivo de teste, mas sim um arquivo de configuração para os testes.
 # Este arquivo não é um arquivo de teste, mas sim um arquivo de configuração para os testes.
+# Este arquivo não é um arquivo de teste, mas sim um arquivo de configuração para os testes.
+# Este arquivo não é um arquivo de teste, mas sim um arquivo de configuração para os testes.
 # Ele não contém classes de teste e não deve ser executado diretamente pelo test runner.
 
 """

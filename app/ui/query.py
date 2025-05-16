@@ -23,10 +23,14 @@ def render_example_queries():
                 "Liste as vendas de 2024, mês a mês, por valor total",
                 "Quais são os 10 produtos mais vendidos? em valor!",
                 "Mostre o nivel de estoque de 50 produtos, mas vendidos em valor de 2024",
-                "Quais produtos tem 'caixa' no nome?",
                 "Quais produtos têm 'porcelanato' no nome, quantidade em estoque e preço de venda?",
                 "Quais produtos foram vendidos nos últimos 30 dias, mas não têm estoque em mãos?",
                 "Sugestão de Compra para os proximos 30 dias, dos 50 produtos mais vendidos!!!",
+                "Mostre uma análise completa de sugestão de compras para o fornecedor com referência '146'",
+                "Liste os produtos estratégicos (classe A) da curva ABC, para negociação com fornecedores",
+                "Com base no consumo médio, quando o produto X ficará sem estoque?",
+                "Qual o tempo médio de rotação ou giro de estoque dos produtos?",
+                "Relatório de margem de lucro por produto nas vendas do último trimestre",
             ]
 
             # Criar links para cada exemplo
