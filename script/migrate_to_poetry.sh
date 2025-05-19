@@ -31,13 +31,13 @@ if [ -f "requirements.txt" ]; then
         if [[ -z "$line" || "$line" =~ ^#.* ]]; then
             continue
         fi
-        
+
         # Remover versões específicas para deixar o Poetry resolver
         package=$(echo "$line" | sed -E 's/([a-zA-Z0-9_-]+).*$/\1/')
         echo "Adicionando $package..."
         poetry add "$package" --no-interaction
     done < "requirements.txt"
-    
+
     echo "Dependências instaladas com sucesso!"
 else
     echo "Arquivo requirements.txt não encontrado."
