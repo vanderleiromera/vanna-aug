@@ -1,0 +1,47 @@
+# Vanna AI Odoo Assistant - Augment Guidelines
+
+## Project Overview
+This project is a Python application that uses Vanna.ai to query Odoo databases using natural language. It features a Streamlit web interface, ChromaDB for vector storage, and OpenAI for language model capabilities.
+
+## Technology Stack
+- **Python 3.11+**: Core programming language
+- **Vanna.ai 0.7.9**: Natural language to SQL framework
+- **ChromaDB 1.0.8**: Vector database for storing embeddings
+- **OpenAI API**: For language model capabilities
+- **PostgreSQL**: Database backend (Odoo)
+
+## Architecture
+The application follows a layered architecture:
+
+1. **Core Layer** (`vanna_odoo_core.py`): Base functionality and configuration
+2. **Database Layer** (`vanna_odoo_db.py`): Database connection and operations
+3. **SQL Layer** (`vanna_odoo_sql.py`): SQL generation and execution
+4. **Training Layer** (`vanna_odoo_training.py`): Model training functionality
+5. **Extension Layer** (`vanna_odoo_numeric.py`, `vanna_odoo_extended.py`): Extended features
+6. **UI Layer** (`app.py`, `ui/`): User interface components
+7. **Utility Layer** (`modules/`): Helper functions and utilities
+
+
+### Project-Specific Guidelines
+- Valide o fluxo vn.ask de Vanna Ai:
+1. A função generate_sql, executa os sequintes métodos:
+    a. get_similar_question_sql
+    b. get_related_ddl
+    c. get_related_documentation
+    d. get_sql_prompt
+    e. submit_prompt
+- Documentação: https://vanna.ai/docs/ask/
+- Use Pydantic models for data validation and configuration
+- Write unit tests for new functionality
+
+### Testing
+- Use unittest framework
+- Place tests in the `app/tests/` directory
+- Format your code with Black and isort
+
+### Regras gerais:
+- Responda em pt-br
+- Prefira soluções simples
+- Evite a duplicação de código
+- Ao corrigir um problema ou bug, não introduza um novo padrão ou tecnologia sem primeiro esgotar todas as opções para a implementação existente
+- Evite ter arquivos com mais de 500 linhas de código. Refatore nesse ponto
