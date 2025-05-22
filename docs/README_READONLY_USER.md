@@ -99,3 +99,52 @@ O usuário somente leitura:
 3. Não pode executar funções com permissões elevadas
 
 Estas limitações são intencionais e garantem a segurança do banco de dados Odoo.
+
+Primeiro, conecte-se ao PostgreSQL como usuário com privilégios suficientes (geralmente o postgres ou o usuário do Odoo):
+
+sql
+```
+   sudo -u postgres psql
+```
+
+Crie o novo usuário:
+
+sql
+```
+   CREATE USER usuario_leitura WITH PASSWORD 'senha_segura';
+```
+
+Conceda permissões somente leitura ao banco de dados do Odoo:
+
+sql
+```
+   GRANT CONNECT ON DATABASE nome_do_banco_odoo TO usuario_leitura;
+```
+
+Conecte-se ao banco de dados específico do Odoo:
+
+sql
+```
+   \c nome_do_banco_odoo
+```
+
+Conceda permissões SELECT em todas as tabelas existentes:
+
+sql
+```
+   GRANT SELECT ON ALL TABLES IN SCHEMA public TO usuario_leitura;
+
+```
+Configure as permissões padrão para tabelas futuras:
+
+sql
+```
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO usuario_leitura;
+
+```
+Saia do PostgreSQL:
+
+sql
+```
+   \q
+```
