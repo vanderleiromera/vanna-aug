@@ -72,7 +72,7 @@ opentelemetry-instrumentation-asgi==0.54b0 ; python_version >= "3.11" and python
 opentelemetry-instrumentation-fastapi==0.54b0 ; python_version >= "3.11" and python_version < "4.0"
 opentelemetry-instrumentation==0.54b0 ; python_version >= "3.11" and python_version < "4.0"
 opentelemetry-proto==1.15.0 ; python_version >= "3.11" and python_version < "4.0"
-opentelemetry-sdk==1.33.0 ; python_version >= "3.11" and python_version < "4.0"
+opentelemetry-sdk==1.34.1 ; python_version >= "3.11" and python_version < "4.0"
 opentelemetry-semantic-conventions==0.54b0 ; python_version >= "3.11" and python_version < "4.0"
 opentelemetry-util-http==0.54b0 ; python_version >= "3.11" and python_version < "4.0"
 orjson==3.10.18 ; python_version >= "3.11" and python_version < "4.0"
