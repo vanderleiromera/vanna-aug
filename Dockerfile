@@ -24,7 +24,7 @@ RUN poetry install --no-interaction --no-ansi --no-root
 
 # Copy application code
 COPY app /app/app
-COPY fix_training.sh /app
+COPY script/fix_training.sh /app
 
 # Create directory for ChromaDB persistence
 RUN mkdir -p /app/data/chromadb
