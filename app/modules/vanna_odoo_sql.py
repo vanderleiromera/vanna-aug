@@ -506,7 +506,7 @@ class VannaOdooSQL(VannaOdooDB):
             model = (
                 self.model
                 if hasattr(self, "model")
-                else os.getenv("OPENAI_MODEL", "gpt-4")
+                else os.getenv("OPENAI_MODEL", "gpt-5")
             )
             prompt_tokens = sum(
                 self.estimate_tokens(msg["content"], model)

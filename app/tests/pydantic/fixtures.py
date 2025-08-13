@@ -40,7 +40,7 @@ def get_test_vanna_config() -> VannaConfig:
         VannaConfig: Configuração de teste validada
     """
     return VannaConfig(
-        model="gpt-4.1-nano",
+        model="gpt-5-nano",
         allow_llm_to_see_data=False,
         chroma_persist_directory="/tmp/test_chromadb",
         max_tokens=1000,

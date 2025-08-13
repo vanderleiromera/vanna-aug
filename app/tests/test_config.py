@@ -74,7 +74,7 @@ def get_test_openai_config():
     """Retorna a configuração de teste para o OpenAI."""
     return {
         "api_key": os.environ.get("OPENAI_API_KEY", "sk-test-key"),
-        "model": os.environ.get("OPENAI_MODEL", "gpt-4"),
+        "model": os.environ.get("OPENAI_MODEL", "gpt-5"),
         "max_tokens": 1000,
         "temperature": 0.0,
     }

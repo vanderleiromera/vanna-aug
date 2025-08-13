@@ -44,7 +44,7 @@ class TestPydanticModels(unittest.TestCase):
     def test_vanna_config_valid(self):
         """Testa a criação de uma configuração válida do Vanna."""
         config = get_test_vanna_config()
-        self.assertEqual(config.model, "gpt-4.1-nano")
+        self.assertEqual(config.model, "gpt-5-nano")
         self.assertFalse(config.allow_llm_to_see_data)
         self.assertEqual(config.chroma_persist_directory, "/tmp/test_chromadb")
         self.assertEqual(config.max_tokens, 1000)
@@ -52,7 +52,7 @@ class TestPydanticModels(unittest.TestCase):
     def test_vanna_config_defaults(self):
         """Testa os valores padrão da configuração do Vanna."""
         config = VannaConfig()
-        self.assertEqual(config.model, "gpt-4.1-nano")
+        self.assertEqual(config.model, "gpt-5-nano")
         self.assertFalse(config.allow_llm_to_see_data)
         self.assertEqual(config.chroma_persist_directory, "/app/data/chromadb")
         self.assertEqual(config.max_tokens, 14000)

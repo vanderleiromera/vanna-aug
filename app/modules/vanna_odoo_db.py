@@ -366,7 +366,7 @@ class VannaOdooDB(VannaOdooCore):
 
         # Estimar tokens da consulta SQL
         model = (
-            self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-4")
+            self.model if hasattr(self, "model") else os.getenv("OPENAI_MODEL", "gpt-5")
         )
         sql_tokens = self.estimate_tokens(sql, model)
         print(f"[DEBUG] Executando SQL ({sql_tokens} tokens estimados)")

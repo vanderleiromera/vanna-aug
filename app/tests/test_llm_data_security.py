@@ -24,7 +24,7 @@ class TestLLMDataSecurity(unittest.TestCase):
         """Configuração para cada teste."""
         self.config = {
             "api_key": "test_api_key",
-            "model": "gpt-4",
+            "model": "gpt-5",
             "chroma_persist_directory": "/tmp/test_chromadb",
             "allow_llm_to_see_data": False,
         }
@@ -36,7 +36,7 @@ class TestLLMDataSecurity(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             config = {
                 "api_key": "test_api_key",
-                "model": "gpt-4",
+                "model": "gpt-5",
                 "chroma_persist_directory": "/tmp/test_chromadb",
                 "allow_llm_to_see_data": os.getenv(
                     "ALLOW_LLM_TO_SEE_DATA", "false"
@@ -51,7 +51,7 @@ class TestLLMDataSecurity(unittest.TestCase):
         with patch.dict(os.environ, {"ALLOW_LLM_TO_SEE_DATA": "true"}, clear=True):
             config = {
                 "api_key": "test_api_key",
-                "model": "gpt-4",
+                "model": "gpt-5",
                 "chroma_persist_directory": "/tmp/test_chromadb",
                 "allow_llm_to_see_data": os.getenv(
                     "ALLOW_LLM_TO_SEE_DATA", "false"

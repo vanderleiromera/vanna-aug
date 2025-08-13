@@ -93,7 +93,7 @@ class TestVannaOdooPydantic(unittest.TestCase):
 
         # Verificar se a configuração foi aplicada corretamente
         # Aceitar tanto "gpt-4" quanto "gpt-4.1-nano" como valores válidos para o modelo
-        self.assertIn(self.vanna.vanna_config.model, ["gpt-4", "gpt-4.1-nano"])
+        self.assertIn(self.vanna.vanna_config.model, ["gpt-5", "gpt-5-nano"])
 
         # NOTA: Temporariamente desativado devido a problemas de persistência no ambiente Docker
         # self.assertEqual(self.vanna.vanna_config.chroma_persist_directory, "/tmp/test_chromadb")
@@ -249,7 +249,7 @@ class TestVannaOdooPydantic(unittest.TestCase):
         # Isso é necessário porque o método está implementado em VannaOdooExtended, mas o teste usa VannaOdoo
         def mock_get_model_info(self):
             return {
-                "model": "gpt-4.1-nano",
+                "model": "gpt-5-nano",
                 "allow_llm_to_see_data": False,
                 "chroma_persist_directory": "/tmp/test_chromadb",
                 "max_tokens": 1000,
@@ -276,7 +276,7 @@ class TestVannaOdooPydantic(unittest.TestCase):
         self.assertIn("max_tokens", model_info)
 
         # Verificar os valores
-        self.assertEqual(model_info["model"], "gpt-4.1-nano")
+        self.assertEqual(model_info["model"], "gpt-5-nano")
         self.assertEqual(model_info["allow_llm_to_see_data"], False)
         self.assertIsInstance(model_info["chroma_persist_directory"], str)
         self.assertIsInstance(model_info["max_tokens"], int)

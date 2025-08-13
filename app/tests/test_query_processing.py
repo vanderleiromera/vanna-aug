@@ -93,7 +93,7 @@ class TestQueryProcessing(unittest.TestCase):
         # Configuração de teste com valores fictícios
         self.config = {
             "api_key": "test_api_key",
-            "model": "gpt-4",
+            "model": "gpt-5",
             "chroma_persist_directory": "/tmp/test_chromadb",
             "allow_llm_to_see_data": False,
         }

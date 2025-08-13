@@ -38,7 +38,7 @@ def initialize_vanna():
     # Criar configuração com API key, modelo e diretório de persistência
     config = {
         "api_key": os.getenv("OPENAI_API_KEY"),
-        "model": os.getenv("OPENAI_MODEL", "gpt-4"),
+        "model": os.getenv("OPENAI_MODEL", "gpt-5"),
         "chroma_persist_directory": os.getenv(
             "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"
         ),
