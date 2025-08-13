@@ -38,7 +38,7 @@ def initialize_vanna():
     # Criar configuração com API key, modelo e diretório de persistência
     config = {
         "api_key": os.getenv("OPENAI_API_KEY"),
-        "model": os.getenv("OPENAI_MODEL", "gpt-5"),
+        "model": os.getenv("OPENAI_MODEL", "gpt-5-nano"),
         "chroma_persist_directory": os.getenv(
             "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"
         ),
@@ -47,6 +47,11 @@ def initialize_vanna():
     }
 
     return VannaOdooExtended(config=config)
+
+
+def clear_vanna_cache():
+    """Limpa o cache do Streamlit para recarregar a configuração do Vanna."""
+    initialize_vanna.clear()
 
 
 # Obter configuração para permitir que o LLM veja os dados

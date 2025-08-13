@@ -426,7 +426,7 @@ class VannaOdooExtended(VannaOdooNumeric):
             "model": (
                 self.model
                 if hasattr(self, "model")
-                else os.getenv("OPENAI_MODEL", "gpt-4")
+                else os.getenv("OPENAI_MODEL", "gpt-5-nano")
             ),
             "allow_llm_to_see_data": (
                 self.allow_llm_to_see_data

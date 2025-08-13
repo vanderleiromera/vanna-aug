@@ -58,7 +58,7 @@ def initialize_vanna():
     Inicializa a instância do VannaOdoo com a configuração apropriada.
     """
     # Obter modelo do OpenAI das variáveis de ambiente
-    openai_model = os.getenv("OPENAI_MODEL", "gpt-5")
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-5-nano")
 
     # Criar configuração
     config = {

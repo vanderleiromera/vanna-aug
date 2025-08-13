@@ -157,7 +157,7 @@ class VannaOdoo(VannaOdooTraining):
             model = (
                 self.model
                 if hasattr(self, "model")
-                else os.getenv("OPENAI_MODEL", "gpt-5")
+                else os.getenv("OPENAI_MODEL", "gpt-5-nano")
             )
             question_tokens = self.estimate_tokens(question, model)
             print(

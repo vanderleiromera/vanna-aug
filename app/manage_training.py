@@ -24,8 +24,8 @@ def initialize_vanna():
     """
     Initialize the VannaOdoo instance.
     """
-    # Get model from environment variable, default to gpt-4 if not specified
-    openai_model = os.getenv("OPENAI_MODEL", "gpt-4")
+    # Get model from environment variable, default to gpt-5-nano if not specified
+    openai_model = os.getenv("OPENAI_MODEL", "gpt-5-nano")
 
     config = {
         "api_key": os.getenv("OPENAI_API_KEY"),
