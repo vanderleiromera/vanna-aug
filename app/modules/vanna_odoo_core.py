@@ -39,7 +39,7 @@ class VannaOdooCore(ChromaDB_VectorStore, OpenAI_Chat):
             config: Pode ser um objeto VannaConfig ou um dicionário de configuração
         """
         # Definir valores padrão
-        default_model = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
+        default_model = os.getenv("OPENAI_MODEL", "gpt-5-nano")
         default_allow_llm_to_see_data = False
         default_chroma_persist_directory = os.getenv(
             "CHROMA_PERSIST_DIRECTORY", "/app/data/chromadb"

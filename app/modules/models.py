@@ -18,7 +18,7 @@ class VannaConfig(BaseModel):
     """Configuração para o cliente Vanna.ai"""
 
     model: str = Field(
-        default="gpt-4.1-nano",
+        default="gpt-5-nano",
         description="Modelo OpenAI a ser utilizado para geração de SQL",
     )
     allow_llm_to_see_data: bool = Field(
@@ -47,7 +47,7 @@ class VannaConfig(BaseModel):
         extra = "ignore"
         json_schema_extra = {
             "example": {
-                "model": "gpt-4.1-nano",
+                "model": "gpt-5-nano",
                 "allow_llm_to_see_data": False,
                 "chroma_persist_directory": "/app/data/chromadb",
                 "max_tokens": 14000,
