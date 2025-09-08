@@ -111,7 +111,7 @@ jobs:
           retention-days: 30
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5.0.0
+        uses: codecov/codecov-action@v5.5.1
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
