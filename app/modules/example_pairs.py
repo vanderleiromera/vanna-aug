@@ -90,26 +90,30 @@ SELECT
 FROM
     res_partner
 WHERE
-    active = TRUE AND customer = TRUE AND email IS NOT NULL;
+    active = TRUE
+    AND customer_rank > 0
+    AND email IS NOT NULL;
 """,
         },
         {
             "question": "Quais são os 10 clientes com maior valor de vendas?",
             "sql": """
 SELECT
-    p.name AS cliente,
+    cp.name AS cliente,
     SUM(so.amount_total) AS total_vendas
 FROM
     sale_order so
 JOIN
     res_partner p ON so.partner_id = p.id
+JOIN
+    res_partner cp ON p.commercial_partner_id = cp.id
 WHERE
     so.state IN ('sale', 'done')
 GROUP BY
-    p.name
+    cp.id, cp.name
 ORDER BY
     total_vendas DESC
-LIMIT 10
+LIMIT 10;
 """,
         },
         {
@@ -118,7 +122,7 @@ LIMIT 10
 WITH mais_vendidos_valor AS (
     SELECT
         pp.id AS product_id,
-        pt.name AS product_name,
+        COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS product_name,
         SUM(sol.price_total) AS valor_total_vendido
     FROM
         sale_order_line sol
@@ -131,6 +135,7 @@ WITH mais_vendidos_valor AS (
     WHERE
         so.state IN ('sale', 'done')
         AND EXTRACT(YEAR FROM so.date_order) = 2024
+        AND sol.qty_delivered > 0
     GROUP BY
         pp.id, pt.name
     ORDER BY
@@ -152,7 +157,7 @@ estoque AS (
 )
 SELECT
     mv.product_name,
-    mv.valor_total_vendido,
+    ROUND(mv.valor_total_vendido, 2) AS valor_total_vendido,
     COALESCE(e.estoque_disponivel, 0) AS estoque_atual
 FROM
     mais_vendidos_valor mv
@@ -166,13 +171,19 @@ ORDER BY
             "question": "Qual o total de vendas por produto?",
             "sql": """
 SELECT
-    sol.product_id, pt.name AS nome_produto, SUM(sol.price_subtotal) AS total_vendas
+    sol.product_id,
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS nome_produto,
+    ROUND(SUM(sol.price_subtotal), 2) AS total_vendas
 FROM
     sale_order_line sol
+JOIN
+    sale_order so ON sol.order_id = so.id
 JOIN
     product_product pp ON sol.product_id = pp.id
 JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
+WHERE
+    so.state IN ('sale', 'done')  -- considera apenas pedidos confirmados
 GROUP BY
     sol.product_id, pt.name
 ORDER BY
@@ -183,46 +194,58 @@ ORDER BY
             "question": "Quais produtos foram vendidos nos últimos 30 dias, mas não têm estoque em mãos?",
             "sql": """
 SELECT
-    pt.name AS produto,
-    SUM(sol.product_uom_qty) AS total_vendido,
-    COALESCE(SUM(sq.quantity), 0) AS estoque
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
+    pt.default_code AS referencia,
+    ROUND(SUM(sol.product_uom_qty), 2) AS total_vendido,
+    COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) AS estoque_atual
 FROM
     sale_order_line sol
+JOIN
+    sale_order so ON sol.order_id = so.id
 JOIN
     product_product pp ON sol.product_id = pp.id
 JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
 LEFT JOIN
-    stock_quant sq ON pp.id = sq.product_id AND sq.location_id = (SELECT id FROM stock_location WHERE name = 'Stock' LIMIT 1)
-JOIN
-    sale_order so ON sol.order_id = so.id
+    stock_quant sq ON sq.product_id = pp.id
+LEFT JOIN
+    stock_location sl ON sq.location_id = sl.id
 WHERE
-    so.date_order >= NOW() - INTERVAL '30 days'  -- Filtrando para os últimos 30 dias
+    so.state IN ('sale', 'done')  -- apenas pedidos confirmados
+    AND so.date_order >= (NOW() - INTERVAL '30 days')
+    AND (sl.usage IS NULL OR sl.usage = 'internal')  -- estoque interno apenas
 GROUP BY
     pt.id, pt.name, pt.default_code
-HAVING SUM
-    (sol.product_uom_qty) > 0 AND COALESCE(SUM(sq.quantity), 0) = 0;
+HAVING
+    SUM(sol.product_uom_qty) > 0
+    AND COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) = 0
+ORDER BY
+    total_vendido DESC;
 """,
         },
         {
             "question": "Quais produtos não têm estoque disponível?",
             "sql": """
 SELECT
-    pt.name AS produto,
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
     pt.default_code AS codigo,
-    COALESCE(SUM(sq.quantity), 0) AS quantidade_disponivel
+    COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) AS quantidade_disponivel
 FROM
     product_template pt
 JOIN
     product_product pp ON pt.id = pp.product_tmpl_id
 LEFT JOIN
     stock_quant sq ON pp.id = sq.product_id
+LEFT JOIN
+    stock_location sl ON sq.location_id = sl.id
+WHERE
+    sl.usage = 'internal' OR sl.id IS NULL
 GROUP BY
     pt.id, pt.name, pt.default_code
 HAVING
-    COALESCE(SUM(sq.quantity), 0) <= 0
+    COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) <= 0
 ORDER BY
-    pt.name
+    produto;
 """,
         },
         {
@@ -232,14 +255,15 @@ SELECT COUNT(*)
 FROM
     res_partner
 WHERE
-    customer = TRUE;
+    active = TRUE
+    AND customer_rank > 0;
 """,
         },
         {
             "question": "Quais são os produtos ativos?",
             "sql": """
 SELECT
-    id, name
+    coalesce(name->>'pt_BR', name->>'en_US', name::text) AS nome_produto
 FROM
     product_template
 WHERE
@@ -283,13 +307,19 @@ WHERE
             "question": "Quais são os produtos mais vendidos?",
             "sql": """
 SELECT
-    sol.product_id, pt.name AS nome_produto, SUM(sol.product_uom_qty) AS quantidade_vendida
+    sol.product_id,
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS nome_produto,
+    ROUND(SUM(sol.product_uom_qty), 2) AS quantidade_vendida
 FROM
     sale_order_line sol
+JOIN
+    sale_order so ON sol.order_id = so.id
 JOIN
     product_product pp ON sol.product_id = pp.id
 JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
+WHERE
+    so.state IN ('sale', 'done')  -- considera apenas pedidos confirmados
 GROUP BY
     sol.product_id, pt.name
 ORDER BY
@@ -349,13 +379,18 @@ ORDER BY
             "question": "Quais produtos foram mais vendidos em valor, em ordem decrescente?",
             "sql": """
 SELECT
-    pt.name AS nome_produto, SUM(sol.price_subtotal) AS total_vendas
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS nome_produto,
+    ROUND(SUM(sol.price_subtotal), 2) AS total_vendas
 FROM
     sale_order_line sol
+JOIN
+    sale_order so ON sol.order_id = so.id
 JOIN
     product_product pp ON sol.product_id = pp.id
 JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
+WHERE
+    so.state IN ('sale', 'done')  -- apenas vendas confirmadas ou concluídas
 GROUP BY
     pt.name
 ORDER BY
@@ -366,20 +401,20 @@ ORDER BY
             "question": "Quais são os 10 produtos mais vendidos em valor?",
             "sql": """
 SELECT
-    pt.name AS nome_produto,
-    SUM(sol.price_subtotal) AS total_vendas
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS nome_produto,
+    ROUND(SUM(sol.price_subtotal), 2) AS total_vendas
 FROM
     sale_order_line sol
+JOIN
+    sale_order so ON sol.order_id = so.id
 JOIN
     product_product pp ON sol.product_id = pp.id
 JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
-JOIN
-    sale_order so ON sol.order_id = so.id
 WHERE
     so.state IN ('sale', 'done')
 GROUP BY
-    pt.name
+    pt.id, pt.name
 ORDER BY
     total_vendas DESC
 LIMIT 10;
@@ -389,10 +424,10 @@ LIMIT 10;
             "question": "Qual o total de vendas do produto de código 222 em valor e quantidade no mês 06/2024?",
             "sql": """
 SELECT
-    pt.name AS nome_produto,
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS nome_produto,
     pp.default_code AS codigo,
-    SUM(sol.product_uom_qty) AS quantidade_total,
-    SUM(sol.price_subtotal) AS valor_total
+    ROUND(SUM(sol.product_uom_qty), 2) AS quantidade_total,
+    ROUND(SUM(sol.price_subtotal), 2) AS valor_total
 FROM
     sale_order_line sol
 JOIN
@@ -403,8 +438,9 @@ JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
 WHERE
     pp.default_code = '222'
-    AND so.state = 'done'
-    AND DATE_TRUNC('month', so.date_order) = DATE '2024-06-01'
+    AND so.state IN ('sale', 'done')  -- inclui vendas confirmadas e concluídas
+    AND DATE_PART('year', so.date_order) = 2024
+    AND DATE_PART('month', so.date_order) = 6
 GROUP BY
     pt.name, pp.default_code;
 """,
@@ -413,70 +449,100 @@ GROUP BY
             "question": "Quais produtos têm o nome 'caixa' na descrição?",
             "sql": """
 SELECT
-    pt.name AS nome_produto
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS nome_produto
 FROM
     product_template pt
 WHERE
-    pt.name ILIKE '%Caixa%'
+    (
+        pt.name->>'pt_BR' ILIKE '%caixa%'
+        OR pt.name->>'en_US' ILIKE '%caixa%'
+        OR pt.name::text ILIKE '%caixa%'
+    )
 ORDER BY
-    pt.name;
+    nome_produto;
 """,
         },
         {
             "question": "Quais produtos estão com quantidade disponível abaixo de 10?",
             "sql": """
 SELECT
-    pt.name AS produto,
-    SUM(quant.quantity) AS quantidade_em_mao
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
+    SUM(sq.quantity) AS quantidade_em_mao
 FROM
-    stock_quant quant
+    stock_quant sq
 JOIN
-    stock_location sl ON quant.location_id = sl.id
+    stock_location sl ON sq.location_id = sl.id
 JOIN
-    product_product pp ON quant.product_id = pp.id
+    product_product pp ON sq.product_id = pp.id
 JOIN
     product_template pt ON pp.product_tmpl_id = pt.id
 WHERE
     sl.usage = 'internal'
-GROUP
-    BY pt.name
+GROUP BY
+    pt.name
 HAVING
-    SUM(quant.quantity) < 10 AND SUM(quant.quantity) >= 0;
+    SUM(sq.quantity) < 10
+    AND SUM(sq.quantity) >= 0
+ORDER BY
+    quantidade_em_mao ASC;
 """,
         },
         {
             "question": "Quais produtos foram movimentados no último mês?",
             "sql": """
 SELECT
-pt.name AS produto,
-    sm.date,
-    sm.product_qty,
-    sm.state,
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
+    pp.default_code AS codigo,
+    sm.date AS data_movimento,
+    sm.product_qty AS quantidade,
     sl_from.name AS origem,
     sl_to.name AS destino
-FROM stock_move sm
-JOIN product_product pp ON sm.product_id = pp.id
-JOIN product_template pt ON pp.product_tmpl_id = pt.id
-JOIN stock_location sl_from ON sm.location_id = sl_from.id
-JOIN stock_location sl_to ON sm.location_dest_id = sl_to.id
-WHERE sm.date >= now() - interval '1 month';
+FROM
+    stock_move sm
+JOIN
+    product_product pp ON sm.product_id = pp.id
+JOIN
+    product_template pt ON pp.product_tmpl_id = pt.id
+JOIN
+    stock_location sl_from ON sm.location_id = sl_from.id
+JOIN
+    stock_location sl_to ON sm.location_dest_id = sl_to.id
+WHERE
+    sm.date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+    AND sm.date < DATE_TRUNC('month', CURRENT_DATE)
+    AND sm.state = 'done'
+ORDER BY
+    sm.date DESC;
 """,
         },
         {
             "question": "Quais produtos têm fornecedor e estoque disponível abaixo de 5 unidades?",
             "sql": """
 SELECT
-    pt.name AS produto,
-    SUM(sq.quantity) AS estoque,
+    pt.default_code AS codigo,
+    coalesce(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
+    COALESCE(SUM(sq.quantity), 0) AS estoque_disponivel,
     rp.name AS fornecedor
-FROM stock_quant sq
-JOIN product_product pp ON sq.product_id = pp.id
-JOIN product_template pt ON pp.product_tmpl_id = pt.id
-LEFT JOIN product_supplierinfo psi ON psi.product_tmpl_id = pt.id
-LEFT JOIN res_partner rp ON psi.name = rp.id
-WHERE sq.quantity > 0
-GROUP BY pt.name, rp.name
-HAVING SUM(sq.quantity) < 5;
+FROM
+    stock_quant sq
+JOIN
+    product_product pp ON sq.product_id = pp.id
+JOIN
+    product_template pt ON pp.product_tmpl_id = pt.id
+LEFT JOIN
+    product_supplierinfo psi ON psi.product_tmpl_id = pt.id
+LEFT JOIN
+    res_partner rp ON rp.id = psi.partner_id
+JOIN
+    stock_location sl ON sq.location_id = sl.id
+WHERE
+    sl.usage = 'internal'
+GROUP BY
+    pt.default_code, pt.name, rp.name
+HAVING
+    COALESCE(SUM(sq.quantity), 0) < 5
+ORDER BY
+    estoque_disponivel ASC, pt.name;
 """,
         },
         {
@@ -484,7 +550,7 @@ HAVING SUM(sq.quantity) < 5;
             "sql": """
 SELECT
     so.name AS numero_pedido,
-    pt.name AS condicao_pagamento
+    pt.name->>'en_US' AS condicao_pagamento
 FROM sale_order so
 LEFT JOIN account_payment_term pt ON so.payment_term_id = pt.id
 ORDER BY so.date_order DESC;
@@ -496,7 +562,8 @@ ORDER BY so.date_order DESC;
 WITH mais_vendidos_valor AS (
     SELECT
         pp.id AS product_id,
-        pt.name AS product_name,
+        pp.default_code AS codigo,
+        COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS product_name,
         SUM(sol.price_total) AS valor_total_vendido
     FROM
         sale_order_line sol
@@ -510,7 +577,7 @@ WITH mais_vendidos_valor AS (
         so.state IN ('sale', 'done')
         AND EXTRACT(YEAR FROM so.date_order) = 2025
     GROUP BY
-        pp.id, pt.name
+        pp.id, pp.default_code, pt.name
     ORDER BY
         valor_total_vendido DESC
     LIMIT 20
@@ -529,8 +596,9 @@ estoque AS (
         sq.product_id
 )
 SELECT
+    mv.codigo,
     mv.product_name,
-    mv.valor_total_vendido,
+    ROUND(mv.valor_total_vendido, 2) AS valor_total_vendido,
     COALESCE(e.estoque_disponivel, 0) AS estoque_atual
 FROM
     mais_vendidos_valor mv
@@ -544,24 +612,24 @@ ORDER BY
             "question": "Quais produtos têm 'porcelanato' no nome, quantidade em estoque e preço de venda?",
             "sql": """
 SELECT
-    pt.name AS nome_produto,
-    COALESCE(SUM(sq.quantity), 0)AS quantidade_em_estoque,
+    pp.default_code AS codigo,
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS nome_produto,
+    COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) AS quantidade_em_estoque,
     pt.list_price AS preco_venda
 FROM
     product_template pt
-LEFT JOIN
+JOIN
     product_product pp ON pt.id = pp.product_tmpl_id
 LEFT JOIN
     stock_quant sq ON pp.id = sq.product_id
 LEFT JOIN
-    stock_location sl ON sq.location_id = sl.id
+    stock_location sl ON sq.location_id = sl.id AND sl.usage = 'internal'
 WHERE
-    pt.name ILIKE '%porcelanato%'
-    AND sl.usage = 'internal'
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) ILIKE '%porcelanato%'
 GROUP BY
-    pt.id, pt.name, pt.list_price
+    pp.default_code, pt.id, pt.name, pt.list_price
 ORDER BY
-    pt.name;
+    nome_produto;
 """,
         },
         {
@@ -569,86 +637,77 @@ ORDER BY
             "sql": """
 -- Consulta SQL revisada para eliminar problemas sintáticos
 -- Abordagem mais simples para recomendação de compras baseada em histórico de 12 meses
+WITH vendas AS (
+    SELECT
+        l.product_id,
+        SUM(l.product_uom_qty) AS quantidade_total,
+        SUM(l.price_total) AS valor_total
+    FROM
+        sale_order_line l
+        JOIN sale_order so ON l.order_id = so.id
+    WHERE
+        so.state IN ('sale', 'done')
+        AND so.date_order >= (CURRENT_DATE - INTERVAL '365 days')
+        AND so.date_order < CURRENT_DATE
+    GROUP BY
+        l.product_id
+),
+estoque AS (
+    SELECT
+        sq.product_id,
+        SUM(sq.quantity - sq.reserved_quantity) AS quantidade_disponivel
+    FROM
+        stock_quant sq
+        JOIN stock_location sl ON sq.location_id = sl.id
+    WHERE
+        sl.usage = 'internal'
+    GROUP BY
+        sq.product_id
+),
+ultimo_compra AS (
+    SELECT DISTINCT ON (pol.product_id)
+        pol.product_id,
+        rp.name AS fornecedor,
+        pol.price_unit AS preco_compra
+    FROM
+        purchase_order_line pol
+        JOIN purchase_order po ON pol.order_id = po.id
+        JOIN res_partner rp ON po.partner_id = rp.id
+    WHERE
+        po.state IN ('purchase', 'done')
+    ORDER BY
+        pol.product_id, po.date_order DESC
+)
 SELECT
-    p.id AS product_id,
-    p.default_code AS product_code,
-    p.name AS product_name,
-    c.name AS category_name,
-    vendas.quantidade_total AS quantidade_vendida_12_meses,
-    vendas.valor_total AS valor_vendido_12_meses,
-    -- Média diária de vendas
-    ROUND(vendas.quantidade_total / 365, 2) AS media_diaria_vendas,
-    -- Estoque atual
-    COALESCE(estoque.quantidade_disponivel, 0) AS estoque_atual,
-    -- Dias de cobertura atual
+    pp.id AS product_id,
+    pp.default_code AS codigo,
+    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
+    pc.name AS categoria,
+    v.quantidade_total AS vendidos_12_meses,
+    v.valor_total AS valor_vendido_12_meses,
+    ROUND(v.quantidade_total / 365, 2) AS media_diaria_vendas,
+    COALESCE(e.quantidade_disponivel, 0) AS estoque_atual,
     CASE
-        WHEN vendas.quantidade_total > 0
-        THEN ROUND(COALESCE(estoque.quantidade_disponivel, 0) / (vendas.quantidade_total / 365))
+        WHEN v.quantidade_total > 0 THEN ROUND(COALESCE(e.quantidade_disponivel, 0) / (v.quantidade_total / 365))
         ELSE 999
-    END AS dias_cobertura_atual,
-    -- Consumo projetado (30 dias)
-    ROUND((vendas.quantidade_total / 365) * 30, 0) AS consumo_projetado_30dias,
-    -- Sugestão de compra
-    GREATEST(0, ROUND((vendas.quantidade_total / 365) * 30, 0) - COALESCE(estoque.quantidade_disponivel, 0)) AS sugestao_compra,
-    -- Último fornecedor
-    ultimo_compra.fornecedor AS ultimo_fornecedor,
-    -- Último preço de compra
-    COALESCE(ultimo_compra.preco_compra, 0) AS ultimo_preco_compra,
-    -- Valor estimado
-    GREATEST(0, ROUND((vendas.quantidade_total / 365) * 30, 0) - COALESCE(estoque.quantidade_disponivel, 0)) *
-    COALESCE(ultimo_compra.preco_compra, 0) AS valor_estimado_compra
+    END AS dias_cobertura,
+    ROUND((v.quantidade_total / 365) * 30, 0) AS consumo_30_dias,
+    GREATEST(0, ROUND((v.quantidade_total / 365) * 30, 0) - COALESCE(e.quantidade_disponivel, 0)) AS sugestao_compra,
+    uc.fornecedor AS ultimo_fornecedor,
+    COALESCE(uc.preco_compra, 0) AS ultimo_preco_compra,
+    GREATEST(0, ROUND((v.quantidade_total / 365) * 30, 0) - COALESCE(e.quantidade_disponivel, 0))
+        * COALESCE(uc.preco_compra, 0) AS valor_estimado_compra
 FROM
     product_product pp
-    JOIN product_template p ON pp.product_tmpl_id = p.id
-    JOIN product_category c ON p.categ_id = c.id
-    -- Vendas dos últimos 12 meses
-    JOIN (
-        SELECT
-            l.product_id,
-            SUM(l.product_uom_qty) AS quantidade_total,
-            SUM(l.price_total) AS valor_total
-        FROM
-            sale_order_line l
-            JOIN sale_order so ON l.order_id = so.id
-        WHERE
-            so.state IN ('sale', 'done')
-            AND so.date_order >= (CURRENT_DATE - INTERVAL '365 days')
-            AND so.date_order < CURRENT_DATE
-        GROUP BY
-            l.product_id
-    ) vendas ON pp.id = vendas.product_id
-    -- Estoque atual
-    LEFT JOIN (
-        SELECT
-            sq.product_id,
-            SUM(sq.quantity) AS quantidade_disponivel
-        FROM
-            stock_quant sq
-            JOIN stock_location sl ON sq.location_id = sl.id
-        WHERE
-            sl.usage = 'internal'
-        GROUP BY
-            sq.product_id
-    ) estoque ON pp.id = estoque.product_id
-    -- Última compra (fornecedor e preço)
-    LEFT JOIN (
-        SELECT DISTINCT ON (pol.product_id)
-            pol.product_id,
-            rp.name AS fornecedor,
-            pol.price_unit AS preco_compra
-        FROM
-            purchase_order_line pol
-            JOIN purchase_order po ON pol.order_id = po.id
-            JOIN res_partner rp ON po.partner_id = rp.id
-        WHERE
-            po.state IN ('purchase', 'done')
-        ORDER BY
-            pol.product_id, po.date_order DESC
-    ) ultimo_compra ON pp.id = ultimo_compra.product_id
+    JOIN product_template pt ON pp.product_tmpl_id = pt.id
+    JOIN product_category pc ON pt.categ_id = pc.id
+    JOIN vendas v ON pp.id = v.product_id
+    LEFT JOIN estoque e ON pp.id = e.product_id
+    LEFT JOIN ultimo_compra uc ON pp.id = uc.product_id
 WHERE
-    vendas.quantidade_total > 0
+    v.quantidade_total > 0
 ORDER BY
-    vendas.valor_total DESC
+    v.valor_total DESC
 LIMIT 50;
 """,
         },
@@ -660,26 +719,26 @@ LIMIT 50;
 WITH produto_vendas AS (
     SELECT
         pp.id AS produto_id,
-        pt.name AS produto_nome,
-        pt.default_code AS codigo_produto,
+        pp.default_code AS codigo_produto,
+        COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto_nome,
         pc.name AS categoria,
-        SUM(pol.product_uom_qty) AS quantidade_total,
-        SUM(pol.price_total) AS valor_total
+        SUM(sol.product_uom_qty) AS quantidade_total,
+        SUM(sol.price_total) AS valor_total
     FROM
-        product_product pp
+        sale_order_line sol
+    JOIN
+        sale_order so ON sol.order_id = so.id
+    JOIN
+        product_product pp ON sol.product_id = pp.id
     JOIN
         product_template pt ON pp.product_tmpl_id = pt.id
     LEFT JOIN
         product_category pc ON pt.categ_id = pc.id
-    JOIN
-        sale_order_line pol ON pp.id = pol.product_id
-    JOIN
-        sale_order so ON pol.order_id = so.id
     WHERE
         so.state IN ('sale', 'done')
-        AND so.date_order BETWEEN '2024-01-01' AND '2024-12-31' -- Ajuste o período conforme necessário
+        AND so.date_order BETWEEN '2025-01-01' AND '2025-12-31'
     GROUP BY
-        pp.id, pt.name, pt.default_code, pc.name
+        pp.id, pp.default_code, pt.name, pc.name
 ),
 total_vendas AS (
     SELECT SUM(valor_total) AS valor_total_geral
@@ -694,11 +753,11 @@ produtos_acumulados AS (
 )
 SELECT
     pa.produto_id,
-    pa.produto_nome,
     pa.codigo_produto,
+    pa.produto_nome,
     pa.categoria,
-    pa.quantidade_total,
-    pa.valor_total,
+    ROUND(pa.quantidade_total, 2) AS quantidade_total,
+    ROUND(pa.valor_total, 2) AS valor_total,
     ROUND((pa.valor_total / t.valor_total_geral) * 100, 2) AS percentual,
     ROUND((pa.valor_acumulado / t.valor_total_geral) * 100, 2) AS percentual_acumulado,
     CASE
@@ -710,9 +769,11 @@ FROM
     produtos_acumulados pa
 CROSS JOIN
     total_vendas t
+WHERE
+    (pa.valor_acumulado / t.valor_total_geral) * 100 <= 80  -- Apenas classe A
 ORDER BY
     pa.valor_total DESC
-LIMIT 500; -- Limite de 500 produtos, ajuste conforme necessário
+LIMIT 200;
 """,
         },
         {
@@ -721,9 +782,9 @@ LIMIT 500; -- Limite de 500 produtos, ajuste conforme necessário
 -- Primeiro identificamos os produtos para análise
 WITH EstoqueAtual AS (
     SELECT
+        coalesce(t.name->>'pt_BR', t.name->>'en_US', t.name::text) AS produto,
         q.product_id,
         p.default_code AS codigo,
-        t.name AS produto,
         SUM(q.quantity) AS estoque_atual
     FROM
         stock_quant q
@@ -762,7 +823,7 @@ ConsumoMedio AS (
     GROUP BY
         m.product_id
 )
--- Unimos os dados e calculamos a projeção
+-- Projeção de ruptura de estoque com status visual
 SELECT
     e.codigo,
     e.produto,
@@ -779,14 +840,20 @@ SELECT
             CURRENT_DATE + (e.estoque_atual / c.media_diaria)::INTEGER
         ELSE
             NULL
-    END AS data_prevista_zerar
+    END AS data_prevista_zerar,
+    CASE
+        WHEN COALESCE(c.media_diaria, 0) > 0
+            AND ROUND(e.estoque_atual / c.media_diaria) <= 7 THEN '🔴 Urgente'
+        WHEN COALESCE(c.media_diaria, 0) > 0
+            AND ROUND(e.estoque_atual / c.media_diaria) <= 30 THEN '🟠 Planejar'
+        ELSE '🟢 Estável'
+    END AS status_estoque
 FROM
     EstoqueAtual e
 LEFT JOIN
     ConsumoMedio c ON e.product_id = c.product_id
 WHERE
-    -- Filtrando apenas produtos com consumo registrado
-    COALESCE(c.media_diaria, 0) > 0
+    COALESCE(c.media_diaria, 0) > 0  -- apenas produtos com consumo registrado
 ORDER BY
     dias_ate_zerar ASC
 LIMIT 50;
@@ -795,7 +862,7 @@ LIMIT 50;
         {
             "question": "Qual o tempo médio de rotação ou giro de estoque dos produtos?",
             "sql": """
--- calcula o tempo médio de rotação de estoque dos produtos
+-- Cálculo do tempo médio de rotação (giro) de estoque dos produtos
 WITH VendasMensais AS (
     SELECT
         l.product_id,
@@ -809,30 +876,43 @@ WITH VendasMensais AS (
         AND o.date_order >= (CURRENT_DATE - INTERVAL '1 year')
     GROUP BY
         l.product_id
+),
+EstoqueAtual AS (
+    SELECT
+        q.product_id,
+        SUM(q.quantity - q.reserved_quantity) AS estoque_atual
+    FROM
+        stock_quant q
+    JOIN
+        stock_location l ON q.location_id = l.id
+    WHERE
+        l.usage = 'internal'
+    GROUP BY
+        q.product_id
 )
 SELECT
+    coalesce(t.name->>'pt_BR', t.name->>'en_US', t.name::text) AS produto,
     p.default_code AS codigo,
-    t.name AS produto,
-    q.quantity AS estoque_atual,
-    v.media_vendas_mensais AS vendas_mensais,
+    COALESCE(e.estoque_atual, 0) AS estoque_atual,
+    COALESCE(v.media_vendas_mensais, 0) AS vendas_mensais,
     CASE
-        WHEN v.media_vendas_mensais > 0 THEN q.quantity / v.media_vendas_mensais
+        WHEN COALESCE(v.media_vendas_mensais, 0) > 0
+        THEN ROUND(e.estoque_atual / v.media_vendas_mensais, 2)
         ELSE NULL
     END AS meses_para_rotacao
 FROM
-    stock_quant q
-JOIN
-    product_product p ON q.product_id = p.id
+    product_product p
 JOIN
     product_template t ON p.product_tmpl_id = t.id
 LEFT JOIN
-    VendasMensais v ON q.product_id = v.product_id
-JOIN
-    stock_location l ON q.location_id = l.id
+    EstoqueAtual e ON p.id = e.product_id
+LEFT JOIN
+    VendasMensais v ON p.id = v.product_id
 WHERE
-    l.usage = 'internal'
+    COALESCE(e.estoque_atual, 0) > 0
 ORDER BY
-    meses_para_rotacao;
+    meses_para_rotacao NULLS LAST
+LIMIT 100;
     """,
         },
         {
@@ -840,7 +920,7 @@ ORDER BY
             "sql": """
 -- Relatório de margem de lucro por produto nas vendas do último trimestre
 SELECT
-    pt.name AS produto,
+    coalesce(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
     pt.default_code AS codigo,
     SUM(sol.product_uom_qty) AS quantidade_vendida,
     SUM(sol.price_subtotal) AS valor_vendido,
@@ -884,11 +964,11 @@ ORDER BY
         {
             "question": "Mostre uma análise completa de sugestão de compras para o fornecedor com referência '146'",
             "sql": """
--- Análise completa de sugestão de compras para o fornecedor ...
+-- Análise completa de sugestão de compras para o fornecedor com referência '146'
 SELECT
     p.id AS product_id,
     p.default_code AS product_code,
-    p.name AS product_name,
+    coalesce(p.name->>'pt_BR', p.name->>'en_US', p.name::text) AS produto_name,
     c.name AS category_name,
     rp.name AS fornecedor,
     rp.ref AS fornecedor_ref,
@@ -897,14 +977,23 @@ SELECT
     ROUND(COALESCE(l.product_uom_qty, 0) / 365, 2) AS media_diaria_vendas,
     COALESCE(SUM(sq.quantity), 0) AS estoque_atual,
     CASE
-        WHEN COALESCE(l.product_uom_qty, 0) > 0
-            THEN ROUND(COALESCE(SUM(sq.quantity), 0) / (COALESCE(l.product_uom_qty, 0) / 365))
-            ELSE 999
+        WHEN COALESCE(l.product_uom_qty, 0) = 0 THEN 999
+        ELSE ROUND(COALESCE(SUM(sq.quantity), 0) / (COALESCE(l.product_uom_qty, 0) / 365))
     END AS dias_cobertura_atual,
     ROUND((COALESCE(l.product_uom_qty, 0) / 365) * 60, 0) AS necessidade_prox_60_dias,
-    GREATEST(0, ROUND((COALESCE(l.product_uom_qty, 0) / 365) * 60, 0) - COALESCE(SUM(sq.quantity), 0) - COALESCE(po_pendente.quantidade_pendente, 0)) AS sugestao_compra,
+    GREATEST(
+        0,
+        ROUND((COALESCE(l.product_uom_qty, 0) / 365) * 60, 0)
+        - COALESCE(SUM(sq.quantity), 0)
+        - COALESCE(po_pendente.quantidade_pendente, 0)
+    ) AS sugestao_compra,
     COALESCE(s.price, 0) AS preco_compra,
-    GREATEST(0, ROUND((COALESCE(l.product_uom_qty, 0) / 365) * 60, 0) - COALESCE(SUM(sq.quantity), 0) - COALESCE(po_pendente.quantidade_pendente, 0)) * COALESCE(s.price, 0) AS valor_estimado,
+    GREATEST(
+        0,
+        ROUND((COALESCE(l.product_uom_qty, 0) / 365) * 60, 0)
+        - COALESCE(SUM(sq.quantity), 0)
+        - COALESCE(po_pendente.quantidade_pendente, 0)
+    ) * COALESCE(s.price, 0) AS valor_estimado,
     COALESCE(po_pendente.quantidade_pendente, 0) AS quantidade_ja_pedida
 FROM
     product_product pp
@@ -912,12 +1001,10 @@ JOIN
     product_template p ON pp.product_tmpl_id = p.id
 JOIN
     product_category c ON p.categ_id = c.id
-/* Relacionamento com fornecedor via regra de supplierinfo */
 JOIN
     product_supplierinfo s ON p.id = s.product_tmpl_id
 JOIN
-    res_partner rp ON s.name = rp.id
-/* Vendas nos últimos 12 meses */
+    res_partner rp ON s.partner_id = rp.id
 LEFT JOIN (
     SELECT
         sol.product_id,
@@ -933,12 +1020,9 @@ LEFT JOIN (
     GROUP BY
         sol.product_id
 ) l ON pp.id = l.product_id
-/* Estoque atual */
 LEFT JOIN
-    stock_quant sq ON pp.id = sq.product_id AND sq.location_id IN (
-        SELECT id FROM stock_location WHERE usage = 'internal'
-    )
-/* Pedidos de compra pendentes para não sugerir o que já está sendo comprado */
+    stock_quant sq ON pp.id = sq.product_id
+    AND sq.location_id IN (SELECT id FROM stock_location WHERE usage = 'internal')
 LEFT JOIN (
     SELECT
         pol.product_id,
@@ -948,19 +1032,20 @@ LEFT JOIN (
     JOIN
         purchase_order po ON pol.order_id = po.id
     WHERE
-        po.state IN ('purchase', 'done')  /* Estados que indicam pedidos confirmados */
-        AND pol.product_qty > COALESCE(pol.qty_received, 0)  /* Apenas itens ainda não recebidos completamente */
+        po.state IN ('purchase', 'done')
+        AND pol.product_qty > COALESCE(pol.qty_received, 0)
     GROUP BY
         pol.product_id
 ) po_pendente ON pp.id = po_pendente.product_id
 WHERE
-    rp.ref = '146'  /* Filtro por código interno do fornecedor */
-    AND s.date_end IS NULL OR s.date_end >= CURRENT_DATE  /* Regras de fornecimento ativas */
-    AND s.min_qty > 0  /* Produtos que têm quantidade mínima definida */
+    rp.ref = '146'
+    AND (s.date_end IS NULL OR s.date_end >= CURRENT_DATE)
+    AND s.min_qty > 0
 GROUP BY
-    p.id, p.default_code, p.name, c.name, rp.name, rp.ref, s.price, po_pendente.quantidade_pendente, l.product_uom_qty, l.price_total
+    p.id, p.default_code, p.name, c.name, rp.name, rp.ref, s.price,
+    po_pendente.quantidade_pendente, l.product_uom_qty, l.price_total
 HAVING
-    COALESCE(l.product_uom_qty, 0) > 0  /* Produtos que tiveram vendas no período */
+    COALESCE(l.product_uom_qty, 0) > 0
 ORDER BY
     valor_vendido_ultimo_ano DESC;
     """,
@@ -993,13 +1078,13 @@ ORDER BY
         {
             "question": "Gere um saldo de avaliação agrupado por tipos de conta para o 2o trimestre de 2023.",
             "sql": """
--- Saldos das contas pra o trimestre
+-- Saldo por tipo de conta para o 2º trimestre de 2023
 SELECT
-    aat.name AS account_type,
-    SUM(CASE WHEN am.date < '2023-04-01' THEN aml.balance ELSE 0 END) AS initial_balance,
-    SUM(CASE WHEN am.date BETWEEN '2023-04-01' AND '2023-06-30' THEN aml.debit ELSE 0 END) AS period_debit,
-    SUM(CASE WHEN am.date BETWEEN '2023-04-01' AND '2023-06-30' THEN aml.credit ELSE 0 END) AS period_credit,
-    SUM(CASE WHEN am.date <= '2023-06-30' THEN aml.balance ELSE 0 END) AS ending_balance
+    aat.name->>'en_US' AS tipo_conta,
+    ROUND(SUM(CASE WHEN am.date < '2023-04-01' THEN aml.balance ELSE 0 END), 2) AS saldo_inicial,
+    ROUND(SUM(CASE WHEN am.date BETWEEN '2023-04-01' AND '2023-06-30' THEN aml.debit ELSE 0 END), 2) AS debitos_trimestre,
+    ROUND(SUM(CASE WHEN am.date BETWEEN '2023-04-01' AND '2023-06-30' THEN aml.credit ELSE 0 END), 2) AS creditos_trimestre,
+    ROUND(SUM(CASE WHEN am.date <= '2023-06-30' THEN aml.balance ELSE 0 END), 2) AS saldo_final
 FROM
     account_move_line aml
 JOIN
@@ -1010,7 +1095,7 @@ JOIN
     account_account_type aat ON aat.id = aa.user_type_id
 WHERE
     am.state = 'posted'
-    AND am.date <= '2023-06-30'
+    AND am.date BETWEEN '2023-01-01' AND '2023-06-30'
 GROUP BY
     aat.id, aat.name
 ORDER BY
@@ -1020,16 +1105,28 @@ ORDER BY
         {
             "question": "Relatório de contas a receber vencidas, por clientes",
             "sql": """
--- Relatório de contas a receber vencidas, por clientes
+-- Relatório de Contas a Receber Vencidas por Clientes
 WITH aged_balances AS (
     SELECT
-        p.id AS partner_id,
-        p.name AS partner_name,
-        SUM(CASE WHEN CURRENT_DATE - aml.date_maturity <= 30 THEN aml.balance ELSE 0 END) AS days_0_30,
-        SUM(CASE WHEN CURRENT_DATE - aml.date_maturity BETWEEN 31 AND 60 THEN aml.balance ELSE 0 END) AS days_31_60,
-        SUM(CASE WHEN CURRENT_DATE - aml.date_maturity BETWEEN 61 AND 90 THEN aml.balance ELSE 0 END) AS days_61_90,
-        SUM(CASE WHEN CURRENT_DATE - aml.date_maturity > 90 THEN aml.balance ELSE 0 END) AS days_91_plus,
-        SUM(aml.balance) AS total_balance
+        rp.id AS partner_id,
+        rp.name AS cliente,
+        SUM(CASE
+                WHEN CURRENT_DATE - aml.date_maturity BETWEEN 0 AND 30 THEN aml.balance
+                ELSE 0
+            END) AS faixa_0_30,
+        SUM(CASE
+                WHEN CURRENT_DATE - aml.date_maturity BETWEEN 31 AND 60 THEN aml.balance
+                ELSE 0
+            END) AS faixa_31_60,
+        SUM(CASE
+                WHEN CURRENT_DATE - aml.date_maturity BETWEEN 61 AND 90 THEN aml.balance
+                ELSE 0
+            END) AS faixa_61_90,
+        SUM(CASE
+                WHEN CURRENT_DATE - aml.date_maturity > 90 THEN aml.balance
+                ELSE 0
+            END) AS faixa_91_plus,
+        SUM(aml.balance) AS total_em_aberto
     FROM
         account_move_line aml
     JOIN
@@ -1037,28 +1134,29 @@ WITH aged_balances AS (
     JOIN
         account_account aa ON aa.id = aml.account_id
     JOIN
-        res_partner p ON p.id = aml.partner_id
+        res_partner rp ON rp.id = aml.partner_id
     WHERE
         aa.internal_type = 'receivable'
         AND am.state = 'posted'
         AND aml.balance > 0
-        AND aml.reconciled = FALSE
+        AND COALESCE(aml.reconciled, FALSE) = FALSE
+        AND aml.date_maturity IS NOT NULL
     GROUP BY
-        p.id, p.name
+        rp.id, rp.name
 )
 SELECT
-    partner_name,
-    days_0_30,
-    days_31_60,
-    days_61_90,
-    days_91_plus,
-    total_balance
+    cliente,
+    faixa_0_30,
+    faixa_31_60,
+    faixa_61_90,
+    faixa_91_plus,
+    total_em_aberto
 FROM
     aged_balances
 WHERE
-    total_balance > 0
+    total_em_aberto > 0
 ORDER BY
-    total_balance DESC;
+    total_em_aberto DESC;
     """,
         },
     ]
