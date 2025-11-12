@@ -8,7 +8,7 @@ ODOO_SQL_EXAMPLES = [
     -- Consulta básica de produtos
     SELECT
         id,
-        name,
+        name->>'en_US' as produtos,
         list_price,
         default_code,
         categ_id,
@@ -24,7 +24,7 @@ ODOO_SQL_EXAMPLES = [
     -- Produtos por categoria
     SELECT
         pt.id,
-        pt.name,
+        pt.name->>'en_US' as produtos,
         pt.list_price,
         pc.name as category_name
     FROM
@@ -42,7 +42,7 @@ ODOO_SQL_EXAMPLES = [
     SELECT
         pp.id,
         pp.default_code,
-        pt.name,
+        pt.name->>'en_US' as produtos,
         pp.product_tmpl_id
     FROM
         product_product pp
@@ -55,7 +55,7 @@ ODOO_SQL_EXAMPLES = [
     -- Produtos com estoque
     SELECT
         pp.id,
-        pt.name,
+        pt.name->>'en_US' AS produtos,
         pp.default_code,
         SUM(sq.quantity) as qty_available
     FROM
@@ -78,21 +78,24 @@ ODOO_SQL_EXAMPLES = [
     """,
     # Exemplos para sale_order
     """
-    -- Pedidos de venda recentes
+    -- Pedidos de venda recentes (últimos 90 dias)
     SELECT
-        id,
-        name,
-        partner_id,
-        date_order,
-        state,
-        amount_total,
-        currency_id
+        so.name AS pedido,
+        rp.name AS cliente,
+        so.date_order AS data_pedido,
+        so.state AS estado,
+        so.amount_total AS total,
+        rc.name AS moeda
     FROM
-        sale_order
+        sale_order so
+    JOIN
+        res_partner rp ON so.partner_id = rp.id
+    LEFT JOIN
+        res_currency rc ON so.currency_id = rc.id
     WHERE
-        date_order >= (CURRENT_DATE - INTERVAL '90 days')
+        so.date_order >= (CURRENT_DATE - INTERVAL '90 days')
     ORDER BY
-        date_order DESC
+        so.date_order DESC;
     """,
     """
     -- Vendas por cliente
@@ -118,7 +121,7 @@ ODOO_SQL_EXAMPLES = [
     SELECT
         sol.id,
         so.name as order_reference,
-        pt.name as product_name,
+        pt.name->>'en_US' as product_name,
         sol.product_uom_qty,
         sol.price_unit,
         sol.price_subtotal
@@ -138,7 +141,7 @@ ODOO_SQL_EXAMPLES = [
     """
     -- Produtos mais vendidos
     SELECT
-        pt.name as product_name,
+        pt.name->>'en_US' as product_name,
         SUM(sol.product_uom_qty) as quantity_sold,
         SUM(sol.price_subtotal) as total_sales
     FROM
@@ -200,7 +203,7 @@ ODOO_SQL_EXAMPLES = [
     SELECT
         pol.id,
         po.name as order_reference,
-        pt.name as product_name,
+        pt.name->>'en_US' as product_name,
         pol.product_qty,
         pol.price_unit,
         pol.price_subtotal
@@ -250,7 +253,7 @@ estoque AS (
         sq.product_id
 )
 SELECT
-    pt.name AS produto,
+    pt.name->>'en_US' AS produto,
     COALESCE(v.total_vendido, 0) AS total_vendido,
     COALESCE(e.estoque_disponivel, 0) AS estoque
 FROM
@@ -290,7 +293,7 @@ ORDER BY
     """
     -- Produtos vendidos em um período específico
     SELECT
-        pt.name as product_name,
+        pt.name->>'en_US' as product_name,
         pp.default_code as product_code,
         SUM(sol.product_uom_qty) as quantity_sold,
         SUM(sol.price_subtotal) as total_sales
@@ -314,7 +317,7 @@ ORDER BY
     """
     -- Produtos sem movimento de estoque recente
     SELECT
-        pt.name as product_name,
+        pt.name->>'en_US' as product_name,
         pp.default_code as product_code,
         SUM(sq.quantity) as current_stock
     FROM
