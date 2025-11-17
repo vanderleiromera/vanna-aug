@@ -197,28 +197,35 @@ SELECT
     COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
     pt.default_code AS referencia,
     ROUND(SUM(sol.product_uom_qty), 2) AS total_vendido,
-    COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) AS estoque_atual
-FROM
-    sale_order_line sol
-JOIN
-    sale_order so ON sol.order_id = so.id
-JOIN
-    product_product pp ON sol.product_id = pp.id
-JOIN
-    product_template pt ON pp.product_tmpl_id = pt.id
-LEFT JOIN
-    stock_quant sq ON sq.product_id = pp.id
-LEFT JOIN
-    stock_location sl ON sq.location_id = sl.id
+    COALESCE(SUM(q.estoque), 0) AS estoque_atual
+FROM sale_order_line sol
+JOIN sale_order so
+    ON sol.order_id = so.id
+JOIN product_product pp
+    ON sol.product_id = pp.id
+JOIN product_template pt
+    ON pp.product_tmpl_id = pt.id
+LEFT JOIN (
+    SELECT
+        sq.product_id,
+        SUM(sq.quantity - sq.reserved_quantity) AS estoque
+    FROM stock_quant sq
+    JOIN stock_location sl
+        ON sq.location_id = sl.id
+    WHERE sl.usage = 'internal'
+    GROUP BY sq.product_id
+) AS q
+    ON q.product_id = pp.id
 WHERE
-    so.state IN ('sale', 'done')  -- apenas pedidos confirmados
+    so.state IN ('sale', 'done')
     AND so.date_order >= (NOW() - INTERVAL '30 days')
-    AND (sl.usage IS NULL OR sl.usage = 'internal')  -- estoque interno apenas
 GROUP BY
-    pt.id, pt.name, pt.default_code
+    pt.id,
+    pt.default_code,
+    produto
 HAVING
     SUM(sol.product_uom_qty) > 0
-    AND COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) = 0
+    AND COALESCE(SUM(q.estoque), 0) = 0
 ORDER BY
     total_vendido DESC;
 """,
@@ -227,23 +234,25 @@ ORDER BY
             "question": "Quais produtos não têm estoque disponível?",
             "sql": """
 SELECT
-    COALESCE(pt.name->>'pt_BR', pt.name->>'en_US', pt.name::text) AS produto,
+    pt.name->>'en_US' AS produto,
     pt.default_code AS codigo,
-    COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) AS quantidade_disponivel
+    COALESCE(SUM(CASE WHEN sl.usage = 'internal' THEN (sq.quantity - sq.reserved_quantity) ELSE 0 END), 0)
+        AS quantidade_disponivel
 FROM
     product_template pt
 JOIN
-    product_product pp ON pt.id = pp.product_tmpl_id
+    product_product pp
+        ON pt.id = pp.product_tmpl_id
 LEFT JOIN
-    stock_quant sq ON pp.id = sq.product_id
+    stock_quant sq
+        ON pp.id = sq.product_id
 LEFT JOIN
-    stock_location sl ON sq.location_id = sl.id
-WHERE
-    sl.usage = 'internal' OR sl.id IS NULL
+    stock_location sl
+        ON sl.id = sq.location_id
 GROUP BY
     pt.id, pt.name, pt.default_code
 HAVING
-    COALESCE(SUM(sq.quantity - sq.reserved_quantity), 0) <= 0
+    COALESCE(SUM(CASE WHEN sl.usage = 'internal' THEN (sq.quantity - sq.reserved_quantity) ELSE 0 END), 0) <= 0
 ORDER BY
     produto;
 """,
