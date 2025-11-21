@@ -977,86 +977,111 @@ ORDER BY
 SELECT
     p.id AS product_id,
     p.default_code AS product_code,
-    coalesce(p.name->>'pt_BR', p.name->>'en_US', p.name::text) AS produto_name,
-    c.name AS category_name,
+    CASE
+        WHEN jsonb_typeof(p.name) = 'object' THEN COALESCE(p.name->>'pt_BR', p.name->>'en_US')
+        ELSE p.name::text
+    END AS produto_name,
+    c.complete_name AS category_name,
     rp.name AS fornecedor,
     rp.ref AS fornecedor_ref,
-    COALESCE(l.product_uom_qty, 0) AS quantidade_vendida_ultimo_ano,
-    COALESCE(l.price_total, 0) AS valor_vendido_ultimo_ano,
-    ROUND(COALESCE(l.product_uom_qty, 0) / 365, 2) AS media_diaria_vendas,
-    COALESCE(SUM(sq.quantity), 0) AS estoque_atual,
+    COALESCE(vendas.quantidade_vendida, 0) AS quantidade_vendida_ultimo_ano,
+    COALESCE(vendas.valor_vendido, 0) AS valor_vendido_ultimo_ano,
+    ROUND(COALESCE(vendas.quantidade_vendida, 0)::numeric / 365, 2) AS media_diaria_vendas,
+    COALESCE(estoque.quantidade, 0) AS estoque_atual,
     CASE
-        WHEN COALESCE(l.product_uom_qty, 0) = 0 THEN 999
-        ELSE ROUND(COALESCE(SUM(sq.quantity), 0) / (COALESCE(l.product_uom_qty, 0) / 365))
+        WHEN COALESCE(vendas.quantidade_vendida, 0) = 0 THEN 999
+        ELSE ROUND(COALESCE(estoque.quantidade, 0) / (COALESCE(vendas.quantidade_vendida, 0) / 365))
     END AS dias_cobertura_atual,
-    ROUND((COALESCE(l.product_uom_qty, 0) / 365) * 60, 0) AS necessidade_prox_60_dias,
+    ROUND((COALESCE(vendas.quantidade_vendida, 0) / 365) * 60, 0) AS necessidade_prox_60_dias,
     GREATEST(
         0,
-        ROUND((COALESCE(l.product_uom_qty, 0) / 365) * 60, 0)
-        - COALESCE(SUM(sq.quantity), 0)
-        - COALESCE(po_pendente.quantidade_pendente, 0)
+        ROUND((COALESCE(vendas.quantidade_vendida, 0) / 365) * 60, 0)
+        - COALESCE(estoque.quantidade, 0)
+        - COALESCE(pedidos.quantidade_pendente, 0)
     ) AS sugestao_compra,
     COALESCE(s.price, 0) AS preco_compra,
     GREATEST(
         0,
-        ROUND((COALESCE(l.product_uom_qty, 0) / 365) * 60, 0)
-        - COALESCE(SUM(sq.quantity), 0)
-        - COALESCE(po_pendente.quantidade_pendente, 0)
+        ROUND((COALESCE(vendas.quantidade_vendida, 0) / 365) * 60, 0)
+        - COALESCE(estoque.quantidade, 0)
+        - COALESCE(pedidos.quantidade_pendente, 0)
     ) * COALESCE(s.price, 0) AS valor_estimado,
-    COALESCE(po_pendente.quantidade_pendente, 0) AS quantidade_ja_pedida
+    COALESCE(pedidos.quantidade_pendente, 0) AS quantidade_ja_pedida,
+    p.active AS produto_ativo,
+    p.type AS tipo_produto
 FROM
-    product_product pp
-JOIN
-    product_template p ON pp.product_tmpl_id = p.id
-JOIN
-    product_category c ON p.categ_id = c.id
-JOIN
-    product_supplierinfo s ON p.id = s.product_tmpl_id
+    product_supplierinfo s
 JOIN
     res_partner rp ON s.partner_id = rp.id
+JOIN
+    product_template p ON s.product_tmpl_id = p.id
+JOIN
+    product_category c ON p.categ_id = c.id
+-- Vendas do último ano agrupadas por template
 LEFT JOIN (
     SELECT
-        sol.product_id,
-        SUM(sol.product_uom_qty) AS product_uom_qty,
-        SUM(sol.price_total) AS price_total
+        pt.id AS product_tmpl_id,
+        SUM(sol.product_uom_qty) AS quantidade_vendida,
+        SUM(sol.price_total) AS valor_vendido
     FROM
         sale_order_line sol
     JOIN
         sale_order so ON sol.order_id = so.id
+    JOIN
+        product_product pp ON sol.product_id = pp.id
+    JOIN
+        product_template pt ON pp.product_tmpl_id = pt.id
     WHERE
         so.state IN ('sale', 'done')
         AND so.date_order >= (CURRENT_DATE - INTERVAL '365 days')
     GROUP BY
-        sol.product_id
-) l ON pp.id = l.product_id
-LEFT JOIN
-    stock_quant sq ON pp.id = sq.product_id
-    AND sq.location_id IN (SELECT id FROM stock_location WHERE usage = 'internal')
+        pt.id
+) vendas ON p.id = vendas.product_tmpl_id
+-- Estoque atual agrupado por template
 LEFT JOIN (
     SELECT
-        pol.product_id,
-        SUM(pol.product_qty - COALESCE(pol.qty_received, 0)) AS quantidade_pendente
+        pt.id AS product_tmpl_id,
+        SUM(sq.quantity) AS quantidade
+    FROM
+        stock_quant sq
+    JOIN
+        product_product pp ON sq.product_id = pp.id
+    JOIN
+        product_template pt ON pp.product_tmpl_id = pt.id
+    JOIN
+        stock_location sl ON sq.location_id = sl.id
+    WHERE
+        sl.usage = 'internal'
+    GROUP BY
+        pt.id
+) estoque ON p.id = estoque.product_tmpl_id
+-- Pedidos pendentes agrupados por template
+LEFT JOIN (
+    SELECT
+        pt.id AS product_tmpl_id,
+        SUM(pol.product_qty - pol.qty_received) AS quantidade_pendente
     FROM
         purchase_order_line pol
     JOIN
         purchase_order po ON pol.order_id = po.id
+    JOIN
+        product_product pp ON pol.product_id = pp.id
+    JOIN
+        product_template pt ON pp.product_tmpl_id = pt.id
     WHERE
         po.state IN ('purchase', 'done')
-        AND pol.product_qty > COALESCE(pol.qty_received, 0)
+        AND pol.product_qty > pol.qty_received
     GROUP BY
-        pol.product_id
-) po_pendente ON pp.id = po_pendente.product_id
+        pt.id
+) pedidos ON p.id = pedidos.product_tmpl_id
 WHERE
     rp.ref = '146'
     AND (s.date_end IS NULL OR s.date_end >= CURRENT_DATE)
-    AND s.min_qty > 0
-GROUP BY
-    p.id, p.default_code, p.name, c.name, rp.name, rp.ref, s.price,
-    po_pendente.quantidade_pendente, l.product_uom_qty, l.price_total
-HAVING
-    COALESCE(l.product_uom_qty, 0) > 0
+    AND p.active = true
+    AND COALESCE(vendas.quantidade_vendida, 0) > 0
 ORDER BY
-    valor_vendido_ultimo_ano DESC;
+    COALESCE(vendas.valor_vendido, 0) DESC,
+    p.default_code;
     """,
         },
         {
